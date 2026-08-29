@@ -1,0 +1,105 @@
+@import 'tailwindcss';
+@import '@nuxt/ui';
+
+:root {
+  --ui-radius: 0.3rem;
+
+  /*
+   * Los dos colores de la marca, en un solo sitio.
+   *
+   * Los usan el logotipo y la palabra «Astra». Repetirlos en cada uno sería
+   * garantizar que un día alguien retoque el degradado del dibujo y la palabra
+   * se quede con el viejo — y la diferencia entre dos verdes parecidos es de
+   * esas que se ven pero no se saben explicar.
+   */
+  --astra-desde: #0ea5e9;
+  --astra-hasta: #22c55e;
+}
+
+/**
+ * La palabra «Astra» con el mismo degradado que el logotipo.
+ *
+ * `background-clip: text` recorta el degradado con la forma de las letras, así
+ * que hay que dejar el color del texto transparente para que se vea a través.
+ * Se declara aquí y no con clases sueltas en cada plantilla porque son cuatro
+ * propiedades que solo funcionan juntas: separadas, quitar una deja el texto
+ * invisible y cuesta ver por qué.
+ */
+.marca-astra {
+  background-image: linear-gradient(
+    to bottom right,
+    var(--astra-desde),
+    var(--astra-hasta)
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/*
+ * EL DEGRADADO DE LA MARCA EN LOS BOTONES Y EN EL ENLACE ACTIVO.
+ *
+ * SOLO EN OSCURO, y no por capricho: sobre fondo claro un degradado que va del
+ * cian al verde se queda con muy poco contraste contra el blanco —el verde
+ * ronda 2:1 y el mínimo legible son 4.5:1—, así que el texto se lee peor justo
+ * en lo que hay que pulsar. En oscuro, los dos colores brillan sobre la pizarra
+ * y el contraste sube en vez de bajar. En claro se quedan los colores del tema,
+ * que ahí sí se leen.
+ *
+ * SE PINTA LA ETIQUETA, NO EL BOTÓN ENTERO. Los iconos de Nuxt UI son máscaras
+ * con `background-color: currentColor`; poniendo el color transparente en el
+ * botón —que es lo que exige `background-clip: text`— los iconos desaparecen.
+ * Por eso el degradado se aplica al `[data-slot='label']`, que es solo texto.
+ *
+ * LOS COLORES CON SIGNIFICADO SE QUEDAN COMO ESTÁN. «Aprobar» en verde y
+ * «Rechazar» en rojo dicen algo; teñirlos de degradado los volvería
+ * indistinguibles, que es exactamente lo que no se quiere en un botón que
+ * firma horas. De ahí las exclusiones.
+ *
+ * Y SE FILTRA POR `button, a` A PROPÓSITO. `data-slot="label"` no es exclusivo
+ * del botón: lo usan también UBadge, UFormField, UCheckbox y media librería.
+ * Sin ese filtro, las etiquetas «Pendiente» y «Aprobado» y los rótulos de todos
+ * los formularios salían con degradado, que ni se pidió ni se lee bien.
+ */
+.dark
+  :is(button, a)[data-slot='base']:not(.text-error):not(.text-warning):not(.text-success):not(
+    .text-info
+  )
+  > [data-slot='label'] {
+  background-image: linear-gradient(
+    to bottom right,
+    var(--astra-desde),
+    var(--astra-hasta)
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/*
+ * El enlace activo del menú. Va por clase y no por selector de estructura
+ * porque quién está activo lo decide `linkClass()` en el layout, y el CSS no
+ * tiene forma de saberlo.
+ */
+.dark .enlace-activo > .truncate {
+  background-image: linear-gradient(
+    to bottom right,
+    var(--astra-desde),
+    var(--astra-hasta)
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/*
+ * El fondo y el texto salen de los tokens de Nuxt UI, no de colores escritos a
+ * mano. Antes eran `bg-white dark:bg-gray-950`, que en oscuro no era el mismo
+ * gris que usan las tarjetas —el tema tiene `neutral: slate`— y en claro se
+ * quedaba fuera de la paleta entera. Un solo sitio manda, y los dos temas
+ * salen de él.
+ */
+body {
+  @apply bg-default text-default;
+  @apply transition-colors duration-300;
+}
