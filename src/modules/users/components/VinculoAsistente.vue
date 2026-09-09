@@ -64,10 +64,11 @@ const auth = useAuthStore()
  * QUIÉN REPARTE ESTE ACCESO. No es quien ve esta pantalla.
  *
  * La pantalla es de `manageUsers` —dirección del grupo, dirección de la
- * empresa y soporte—, pero dar acceso al asistente es solo de la dirección de
- * la empresa y de RRHH: los dos roles a los que el asistente contesta.
+ * empresa y soporte—, pero dar acceso al asistente es SOLO de la dirección de
+ * la empresa.
  *
- * Así que soporte y la dirección del grupo ven la tarjeta de cada persona y
+ * Usar el asistente y repartirlo son cosas distintas: RRHH pregunta, pero no
+ * reparte. Y soporte y la dirección del grupo ven la tarjeta de cada persona y
  * NO ven esta parte. Oculta, no protege: el servidor contesta 403 igual. Si
  * esta línea se quedara vieja, el peor síntoma es un botón de más.
  */

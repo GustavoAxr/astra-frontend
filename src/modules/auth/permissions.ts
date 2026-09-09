@@ -51,19 +51,23 @@ export const ACTION_ROLES = {
   viewOutbox: ['RRHH', 'SOPORTE'],
   manageUsers: ['DIRECTOR_HOLDING', 'ADMIN_EMPRESA', 'SOPORTE'],
   /*
-   * DAR ACCESO AL ASISTENTE, y NO son los mismos que administran usuarios.
+   * DAR ACCESO AL ASISTENTE. Uno solo, y ninguno de los otros por descuido.
    *
-   * Son los dos roles a los que el asistente contesta —quien reparte una llave
-   * sabe para qué sirve porque la usa—. `SOPORTE` y `DIRECTOR_HOLDING` quedan
-   * fuera A PROPÓSITO aunque vean la pantalla entera: soporte entra a
-   * cualquier cliente, y repartir acceso a un chat que responde con datos de
-   * la plantilla es cosa del cliente, no del proveedor.
+   * USAR EL ASISTENTE Y REPARTIRLO SON COSAS DISTINTAS. `RRHH` pregunta —es de
+   * los dos roles a los que el asistente contesta— pero no reparte: da de alta
+   * gente, no accesos. Que alguien use una llave no es razón para que pueda
+   * hacer copias.
+   *
+   * `SOPORTE` y `DIRECTOR_HOLDING` quedan fuera A PROPÓSITO aunque vean la
+   * pantalla entera: soporte entra a cualquier cliente, y repartir acceso a un
+   * chat que responde con datos de la plantilla es cosa del cliente, no del
+   * proveedor.
    *
    * Es la única acción de esta tabla que NO coincide con la pantalla donde
    * vive, así que aquí ocultar sí importa: sin esta línea, esos dos verían un
    * botón que el servidor contesta con 403.
    */
-  manageAssistantLinks: ['ADMIN_EMPRESA', 'RRHH'],
+  manageAssistantLinks: ['ADMIN_EMPRESA'],
   createLegalEntity: ['DIRECTOR_HOLDING', 'SOPORTE'],
   editLegalEntity: ['DIRECTOR_HOLDING', 'ADMIN_EMPRESA', 'SOPORTE'],
   deleteLegalEntity: ['DIRECTOR_HOLDING', 'SOPORTE'],
