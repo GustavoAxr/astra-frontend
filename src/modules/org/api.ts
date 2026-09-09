@@ -132,8 +132,10 @@ export const orgApi = {
  * Campo por campo, y los opcionales vacíos **no se mandan**. La geocerca va
  * plana: mandar el objeto `geofence` que devuelve el GET es 400 seguro.
  */
-function toCreateInstallationDto(form: CreateInstallationForm): Record<string, string | number> {
-  const dto: Record<string, string | number> = {
+function toCreateInstallationDto(
+  form: CreateInstallationForm,
+): Record<string, unknown> {
+  const dto: Record<string, unknown> = {
     legalEntityId: form.legalEntityId,
     name: form.name.trim(),
     timezone: form.timezone,
@@ -150,6 +152,15 @@ function toCreateInstallationDto(form: CreateInstallationForm): Record<string, s
   const radius = Number(form.geofenceRadiusMeters)
   if (form.geofenceRadiusMeters.trim() !== '' && !Number.isNaN(radius)) {
     dto.geofenceRadiusMeters = radius
+  }
+
+  /*
+   * El área solo viaja si tiene forma. Con menos de tres puntos no hay
+   * superficie que encerrar, y mandar dos vértices sería pedirle al servidor
+   * que rechace algo que la pantalla ya sabía que estaba a medias.
+   */
+  if (form.geofencePolygon.length >= 3) {
+    dto.geofencePolygon = form.geofencePolygon
   }
 
   return dto

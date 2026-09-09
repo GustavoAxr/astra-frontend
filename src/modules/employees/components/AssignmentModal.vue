@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
+import { useAviso } from '@/shared/ui/aviso'
 import { todayLocal } from '@/shared/date'
 import { conNinguno, NINGUNO, sinNinguno } from '@/shared/ui/select-none'
 import type { Installation } from '@/modules/org/types'
@@ -24,6 +25,7 @@ const props = defineProps<{
   positions: Position[]
 }>()
 const emit = defineEmits<{ saved: [] }>()
+const aviso = useAviso()
 
 const open = defineModel<boolean>('open', { default: false })
 
@@ -136,6 +138,9 @@ async function submit(): Promise<void> {
       cycleStartDate: validFrom.value,
       reason: reason.value,
     })
+    // La fecha va en el aviso porque una adscripción NO entra hoy por fuerza:
+    // se puede fechar adelante, y eso es justo lo que se olvida al guardarla.
+    aviso.hecho('Adscripción guardada', `Vigente desde el ${validFrom.value}`)
     open.value = false
     emit('saved')
   } catch (cause) {

@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useAsync } from '@/shared/composables/useAsync'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
+import { useAviso } from '@/shared/ui/aviso'
 import { orgApi } from '@/modules/org/api'
 import type { ShiftPolicy } from '@/modules/employees/types'
 import { shiftsApi, toForm, type ShiftSegmentForm } from '../api'
@@ -22,6 +23,7 @@ const props = defineProps<{
   legalEntityId: string | null
 }>()
 const emit = defineEmits<{ saved: [] }>()
+const aviso = useAviso()
 
 const open = defineModel<boolean>('open', { default: false })
 
@@ -31,6 +33,7 @@ interface BloqueForm {
   end: string
   breakMinutes: number
   breakAutoDeduct: boolean
+  breakIsPaid: boolean
 }
 interface DiaForm {
   rest: boolean
@@ -43,6 +46,9 @@ const bloqueNuevo = (): BloqueForm => ({
   end: '18:00',
   breakMinutes: 0,
   breakAutoDeduct: false,
+  // Pagado por omisión: es lo que hace el backend si no se manda, y así el
+  // formulario no cambia en silencio el sentido de un turno que ya existía.
+  breakIsPaid: true,
 })
 
 const name = ref('')
@@ -128,10 +134,21 @@ const formatoHoras = (min: number): string => {
   return m === 0 ? `${h} h` : `${h} h ${m} min`
 }
 
+/**
+ * Los minutos de trabajo del ciclo.
+ *
+ * EL DESCANSO SE RESTA SOLO SI SE DESCUENTA. Antes se restaba siempre, y por eso
+ * este formulario decía «40 h de trabajo en total» mientras el motor calculaba
+ * 45: la comida estaba declarada pero marcada para NO descontarse, así que
+ * contaba como trabajada. Nueve horas de jornada esperada contra ocho en
+ * pantalla es la clase de diferencia que aparece en un recibo de nómina.
+ */
+const minutosDeTrabajo = (b: BloqueForm): number =>
+  duracion(b) - (b.breakAutoDeduct ? b.breakMinutes : 0)
+
 const totalCiclo = computed(() =>
   dias.value.reduce(
-    (suma, d) =>
-      d.rest ? suma : suma + d.blocks.reduce((s, b) => s + duracion(b) - b.breakMinutes, 0),
+    (suma, d) => (d.rest ? suma : suma + d.blocks.reduce((s, b) => s + minutosDeTrabajo(b), 0)),
     0,
   ),
 )
@@ -205,6 +222,7 @@ watch(
           start: s.startTime ?? '09:00',
           end: aHora(aMinutos(s.startTime ?? '09:00') + (s.durationMinutes ?? 0)),
           breakMinutes: s.breakMinutes ?? 0,
+          breakIsPaid: s.breakIsPaid ?? true,
           breakAutoDeduct: s.breakAutoDeduct ?? false,
         })),
       }
@@ -240,11 +258,19 @@ const problemas = computed(() => {
   if (name.value.trim() === '') lista.push('Falta el nombre.')
   if (entityId.value === '') lista.push('Falta la razón social.')
 
+  /*
+   * Que TODO el ciclo sea descanso es absurdo en cualquier modo, no solo con
+   * horario fijo: sin un día hábil no hay nada que cumplir ni nada que medir.
+   */
+  if (dias.value.every((d) => d.rest)) {
+    lista.push('Todos los días son de descanso: así no hay nada que cumplir.')
+  }
+
+  if (scheduleMode.value === 'FLEXIBLE' && targetHours.value <= 0) {
+    lista.push('Un turno flexible necesita las horas que hay que cumplir en el ciclo.')
+  }
+
   if (conHorario.value) {
-    const conTrabajo = dias.value.filter((d) => !d.rest)
-    if (conTrabajo.length === 0) {
-      lista.push('Todos los días son de descanso: así nadie llegaría tarde nunca.')
-    }
     dias.value.forEach((d, i) => {
       if (d.rest) return
       d.blocks.forEach((b, j) => {
@@ -265,10 +291,26 @@ function armarSegmentos(): ShiftSegmentForm[] {
   const salida: ShiftSegmentForm[] = []
   dias.value.forEach((d, i) => {
     const cycleDay = i + 1
-    if (d.rest || !conHorario.value) {
+    /*
+     * SOLO SE MANDA UN DESCANSO SI ALGUIEN LO MARCÓ.
+     *
+     * Antes, cualquier modo que no fuera horario fijo escribía los siete días
+     * como descanso —era la única forma de pasar el `ArrayMinSize(1)` del
+     * servidor—. El motor de cálculo se lo creía: una plantilla de tiempo
+     * completo flexible quedaba con siete días libres y JAMÁS generaba una
+     * falta. La pantalla que decía «Descanso» siete veces no era el fallo, era
+     * el síntoma.
+     *
+     * Un turno flexible sin descansos declarados se manda SIN segmentos, que
+     * es lo que de verdad significa: no hay horario que declarar.
+     */
+    if (d.rest) {
       salida.push({ cycleDay, sequence: 1, isRestDay: true })
       return
     }
+    // Sin horario fijo no hay bloques que emitir: lo que obliga son las horas
+    // del ciclo, y esas viven en el turno, no en el día.
+    if (!conHorario.value) return
     d.blocks.forEach((b, j) => {
       salida.push({
         cycleDay,
@@ -282,6 +324,10 @@ function armarSegmentos(): ShiftSegmentForm[] {
         earlyInToleranceMinutes: earlyIn.value,
         breakMinutes: b.breakMinutes,
         breakAutoDeduct: b.breakAutoDeduct,
+        // Se manda SIEMPRE. Omitirlo hacía que el backend lo pusiera en
+        // «pagado» por omisión, así que editar un turno con la comida sin goce
+        // se la volvía pagada sin que nadie lo pidiera ni lo viera.
+        breakIsPaid: b.breakIsPaid,
       })
     })
   })
@@ -312,8 +358,13 @@ async function submit(): Promise<void> {
     // La rama mira `editando`, no `props.policy`: al duplicar un turno la
     // propiedad también viene llena —es el molde— y guardar habría reescrito
     // el original. Ese fallo ya ocurrió una vez con las bases.
-    if (editando.value && props.policy) await shiftsApi.update(props.policy.id, form)
-    else await shiftsApi.create(entityId.value, form)
+    if (editando.value && props.policy) {
+      await shiftsApi.update(props.policy.id, form)
+      aviso.actualizado(form.name)
+    } else {
+      await shiftsApi.create(entityId.value, form)
+      aviso.creado('Turno', form.name)
+    }
     open.value = false
     emit('saved')
   } catch (cause) {
@@ -389,6 +440,38 @@ async function submit(): Promise<void> {
           <UInput v-model.number="targetHours" type="number" min="1" class="w-full sm:w-40" />
         </UFormField>
 
+        <!--
+          QUÉ DÍAS SE PUEDE TRABAJAR, cuando no hay horario que declarar.
+
+          Sin esto no había forma de decir «los sábados no» en un turno
+          flexible, y la pantalla de turnos no podía enseñar entre qué días hay
+          que cumplir las horas porque ese dato no existía. Lleva el interruptor
+          de descanso y NADA MÁS: pedir horas aquí sería contradecir el propio
+          modo.
+        -->
+        <div v-if="!conHorario" class="space-y-2">
+          <h3 class="text-sm font-medium">
+            Qué días se puede trabajar
+            <span class="text-dimmed font-normal">
+              · apaga los que sean de descanso
+            </span>
+          </h3>
+
+          <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+            <button
+              v-for="(dia, i) in dias"
+              :key="i"
+              type="button"
+              class="border-default rounded-lg border p-3 text-left"
+              :class="dia.rest ? 'bg-elevated/30 opacity-70' : 'bg-default'"
+              @click="dia.rest = !dia.rest"
+            >
+              <span class="text-dimmed block text-xs tracking-wide uppercase">Día {{ i + 1 }}</span>
+              <span class="mt-1 block text-sm">{{ dia.rest ? 'Descanso' : 'Disponible' }}</span>
+            </button>
+          </div>
+        </div>
+
         <!-- El ciclo, día a día -->
         <div v-if="conHorario" class="space-y-2">
           <div class="flex items-center justify-between">
@@ -459,12 +542,31 @@ async function submit(): Promise<void> {
                   />
                 </UFormField>
                 <div class="text-muted pb-2 text-sm">
-                  {{ formatoHoras(duracion(bloque) - bloque.breakMinutes) }}
+                  {{ formatoHoras(minutosDeTrabajo(bloque)) }}
                   <!-- Que termine al día siguiente cambia a qué jornada se imputa. -->
                   <UBadge v-if="cruzaMedianoche(bloque)" label="+1 día" color="warning" />
                 </div>
-                <div class="flex items-center gap-1 pb-2">
-                  <USwitch v-model="bloque.breakAutoDeduct" label="Descontar solo" />
+                <div class="flex items-start gap-1 pb-2">
+                  <!--
+                    Dos interruptores distintos y hay que verlos juntos:
+                    DESCONTAR es si el rato se resta de la jornada; PAGAR es si
+                    se paga. «Descontar solo» a secas se leía como «descontar
+                    solamente» y el otro dato ni siquiera aparecía en pantalla,
+                    aunque el formulario lo mandaba —en pagado— cada vez que
+                    alguien guardaba.
+                  -->
+                  <div class="space-y-1">
+                    <USwitch
+                      v-model="bloque.breakAutoDeduct"
+                      :label="bloque.breakAutoDeduct ? 'Se descuenta' : 'Cuenta como trabajo'"
+                      :disabled="bloque.breakMinutes === 0"
+                    />
+                    <USwitch
+                      v-model="bloque.breakIsPaid"
+                      :label="bloque.breakIsPaid ? 'Se paga' : 'Sin goce'"
+                      :disabled="bloque.breakMinutes === 0"
+                    />
+                  </div>
                   <UButton
                     v-if="dia.blocks.length > 1"
                     icon="i-lucide-x"
@@ -475,6 +577,23 @@ async function submit(): Promise<void> {
                   />
                 </div>
               </div>
+
+              <!--
+                La combinación imposible se dice en cuanto aparece: un descanso
+                que no se descuenta y tampoco se paga son minutos que la persona
+                pasa dentro de la jornada y nadie le abona. Casi siempre es que
+                se olvidó uno de los dos interruptores.
+              -->
+              <p
+                v-for="(bloque, j) in dia.blocks.filter(
+                  (b) => b.breakMinutes > 0 && !b.breakAutoDeduct && !b.breakIsPaid,
+                )"
+                :key="`aviso-${j}`"
+                class="text-warning text-xs"
+              >
+                «{{ bloque.name || 'Este bloque' }}»: el descanso ni se descuenta ni se paga. O se
+                descuenta de la jornada, o se paga como tiempo trabajado.
+              </p>
             </div>
           </div>
         </div>

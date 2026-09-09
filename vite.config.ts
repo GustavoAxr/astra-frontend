@@ -1,4 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -18,6 +19,16 @@ const soft = { defaultVariants: { variant: 'soft' } } as const
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    /*
+     * Certificado propio para el servidor de desarrollo.
+     *
+     * No lo firma nadie conocido, así que el teléfono enseña un aviso la
+     * primera vez y hay que entrar de todas formas. A cambio, la página pasa a
+     * ser un origen seguro y el navegador SÍ pregunta por la ubicación, que es
+     * lo único que impedía probar la checada de contingencia en un teléfono de
+     * verdad.
+     */
+    basicSsl(),
     vue(),
     vueJsx(),
     vueDevTools(),
@@ -126,5 +137,27 @@ export default defineConfig({
     // funcionar por un motivo que no aparece en ninguna parte. Mejor que falle.
     strictPort: true,
     host: '0.0.0.0',
+    /*
+     * LA API SALE POR EL MISMO SITIO QUE LA PANTALLA.
+     *
+     * Sin esto, la página en `https://` y la API en `http://` son contenido
+     * mixto y el navegador bloquea la llamada sin preguntar. Y el HTTPS no es
+     * un capricho: **los teléfonos no entregan la ubicación fuera de un origen
+     * seguro**, así que sin candado la checada de contingencia no existe.
+     *
+     * Pasando por aquí, la API hereda el candado del servidor de desarrollo y
+     * no hace falta ponerle certificado a Nest. De paso desaparecen CORS y el
+     * lío de la cookie entre `localhost` y una IP: todo es el mismo origen.
+     *
+     * Solo afecta a desarrollo. En producción `VITE_API_URL` vuelve a ser una
+     * dirección absoluta, o el mismo camino lo hace el proxy de delante.
+     */
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:3002',
+        changeOrigin: false,
+        rewrite: (ruta) => ruta.replace(/^\/api/, ''),
+      },
+    },
   },
 })

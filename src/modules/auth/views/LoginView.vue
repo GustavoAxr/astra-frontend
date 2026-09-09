@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/modules/auth/store'
+import { primeraPantalla } from '@/app/navigation'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
 import { ApiError } from '@/shared/api/errors'
 
@@ -35,7 +36,14 @@ async function submit(): Promise<void> {
     await auth.login({ email: email.value, password: password.value })
 
     const redirect = route.query.redirect
-    await router.push(typeof redirect === 'string' ? redirect : { name: 'organization' })
+    /*
+     * A dónde entra depende de sus roles: «Organización» era un destino fijo
+     * que un gerente no puede abrir, y lo habría rebotado el guard nada más
+     * entrar. `primeraPantalla` sale de la misma tabla que el menú.
+     */
+    await router.push(
+      typeof redirect === 'string' ? redirect : { name: primeraPantalla(auth.roles) },
+    )
   } catch (cause) {
     error.value = cause instanceof Error ? cause : new Error(String(cause))
   } finally {

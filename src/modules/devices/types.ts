@@ -13,6 +13,21 @@ export interface Device {
   lastHeartbeatAt: string | null
   clockOffsetMs: number | null
   isActive: boolean
+  /**
+   * ¿Controla una puerta o un imán? No todos: hay checadores que solo registran
+   * horarios. Decide si se le mandan permisos de acceso —sin ellos la
+   * credencial se reconoce y la puerta no se abre— y si el padrón se los
+   * reclama.
+   */
+  opensDoor: boolean
+  /**
+   * Si una checada hecha desde el teléfono le pide a este reloj que abra.
+   *
+   * Apagado por omisión: que una checada abra una puerta es una decisión de
+   * seguridad de cada sitio, no algo que aparezca solo porque se actualizó el
+   * sistema.
+   */
+  phonePunchOpensDoor: boolean
 }
 
 /** Un equipo que el sondeo cree haber reconocido. */
@@ -81,6 +96,16 @@ export interface EnrollDeviceForm {
   protocol: string
   model: string
   sharingMode: SharingMode
+  opensDoor: boolean
+  /**
+   * QUÉ AGENTE LO ATIENDE. Vacío = ninguno.
+   *
+   * Sin esto, un reloj dado de alta desde la pantalla nacía huérfano y nunca
+   * recibía órdenes: el servidor las reparte por agente. No fallaba nada
+   * visible —se veía igual que uno bien puesto— y esa es la peor forma de
+   * romperse.
+   */
+  edgeAgentId: string
 }
 
 /** Lo que devuelve `POST /devices/:id/sync`. */

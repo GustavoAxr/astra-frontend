@@ -2,11 +2,22 @@
 import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAsync } from '@/shared/composables/useAsync'
-import { quincenaAnterior, quincenaDe, todayLocal } from '@/shared/date'
+import {
+  mesDe,
+  mesEnPalabras,
+  moverMes,
+  quincenaAnterior,
+  quincenaDe,
+  rangoDelMes,
+  todayLocal,
+  type Rango,
+} from '@/shared/date'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 import PageHeader from '@/shared/ui/PageHeader.vue'
 import { useLegalEntityFilter } from '@/modules/org/store'
+import { devicesApi } from '@/modules/devices/api'
+import { NINGUNO, sinNinguno } from '@/shared/ui/select-none'
 import { attendanceApi } from '../api'
 import type { AttendanceDayList } from '../types'
 import DayStatusChart from '../components/DayStatusChart.vue'
@@ -14,39 +25,133 @@ import ReportExportMenu from '@/modules/reports/components/ReportExportMenu.vue'
 
 const { selectedId } = storeToRefs(useLegalEntityFilter())
 
-type Periodo = 'dia' | 'semana' | 'quincena' | 'quincena-anterior' | 'mes'
+/**
+ * EL RELOJ, cuando hay más de uno.
+ *
+ * Filtra por quién está ENROLADO en ese equipo, no por de dónde salió la
+ * checada. La diferencia importa aquí más que en ninguna otra pantalla: un día
+ * de falta no tiene checada de la que sacar el reloj, así que filtrar por el
+ * origen del marcaje escondería justo las ausencias, que es lo que se viene a
+ * buscar.
+ */
+const relojId = ref<string>(NINGUNO)
+const relojes = useAsync((signal) => devicesApi.list(undefined, signal))
+void relojes.run()
 
+const relojItems = computed(() => [
+  { label: 'Todos los relojes', value: NINGUNO },
+  ...(relojes.data.value ?? [])
+    .filter((d) => selectedId.value === null || d.legalEntityId === selectedId.value)
+    .map((d) => ({
+      label: [d.brand, d.model].filter(Boolean).join(' ') || d.serialNumber,
+      value: d.id,
+    })),
+])
+
+/** Un desplegable de una sola opción no ayuda a nadie. */
+const hayVariosRelojes = computed(() => relojItems.value.length > 2)
+const relojElegido = computed(() => sinNinguno(relojId.value) || undefined)
+
+/**
+ * QUÉ PERIODO SE ESTÁ MIRANDO.
+ *
+ * Son dos cosas y hay que tenerlas separadas: el MES sobre el que uno se para
+ * —y por el que se navega con las flechas— y el CORTE dentro de ese mes.
+ *
+ * Antes solo existía el corte, y siempre contra hoy: no había forma de mirar
+ * julio. Se guarda el mes en `YYYY-MM` y no sus dos fechas porque «agosto»
+ * sigue siendo agosto se mire cuando se mire; el rango se deriva.
+ */
+type Periodo = 'dia' | 'semana' | 'quincena' | 'quincena-anterior' | 'mes' | 'primera' | 'segunda'
+
+const mes = ref(mesDe(todayLocal()))
 const periodo = ref<Periodo>('quincena')
 
-const PERIODOS = [
+const mesActual = mesDe(todayLocal())
+const esMesActual = computed(() => mes.value === mesActual)
+
+/*
+ * LAS OPCIONES CAMBIAN SEGÚN EL MES, y por eso «cuando aplica»: «hoy», «esta
+ * semana» y «la quincena en curso» solo significan algo en el mes en el que
+ * estamos. Ofrecer «hoy» estando parado en julio sería ofrecer un día que no
+ * está en la pantalla. En un mes pasado lo que hay son cortes de calendario:
+ * el mes entero o cada una de sus dos quincenas.
+ */
+const PERIODOS_DEL_MES_EN_CURSO = [
   { label: 'Hoy', value: 'dia' },
-  { label: 'Semana', value: 'semana' },
-  { label: 'Quincena', value: 'quincena' },
+  { label: 'Últimos 7 días', value: 'semana' },
+  { label: 'Quincena en curso', value: 'quincena' },
   { label: 'Quincena anterior', value: 'quincena-anterior' },
-  { label: 'Mes', value: 'mes' },
+  { label: 'Mes completo', value: 'mes' },
 ]
+
+const PERIODOS_DE_UN_MES_PASADO = [
+  { label: 'Mes completo', value: 'mes' },
+  { label: '1.ª quincena', value: 'primera' },
+  { label: '2.ª quincena', value: 'segunda' },
+]
+
+const periodos = computed(() =>
+  esMesActual.value ? PERIODOS_DEL_MES_EN_CURSO : PERIODOS_DE_UN_MES_PASADO,
+)
 
 /**
  * Las quincenas son cortes de CALENDARIO —del 1 al 15 y del 16 a fin de mes—
- * porque son los que se cierran en nómina. «Hoy», «semana» y «mes» son días
+ * porque son los que se cierran en nómina. «Hoy» y «últimos 7 días» son días
  * naturales hacia atrás: responden a «cómo ha ido últimamente», que es otra
  * pregunta. Mezclar las dos formas es como salen cierres que no cuadran.
  */
-const rango = computed(() => {
+/**
+ * NUNCA SE PIDEN DÍAS QUE NO HAN OCURRIDO.
+ *
+ * Un día con turno y sin checadas es una FALTA para el motor, y mañana todavía
+ * no hay checadas de nadie: pedir «el mes completo» un día 29 devolvía dos
+ * faltas de los días 30 y 31, que es acusar a la plantilla entera de algo que
+ * no ha pasado. Se ve claro ahora que se puede uno parar en un mes, pero ya
+ * ocurría con «la quincena en curso».
+ */
+const hastaHoy = (r: Rango): Rango => {
   const hoy = todayLocal()
-  if (periodo.value === 'quincena') return quincenaDe(hoy)
+  return r.to > hoy ? { from: r.from, to: hoy } : r
+}
+
+const rango = computed<Rango>(() => {
+  const hoy = todayLocal()
+
+  if (periodo.value === 'quincena') return hastaHoy(quincenaDe(hoy))
   if (periodo.value === 'quincena-anterior') return quincenaAnterior(hoy)
-  const atras = periodo.value === 'dia' ? 0 : periodo.value === 'semana' ? 6 : 29
+  if (periodo.value === 'primera') return hastaHoy(rangoDelMes(mes.value, 'primera'))
+  if (periodo.value === 'segunda') return hastaHoy(rangoDelMes(mes.value, 'segunda'))
+  if (periodo.value === 'mes') return hastaHoy(rangoDelMes(mes.value, 'mes'))
+
+  // «Hoy» y «últimos 7 días» solo existen en el mes en curso.
+  const atras = periodo.value === 'dia' ? 0 : 6
   const desde = new Date(Date.parse(`${hoy}T00:00:00Z`) - atras * 86_400_000)
     .toISOString()
     .slice(0, 10)
   return { from: desde, to: hoy }
 })
 
+/**
+ * Al cambiar de mes, el corte elegido puede dejar de existir —«hoy» no está en
+ * julio— y entonces se cae al mes completo, que siempre aplica. Y el día
+ * abierto abajo se mueve dentro del mes nuevo: dejarlo en otro mes enseñaría
+ * una tabla que no tiene nada que ver con la gráfica de arriba.
+ */
+function irAlMes(destino: string): void {
+  if (destino > mesActual) return
+  mes.value = destino
+
+  if (!periodos.value.some((p) => p.value === periodo.value)) periodo.value = 'mes'
+
+  diaAbierto.value = destino === mesActual ? todayLocal() : `${destino}-01`
+}
+
 /** Cómo se pidió el periodo. Va a la hoja de parámetros del reporte. */
-const etiquetaDelPeriodo = computed(
-  () => PERIODOS.find((p) => p.value === periodo.value)?.label ?? 'Rango libre',
-)
+const etiquetaDelPeriodo = computed(() => {
+  const nombre = periodos.value.find((p) => p.value === periodo.value)?.label ?? 'Mes completo'
+  return esMesActual.value ? nombre : `${nombre} · ${mesEnPalabras(mes.value)}`
+})
 
 /**
  * El día abierto abajo. Se guarda la FECHA, no el índice de la barra: al
@@ -57,7 +162,11 @@ const diaAbierto = ref<string>(todayLocal())
 
 const detalleDia = useAsync((signal) =>
   attendanceApi.day(
-    { date: diaAbierto.value, legalEntityId: selectedId.value ?? undefined },
+    {
+      date: diaAbierto.value,
+      legalEntityId: selectedId.value ?? undefined,
+      deviceId: relojElegido.value,
+    },
     signal,
   ),
 )
@@ -196,6 +305,14 @@ const CHIPS: {
   { estado: 'ON_TIME', texto: 'a tiempo', clase: 'text-success', total: (t) => t.onTime },
   { estado: 'LATE', texto: 'con retardo', clase: 'text-warning', total: (t) => t.late },
   { estado: 'ABSENT', texto: 'faltas', clase: 'text-error', total: (t) => t.absent },
+  // Justo detrás de las faltas: es el número que hay que mirar antes de creerse
+  // el de arriba.
+  {
+    estado: 'NO_DATA',
+    texto: 'sin datos del reloj',
+    clase: 'text-warning',
+    total: (t) => t.noData,
+  },
   { estado: 'INCOMPLETE', texto: 'incompletos', clase: 'text-info', total: (t) => t.incomplete },
   { estado: 'REST', texto: 'de descanso', clase: 'text-muted', total: (t) => t.rest },
   { estado: 'HOLIDAY', texto: 'en festivo', clase: 'text-info', total: (t) => t.holiday },
@@ -249,7 +366,14 @@ const ESTADO: Record<
 }
 
 const resumen = useAsync((signal) =>
-  attendanceApi.summary({ ...rango.value, legalEntityId: selectedId.value ?? undefined }, signal),
+  attendanceApi.summary(
+    {
+      ...rango.value,
+      legalEntityId: selectedId.value ?? undefined,
+      deviceId: relojElegido.value,
+    },
+    signal,
+  ),
 )
 
 const datos = computed(() => resumen.data.value)
@@ -307,8 +431,13 @@ const dia = (iso: string): string => {
   return fecha.format(new Date(y ?? 0, (m ?? 1) - 1, d ?? 1))
 }
 
-watch([periodo, selectedId], () => void resumen.run(), { immediate: true })
-watch([diaAbierto, selectedId], () => void detalleDia.run(), { immediate: true })
+/*
+ * Se observa el RANGO, no el corte: ahora el periodo depende también del mes, y
+ * vigilar solo `periodo` dejaba la pantalla con los datos del mes anterior al
+ * pulsar la flecha. Atado al rango, cualquier cosa que lo mueva recarga.
+ */
+watch([rango, selectedId, relojId], () => void resumen.run(), { immediate: true })
+watch([diaAbierto, selectedId, relojId], () => void detalleDia.run(), { immediate: true })
 </script>
 
 <template>
@@ -320,6 +449,19 @@ watch([diaAbierto, selectedId], () => void detalleDia.run(), { immediate: true }
     >
       <template #actions>
         <!--
+          El reloj SÍ alcanza a las cifras de arriba, al revés que el buscador:
+          es un filtro del conjunto de gente, no de las filas que se enseñan.
+          Solo sale cuando hay más de un equipo.
+        -->
+        <USelectMenu
+          v-if="hayVariosRelojes"
+          v-model="relojId"
+          :items="relojItems"
+          value-key="value"
+          icon="i-lucide-alarm-clock"
+          class="w-52"
+        />
+        <!--
           Alcanza a las dos tablas de abajo. NO toca las cifras de arriba: esas
           son las del periodo entero y tienen que seguir siéndolo.
         -->
@@ -329,7 +471,34 @@ watch([diaAbierto, selectedId], () => void detalleDia.run(), { immediate: true }
           icon="i-lucide-search"
           class="w-56"
         />
-        <USelectMenu v-model="periodo" :items="PERIODOS" value-key="value" class="w-48" />
+        <!--
+          El mes sobre el que uno se para. Las flechas son la navegación: antes
+          solo se podía ver el mes en curso y no había manera de mirar julio.
+          La de avanzar se apaga en el mes actual —el futuro no tiene checadas—
+          en vez de esconderse, para que se vea que ahí termina el recorrido.
+        -->
+        <div class="border-default flex items-center gap-0.5 rounded-lg border">
+          <UButton
+            icon="i-lucide-chevron-left"
+            square
+            size="sm"
+            aria-label="Mes anterior"
+            @click="irAlMes(moverMes(mes, -1))"
+          />
+          <span class="text-highlighted w-36 text-center text-sm font-medium capitalize">
+            {{ mesEnPalabras(mes) }}
+          </span>
+          <UButton
+            icon="i-lucide-chevron-right"
+            square
+            size="sm"
+            aria-label="Mes siguiente"
+            :disabled="esMesActual"
+            @click="irAlMes(moverMes(mes, 1))"
+          />
+        </div>
+
+        <USelectMenu v-model="periodo" :items="periodos" value-key="value" class="w-48" />
         <span v-if="datos" class="text-dimmed text-xs">
           {{ dia(datos.from) }} → {{ dia(datos.to) }}
         </span>
@@ -345,9 +514,11 @@ watch([diaAbierto, selectedId], () => void detalleDia.run(), { immediate: true }
             from: rango.from,
             to: rango.to,
             legalEntityId: selectedId ?? undefined,
+            deviceId: relojElegido,
             periodo: etiquetaDelPeriodo,
           }"
           con-detalle
+          ruta-del-desglose="/reports/breakdown"
         />
       </template>
     </PageHeader>
@@ -669,8 +840,13 @@ watch([diaAbierto, selectedId], () => void detalleDia.run(), { immediate: true }
                 {{ hhmm(row.original.remoteMinutes) }} fuera de sede
               </span>
             </span>
-            <span v-else-if="row.original.unapprovedOvertimeMinutes" class="text-warning text-xs">
-              {{ hhmm(row.original.unapprovedOvertimeMinutes) }} sin autorizar
+            <span
+              v-else-if="row.original.unapprovedOvertimeMinutes"
+              class="text-xs"
+              :class="row.original.overtimeRejected ? 'text-dimmed' : 'text-warning'"
+            >
+              {{ hhmm(row.original.unapprovedOvertimeMinutes) }}
+              {{ row.original.overtimeRejected ? 'no autorizadas' : 'sin autorizar' }}
             </span>
             <span v-else class="text-dimmed">—</span>
           </template>

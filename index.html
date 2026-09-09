@@ -3,6 +3,13 @@
   <head>
     <meta charset="UTF-8">
     <link rel="icon" href="/favicon.ico">
+    <!--
+      El editor de geocercas pide sus imágenes a Mapbox. Resolver el nombre y
+      dar la mano de TLS cuesta un tercio de segundo que hoy se paga cuando el
+      mapa ya está en pantalla esperando; así se paga antes, en el hueco en que
+      no hay nada que hacer.
+    -->
+    <link rel="preconnect" href="https://api.mapbox.com" crossorigin>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>astra-frontend</title>
     <script>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
+import { useAviso } from '@/shared/ui/aviso'
 import { timezoneItems, timezoneOffset } from '@/shared/ui/timezones'
 import { orgApi } from '../api'
 import { taxIdError } from '../tax-id'
@@ -11,6 +12,7 @@ const props = defineProps<{
   entity?: LegalEntity | null
 }>()
 const emit = defineEmits<{ saved: [] }>()
+const aviso = useAviso()
 
 const open = defineModel<boolean>('open', { default: false })
 
@@ -63,7 +65,12 @@ async function submit(): Promise<void> {
       }
       if (timezone.value !== props.entity.timezone) changes.timezone = timezone.value
 
-      if (Object.keys(changes).length > 0) await orgApi.updateLegalEntity(props.entity.id, changes)
+      // Sin cambios no se avisa: un «actualizado» tras abrir y cerrar sin
+      // tocar nada le enseña a la gente a ignorar los avisos.
+      if (Object.keys(changes).length > 0) {
+        await orgApi.updateLegalEntity(props.entity.id, changes)
+        aviso.actualizado(businessName.value.trim())
+      }
     } else {
       await orgApi.createLegalEntity({
         businessName: businessName.value,
@@ -71,6 +78,7 @@ async function submit(): Promise<void> {
         countryCode: 'MX',
         timezone: timezone.value,
       })
+      aviso.creado('Razón social', businessName.value.trim())
     }
 
     open.value = false

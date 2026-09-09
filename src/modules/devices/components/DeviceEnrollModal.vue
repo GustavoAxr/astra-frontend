@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
+import { useAviso } from '@/shared/ui/aviso'
 import { useAsync } from '@/shared/composables/useAsync'
 import type { Installation } from '@/modules/org/types'
+import type { Agent } from '@/modules/agents/types'
 import { devicesApi } from '../api'
 import {
   SHARING_MODES,
@@ -12,8 +14,13 @@ import {
   type SharingMode,
 } from '../types'
 
-const props = defineProps<{ installations: Installation[] }>()
+const props = defineProps<{
+  installations: Installation[]
+  /** Los agentes de las bases que alcanza quien mira. */
+  agents: Agent[]
+}>()
 const emit = defineEmits<{ enrolled: [] }>()
+const aviso = useAviso()
 
 const open = ref(false)
 
@@ -28,6 +35,27 @@ const brand = ref('')
 const protocol = ref('')
 const sharingMode = ref<SharingMode>('DEDICATED')
 
+/**
+ * ¿ESTE EQUIPO ABRE UNA PUERTA?
+ *
+ * Marcado por omisión porque es lo que hace un control de acceso, y porque
+ * equivocarse hacia ese lado no rompe nada: a un checador que no abre nada, un
+ * permiso de puerta de más le da igual. Al revés sí duele —la credencial se
+ * reconoce, la checada llega y el imán no se suelta—, y el síntoma es
+ * invisible: las checadas siguen entrando mientras la persona se queda fuera.
+ */
+const opensDoor = ref(true)
+
+/**
+ * QUÉ AGENTE VA A ATENDER ESTE RELOJ. Vacío = ninguno.
+ *
+ * No estaba, y era el hueco que obligaba a terminar el alta con `curl`: el
+ * servidor reparte las órdenes por agente, así que un reloj sin agente nunca
+ * recibe ninguna. No fallaba nada visible —el equipo se veía igual que uno bien
+ * puesto—, simplemente no pasaba nada nunca.
+ */
+const edgeAgentId = ref('')
+
 const enrolling = ref(false)
 const enrollError = ref<Error | null>(null)
 
@@ -37,6 +65,19 @@ const {
   error: probeError,
   run: probe,
 } = useAsync((signal) => devicesApi.discover(ip.value.trim(), installationId.value, signal))
+
+/**
+ * Solo los agentes DE LA INSTALACIÓN elegida.
+ *
+ * Un agente atiende un sitio: ofrecerle a alguien el agente de otra base sería
+ * ofrecerle una configuración que el servidor va a aceptar y que nunca va a
+ * funcionar —el agente no alcanza a ese reloj por la red— sin decir por qué.
+ */
+const agentItems = computed(() =>
+  props.agents
+    .filter((a) => a.installationId === installationId.value)
+    .map((a) => ({ label: a.agentCode, value: a.id })),
+)
 
 const installationItems = computed(() =>
   props.installations.map((installation) => ({
@@ -83,6 +124,8 @@ function reset(): void {
   brand.value = ''
   protocol.value = ''
   sharingMode.value = 'DEDICATED'
+  opensDoor.value = true
+  edgeAgentId.value = ''
   enrollError.value = null
   discovery.value = null
 }
@@ -104,11 +147,14 @@ async function submit(): Promise<void> {
     protocol: protocol.value,
     model: model.value,
     sharingMode: sharingMode.value,
+    opensDoor: opensDoor.value,
+    edgeAgentId: edgeAgentId.value,
   }
 
   try {
     await devicesApi.enroll(form)
     open.value = false
+    aviso.creado('Reloj', `${form.ip} · ${form.brand} ${form.model}`.trim())
     emit('enrolled')
   } catch (cause) {
     enrollError.value = cause instanceof Error ? cause : new Error(String(cause))
@@ -140,6 +186,31 @@ async function submit(): Promise<void> {
             <UInput v-model="ip" placeholder="192.168.1.66" class="w-full" @keyup.enter="probe" />
           </UFormField>
         </div>
+
+        <!--
+          QUÉ AGENTE LO ATIENDE. Sin esto había que terminar el alta con curl.
+          El servidor reparte las órdenes por agente: un reloj sin agente no
+          recibe ninguna, y no se nota en ningún sitio salvo en que no pasa nada.
+        -->
+        <UFormField
+          label="Agente que lo atiende"
+          :help="
+            installationId === ''
+              ? 'Elige primero la instalación.'
+              : agentItems.length === 0
+                ? 'Esa base no tiene ningún agente dado de alta. Puedes continuar, pero el reloj no recibirá órdenes hasta que le asignes uno.'
+                : 'El microservidor que lee este reloj. Sin agente, el equipo no recibe órdenes.'
+          "
+        >
+          <USelectMenu
+            v-model="edgeAgentId"
+            :items="agentItems"
+            value-key="value"
+            :disabled="agentItems.length === 0"
+            placeholder="Sin agente"
+            class="w-full"
+          />
+        </UFormField>
 
         <UButton
           icon="i-lucide-radar"
@@ -248,6 +319,21 @@ async function submit(): Promise<void> {
               <p class="text-muted mt-1 text-xs">{{ SHARING_MODE_LABEL[sharingMode].hint }}</p>
             </UFormField>
 
+            <!--
+              Lo pregunta porque no todos abren: hay checadores que solo
+              registran horarios y no están cableados a nada.
+            -->
+            <UFormField label="Acceso">
+              <UCheckbox v-model="opensDoor" label="Este equipo abre una puerta o un imán" />
+              <p class="text-muted mt-1 text-xs">
+                {{
+                  opensDoor
+                    ? 'Se le mandarán permisos de acceso, y el padrón avisará si a alguien le faltan: sin permiso la credencial se reconoce, la checada llega y la puerta no se abre.'
+                    : 'Solo registra horarios. No se le mandan permisos ni se le reclaman, porque no tiene ninguna puerta que abrir.'
+                }}
+              </p>
+            </UFormField>
+
             <ApiErrorAlert
               :error="enrollError"
               :fields="[
@@ -258,6 +344,7 @@ async function submit(): Promise<void> {
                 'protocol',
                 'model',
                 'sharingMode',
+                'opensDoor',
               ]"
             />
 

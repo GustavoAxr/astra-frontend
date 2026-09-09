@@ -8,6 +8,7 @@ import { ROLE_LABEL } from '@/modules/auth/types'
 import { isGroup, visibleNavigation, type NavGroup } from '@/app/navigation'
 import { useLegalEntityFilter } from '@/modules/org/store'
 import LegalEntityPicker from '@/modules/org/components/LegalEntityPicker.vue'
+import ClientePicker from '@/modules/soporte/components/ClientePicker.vue'
 import AstraLogo from '@/shared/ui/AstraLogo.vue'
 import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
 import OverflowTooltip from '@/shared/ui/OverflowTooltip.vue'
@@ -286,6 +287,13 @@ async function signOut(): Promise<void> {
         />
         <span class="text-muted text-sm">{{ route.meta.title }}</span>
         <div class="ml-auto">
+          <!--
+            El de CLIENTES va antes que el de razones sociales, y ese orden
+            cuenta algo: primero se elige de quién son los datos, y solo
+            después qué parte de ellos. Al revés se leería como si las empresas
+            de un cliente y las de otro estuvieran en la misma lista.
+          -->
+          <ClientePicker />
           <LegalEntityPicker v-if="showsLegalEntityPicker" />
         </div>
       </header>

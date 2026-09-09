@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { useAsync } from '@/shared/composables/useAsync'
+import { useLegalEntityFilter } from '@/modules/org/store'
 import { mergeQuery, type QueryChanges } from '@/shared/router/query'
 import { todayLocal } from '@/shared/date'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
+import { useAviso } from '@/shared/ui/aviso'
 import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 import PageHeader from '@/shared/ui/PageHeader.vue'
 import { useAuthStore } from '@/modules/auth/store'
 import { employeesApi } from '../api'
 import type { EmployeeException } from '../types'
+
+const aviso = useAviso()
 
 const route = useRoute()
 const router = useRouter()
@@ -26,8 +31,14 @@ const q = (key: string): string | undefined =>
 const from = computed(() => q('from'))
 const to = computed(() => q('to'))
 
+/** La razón social de la barra superior. Filtro de comodidad, no alcance. */
+const { selectedId } = storeToRefs(useLegalEntityFilter())
+
 const list = useAsync((signal) =>
-  employeesApi.exceptions({ from: from.value, to: to.value }, signal),
+  employeesApi.exceptions(
+    { from: from.value, to: to.value, legalEntityId: selectedId.value ?? undefined },
+    signal,
+  ),
 )
 const types = useAsync((signal) => employeesApi.exceptionTypes(signal))
 // Hasta cien: son cuarenta personas, no dos mil. Si algún día crece, se cambia
@@ -106,6 +117,7 @@ async function submit(): Promise<void> {
       ...(documentRef.value.trim() ? { documentRef: documentRef.value.trim() } : {}),
     })
     creating.value = false
+    aviso.creado('Justificación', `Del ${startDate.value} al ${endDate.value}`)
     await list.run()
   } catch (cause) {
     formError.value = cause instanceof Error ? cause : new Error(String(cause))
@@ -121,7 +133,7 @@ function apply(changes: QueryChanges): void {
   void router.replace({ query: mergeQuery(route.query, changes) })
 }
 
-watch([from, to], () => void list.run(), { immediate: true })
+watch([from, to, selectedId], () => void list.run(), { immediate: true })
 void types.run()
 void staff.run()
 </script>
@@ -281,7 +293,13 @@ void staff.run()
       confirm-label="Cancelar la justificación"
       confirm-icon="i-lucide-trash-2"
       confirm-color="error"
-      :action="() => employeesApi.removeException(cancelling!.id)"
+      :action="
+        async () => {
+          const de = cancelling!.employeeName
+          await employeesApi.removeException(cancelling!.id)
+          aviso.borrado('Justificación', `${de} · esos días vuelven a contarse como falta`)
+        }
+      "
       @update:open="
         (value: boolean) => {
           if (!value) cancelling = null

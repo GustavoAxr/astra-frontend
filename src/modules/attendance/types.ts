@@ -87,6 +87,12 @@ const STATUS: Record<
   ON_TIME: { label: 'A tiempo', color: 'success' },
   LATE: { label: 'Retardo', color: 'warning' },
   ABSENT: { label: 'Falta', color: 'error' },
+  /*
+   * NO ES UNA FALTA y por eso no va en rojo. El reloj no reportó a nadie de su
+   * instalación ese día: la ausencia de marcaje no prueba una ausencia de
+   * persona. Se pinta como algo que revisar, que es lo que es.
+   */
+  NO_DATA: { label: 'Sin datos del reloj', color: 'warning' },
   REST: { label: 'Descanso', color: 'neutral' },
   HOLIDAY: { label: 'Festivo', color: 'neutral' },
   VACATION: { label: 'Vacaciones', color: 'neutral' },
@@ -147,6 +153,10 @@ export interface DerivedDay {
   /** Extra al doble y al triple, repartida por SEMANA según `legal_rules`. */
   overtimeDoubleMinutes: number
   overtimeTripleMinutes: number
+  /** RRHH ya evaluó ese tiempo extra y decidió que no se paga. */
+  overtimeRejected: boolean
+  /** El motivo del rechazo, tal como lo escribió quien firmó. */
+  overtimeRejectionNote: string | null
   /**
    * Trabajo autorizado FUERA de la sede: horas que no pasaron por el reloj
    * —desde casa, en un cliente—. Van sumadas en `overtimeMinutes` y aparte de
@@ -213,6 +223,11 @@ export interface SummaryDay {
   onTime: number
   late: number
   absent: number
+  /**
+   * El reloj no reportó a NADIE ese día. No son faltas: son días que nadie
+   * midió, y sumarlos con las faltas convierte un corte de luz en una sanción.
+   */
+  noData: number
   incomplete: number
   rest: number
   /**
@@ -286,6 +301,7 @@ export interface AttendanceDayList {
     onTime: number
     late: number
     absent: number
+    noData: number
     incomplete: number
     rest: number
     noSchedule: number
@@ -318,13 +334,43 @@ export interface Adjustment {
   /** Tope autorizado en minutos. Nulo = lo que haya salido ese día. */
   proposedMinutes: number | null
   reason: string
+  /** Por qué se aprobó o se rechazó. Obligatoria al rechazar. */
+  resolutionNote: string | null
   status: 'PENDING' | 'APPROVED' | 'REJECTED'
-  requestedBy: string
+  /**
+   * La franja pedida: «de 18:00 a 22:00». Los minutos por sí solos no dicen a
+   * qué hora, y es la hora lo que después se contrasta con las checadas.
+   */
+  requestedStart: string | null
+  requestedEnd: string | null
+  /** Nulo = no lo pidió nadie: lo detectó el reloj. */
+  requestedBy: string | null
   requestedByName: string | null
   requestedAt: string
   approvedBy: string | null
   approvedByName: string | null
   approvedAt: string | null
+  /**
+   * Las firmas puestas. Una solicitud pedida por una persona necesita LAS DOS
+   * —RRHH y Dirección— para autorizarse; un rechazo de cualquiera la deja sin
+   * efecto aunque la otra hubiera firmado.
+   */
+  approvals: AdjustmentApproval[]
+}
+
+export interface AdjustmentApproval {
+  id: string
+  kind: 'RRHH' | 'DIRECCION'
+  decision: 'APPROVED' | 'REJECTED'
+  decidedBy: string
+  decidedByName: string | null
+  decidedAt: string
+  note: string | null
+}
+
+export const PAPEL_DE_FIRMA: Record<string, string> = {
+  RRHH: 'Recursos Humanos',
+  DIRECCION: 'Dirección',
 }
 
 /**
@@ -344,4 +390,39 @@ export const ADJUSTMENT_STATUS: Record<
   PENDING: { label: 'Pendiente', color: 'warning' },
   APPROVED: { label: 'Aprobado', color: 'success' },
   REJECTED: { label: 'Rechazado', color: 'error' },
+}
+
+/** Un día con horas de más que midió el reloj y que nadie ha resuelto. */
+export interface PendingOvertimeDay {
+  workDate: string
+  minutes: number
+  workedMinutes: number
+  scheduledMinutes: number
+  firstPunch: string | null
+  lastPunch: string | null
+  punchCount: number
+  shiftCode: string | null
+  expectedStart: string | null
+  expectedEnd: string | null
+  /** El umbral del turno ese día. Explica qué días NO están en la lista. */
+  thresholdMinutes: number
+  isRestDay: boolean
+  status: string
+}
+
+export interface PendingOvertimePerson {
+  employeeId: string
+  employeeCode: string
+  employeeName: string
+  legalEntityName: string | null
+  installationName: string | null
+  totalMinutes: number
+  days: PendingOvertimeDay[]
+}
+
+export interface PendingOvertime {
+  from: string
+  to: string
+  people: PendingOvertimePerson[]
+  totals: { people: number; minutes: number; days: number }
 }

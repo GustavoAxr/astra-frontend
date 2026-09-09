@@ -11,7 +11,14 @@ export interface Employee {
   rfc: string | null
   nss: string | null
   birthDate: string | null
+  /**
+   * `H`/`M`, como en el CURP. Viaja al reloj —que tiene el campo y sin esto
+   * recibe «desconocido»— y sobrevive a los empujones del padrón.
+   */
+  sex: 'H' | 'M' | null
   whatsappNumber: string | null
+  /** Correo. Opcional: casi nadie en planta tiene uno. */
+  email: string | null
   whatsappOptIn: boolean
   whatsappVerified: boolean
   isActive: boolean
@@ -46,7 +53,20 @@ export interface EmployeeQuery {
   installationId?: string
   search?: string
   onlyActive?: boolean
+  /**
+   * Qué parte de la plantilla se pide. «inactivos» es la vista de las bajas:
+   * quien salió pero sigue existiendo en el reloj y en el histórico.
+   */
+  estado?: EstadoDePlantilla
 }
+
+export type EstadoDePlantilla = 'activos' | 'inactivos' | 'todos'
+
+export const ESTADOS_DE_PLANTILLA: { label: string; value: EstadoDePlantilla }[] = [
+  { label: 'Activos', value: 'activos' },
+  { label: 'Dados de baja', value: 'inactivos' },
+  { label: 'Todos', value: 'todos' },
+]
 
 /** Bloque de horario dentro del ciclo de un turno. */
 export interface ShiftSegment {
@@ -124,6 +144,19 @@ export interface EmployeeDetail extends Employee {
   currentAssignment: Assignment | null
   assignments: Assignment[]
   employmentPeriods: { from: string; to: string | null }[]
+  /**
+   * En qué relojes está y con qué número. Es lo que hace falta al darle de
+   * baja: cerrarle el acceso NO ocurre al guardar en la base, es una orden que
+   * hay que empujar al equipo.
+   */
+  enrollments: EmployeeEnrollment[]
+}
+
+export interface EmployeeEnrollment {
+  deviceId: string
+  /** Cómo lo llamaría una persona: «Hikvision DS-K1T805MX». */
+  deviceLabel: string
+  externalUserId: string
 }
 
 /*
@@ -148,7 +181,11 @@ export interface CreateEmployeeForm {
   rfc: string
   nss: string
   birthDate: string
+  /** Vacío = no se captura. El reloj lo enseña, y sin esto dice «desconocido». */
+  sex: string
   whatsappNumber: string
+  /** Opcional. Es el que se propone al convertirle en usuario de Astra. */
+  email: string
 }
 
 /** Motivos que acepta el backend. `HIRED` es el de una contratación nueva. */
@@ -270,6 +307,19 @@ export interface UpdateEmployeeForm {
   rfc?: string
   nss?: string
   birthDate?: string
+  sex?: string
   whatsappNumber?: string
+  email?: string
   isActive?: boolean
+}
+
+/** Lo que impide borrar a alguien, y lo que se iría con él. */
+export interface EmployeeDependencies {
+  /**
+   * Lo que IMPIDE el borrado: hoy, tener checadas. La base solo deja leer e
+   * insertar en la evidencia, así que quien tiene marcajes se da de BAJA.
+   */
+  bloqueos: { que: string; cuantos: number }[]
+  arrastra: { que: string; cuantos: number }[]
+  total: number
 }

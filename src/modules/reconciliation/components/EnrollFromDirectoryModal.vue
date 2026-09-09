@@ -7,6 +7,7 @@ import { orgApi } from '@/modules/org/api'
 import { useAsync } from '@/shared/composables/useAsync'
 import { employeesApi } from '@/modules/employees/api'
 import { summarizeShift } from '@/modules/employees/shift-summary'
+import { useAviso } from '@/shared/ui/aviso'
 import { splitName } from '../split-name'
 import { reconciliationApi } from '../api'
 import type { ReconcilePending } from '../types'
@@ -19,6 +20,7 @@ const props = defineProps<{
   pending: ReconcilePending[]
 }>()
 const emit = defineEmits<{ done: [] }>()
+const aviso = useAviso()
 
 const open = defineModel<boolean>('open', { default: false })
 
@@ -163,7 +165,12 @@ async function run(): Promise<void> {
         rfc: '',
         nss: '',
         birthDate: '',
+      // Se concilia desde el padrón del reloj, donde no viene el sexo. Se
+      // captura después en la ficha; inventarlo por el nombre sería peor.
+      sex: '',
         whatsappNumber: '',
+        // El reloj no sabe correos: se captura después en el expediente.
+        email: '',
       })
 
       await employeesApi.assign(persona.id, {
@@ -207,6 +214,21 @@ async function run(): Promise<void> {
   }
 
   summary.value = { created, failed, enrolled, trayResolved }
+
+  /*
+   * Un aviso de aviso —no de acierto— cuando algo falló: el modal enseña el
+   * detalle fila por fila, pero el resultado global no puede leerse como un
+   * «listo» si 3 de 30 no entraron.
+   */
+  if (failed > 0) {
+    aviso.aviso(`${created} altas, ${failed} con problema`, 'El detalle está en la lista.')
+  } else if (created > 0) {
+    aviso.creado(
+      `${created} ${created === 1 ? 'persona' : 'personas'}`,
+      `${enrolled} emparejadas con el reloj.`,
+    )
+  }
+
   working.value = false
   emit('done')
 }

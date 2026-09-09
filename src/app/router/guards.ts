@@ -1,12 +1,19 @@
 import type { NavigationGuardWithThis } from 'vue-router'
 import { useAuthStore } from '@/modules/auth/store'
+import { primeraPantalla } from '@/app/navigation'
 
 /**
- * Único guard de la aplicación. Pregunta una sola cosa: **¿hay sesión?**
+ * El guard de la aplicación: **¿hay sesión?** y **¿esta pantalla es para ti?**
  *
- * No mira roles. El permiso lo aplican el servidor y RLS; comprobarlo también
- * aquí crearía una segunda verdad que tarde o temprano se contradice con la
- * primera. Los roles solo se usan para ocultar ítems del menú.
+ * POR QUÉ AHORA SÍ MIRA ROLES —antes no, y estaba mal—
+ * Esconder una entrada del menú no impedía nada: bastaba con teclear la URL, y
+ * un gerente acababa en la plantilla entera. Sigue sin ser control de acceso
+ * —los datos los protegen el servidor y RLS— pero una pantalla que no le sirve
+ * y que además hace llamadas que le responden 403 no debe abrirse.
+ *
+ * NO ES UNA SEGUNDA VERDAD porque no inventa una tabla propia: cada ruta lleva
+ * la MISMA constante que usa el menú. Si el backend cambia sus `@Roles`, el
+ * peor síntoma posible sigue siendo una pantalla de más o de menos.
  */
 export const requireSession: NavigationGuardWithThis<undefined> = async (to) => {
   const auth = useAuthStore()
@@ -21,12 +28,27 @@ export const requireSession: NavigationGuardWithThis<undefined> = async (to) => 
   await auth.ensureLoaded()
 
   if (to.meta.public === true) {
-    // Ya dentro, la pantalla de entrar no tiene sentido.
-    return auth.isAuthenticated ? { name: 'organization' } : true
+    /*
+     * Ya dentro, la pantalla de ENTRAR no tiene sentido y se devuelve a la
+     * suya. Las demás públicas sí: la checada de contingencia la abre quien
+     * pasa por la puerta, y echar de ahí a un supervisor porque resulta que
+     * tiene sesión sería impedirle checar en su propia planta.
+     */
+    if (to.name === 'login' && auth.isAuthenticated) {
+      return { name: primeraPantalla(auth.roles) }
+    }
+    return true
   }
 
   if (!auth.isAuthenticated) {
     return { name: 'login', query: to.fullPath === '/' ? {} : { redirect: to.fullPath } }
+  }
+
+  const permitidos = to.meta.roles
+  if (permitidos && !permitidos.some((rol) => auth.roles.includes(rol))) {
+    // A su primera pantalla, no a un error: llegar aquí casi siempre es un
+    // enlace viejo o una URL heredada de otra sesión, no un intento de nada.
+    return { name: primeraPantalla(auth.roles) }
   }
 
   return true

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
+import { useAviso } from '@/shared/ui/aviso'
 import type { LegalEntity } from '../types'
 
 /**
@@ -27,6 +28,7 @@ const props = defineProps<{
   duplicate: (entityId: string) => Promise<unknown>
 }>()
 const emit = defineEmits<{ done: [] }>()
+const aviso = useAviso()
 
 const open = defineModel<boolean>('open', { default: false })
 
@@ -87,6 +89,20 @@ async function confirmar(): Promise<void> {
   }
 
   working.value = false
+
+  /*
+   * El aviso va aquí y no en cada pantalla que use este modal, porque el
+   * recuento de qué entró y qué no solo existe aquí dentro. Copiar a tres
+   * empresas y que entre en dos es un resultado legítimo, no un error, y hay
+   * que decirlo tal cual.
+   */
+  if (creados.value > 0) {
+    aviso.creado(
+      `${creados.value} ${props.resourceKind}${creados.value === 1 ? '' : 's'}`,
+      fallos.value.length > 0 ? `${fallos.value.length} no se pudieron copiar.` : undefined,
+    )
+  }
+
   emit('done')
   if (fallos.value.length === 0) open.value = false
 }

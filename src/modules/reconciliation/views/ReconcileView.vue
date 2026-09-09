@@ -3,10 +3,13 @@ import { computed, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAsync } from '@/shared/composables/useAsync'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
+import { useAviso } from '@/shared/ui/aviso'
 import { devicesApi } from '@/modules/devices/api'
 import { reconciliationApi } from '../api'
 import EnrollFromDirectoryModal from '../components/EnrollFromDirectoryModal.vue'
 import type { ReconcilePending, ReconcileResult } from '../types'
+
+const aviso = useAviso()
 
 const route = useRoute()
 const deviceId = String(route.params.deviceId)
@@ -92,6 +95,17 @@ async function confirmApply(): Promise<void> {
     result.value = await reconciliationApi.apply(
       deviceId,
       confirming.value.map(({ externalUserId, employeeId }) => ({ externalUserId, employeeId })),
+    )
+    /*
+     * Se dice lo EMPAREJADO y, aparte, cuántas checadas huérfanas dejaron de
+     * serlo: es la consecuencia que nadie ve al confirmar, y la razón por la
+     * que se concilia.
+     */
+    aviso.hecho(
+      `${result.value.enrolled} personas emparejadas`,
+      result.value.trayResolved > 0
+        ? `${result.value.trayResolved} checadas sueltas ya tienen dueño.`
+        : undefined,
     )
     confirming.value = null
     decisions.clear()

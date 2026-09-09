@@ -47,7 +47,21 @@ export async function fetchJson<T>(path: string, options: FetchOptions = {}): Pr
 }
 
 function buildUrl(path: string, query?: Record<string, QueryValue>): string {
-  const url = new URL(`${env.apiUrl}${path}`)
+  /*
+   * `VITE_API_URL` puede ser absoluta (`http://192.168.1.72:3002`) o RELATIVA
+   * (`/api`, servida por el mismo sitio a través de un proxy).
+   *
+   * La relativa es la que hace posible el HTTPS: una página con candado no
+   * puede llamar a una API sin candado —el navegador lo llama contenido mixto
+   * y lo bloquea sin preguntar— así que la única forma de tener ubicación en un
+   * teléfono sin ponerle certificado también al backend es que la API salga por
+   * el MISMO origen. Y de paso desaparecen CORS y el problema de la cookie
+   * entre sitios distintos.
+   *
+   * `new URL` exige una base cuando la dirección es relativa; sin el segundo
+   * argumento lanzaría «Invalid URL».
+   */
+  const url = new URL(`${env.apiUrl}${path}`, window.location.origin)
 
   for (const [key, value] of Object.entries(query ?? {})) {
     // Se descartan los vacíos: un `?legalEntityId=undefined` llegaría como la

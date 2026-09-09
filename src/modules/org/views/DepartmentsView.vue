@@ -7,11 +7,14 @@ import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
 import DeleteResourceDialog from '@/shared/ui/DeleteResourceDialog.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 import PageHeader from '@/shared/ui/PageHeader.vue'
+import { useAviso } from '@/shared/ui/aviso'
 import { useAuthStore } from '@/modules/auth/store'
 import { orgApi } from '../api'
 import { useLegalEntityFilter } from '../store'
 import CatalogDuplicateModal from '../components/CatalogDuplicateModal.vue'
 import type { Department, DepartmentForm } from '../types'
+
+const aviso = useAviso()
 
 const auth = useAuthStore()
 const { selectedId } = storeToRefs(useLegalEntityFilter())
@@ -89,8 +92,13 @@ async function submit(): Promise<void> {
   try {
     // La rama mira `editing`, no si el formulario viene lleno: al duplicar, el
     // molde también viene lleno y guardar reescribiría el original.
-    if (editing.value) await orgApi.updateDepartment(editing.value.id, form.value)
-    else await orgApi.createDepartment(entityId.value, form.value)
+    if (editing.value) {
+      await orgApi.updateDepartment(editing.value.id, form.value)
+      aviso.actualizado(form.value.name)
+    } else {
+      await orgApi.createDepartment(entityId.value, form.value)
+      aviso.creado('Departamento', form.value.name)
+    }
     formOpen.value = false
     await list.run()
   } catch (cause) {
@@ -269,7 +277,15 @@ void entities.run()
       :confirm-label="toggling.isActive ? 'Desactivar' : 'Reactivar'"
       :confirm-color="toggling.isActive ? 'warning' : 'primary'"
       :action="
-        async () => void (await orgApi.setDepartmentActive(toggling!.id, !toggling!.isActive))
+        async () => {
+          const seDesactiva = toggling!.isActive
+          const nombre = toggling!.name
+          await orgApi.setDepartmentActive(toggling!.id, !seDesactiva)
+          aviso.actualizado(
+            nombre,
+            seDesactiva ? 'Ya no se ofrece en adscripciones.' : 'Vuelve a ofrecerse.',
+          )
+        }
       "
       @update:open="
         (value: boolean) => {
@@ -308,7 +324,13 @@ void entities.run()
       resource-kind="departamento"
       :resource-name="`${deleting.code} · ${deleting.name}`"
       :load-dependencies="() => orgApi.departmentDependencies(deleting!.id)"
-      :remove="() => orgApi.removeDepartment(deleting!.id)"
+      :remove="
+        async () => {
+          const nombre = deleting!.name
+          await orgApi.removeDepartment(deleting!.id)
+          aviso.borrado('Departamento', nombre)
+        }
+      "
       @update:open="
         (value: boolean) => {
           if (!value) deleting = null

@@ -25,19 +25,29 @@ const props = defineProps<{
   query: Record<string, QueryValue>
   /** Ofrecer la variante con el detalle día a día. */
   conDetalle?: boolean
+  /**
+   * Ofrecer el DESGLOSE: un bloque por persona con sus días, sus retardos y
+   * sus horas extra uno por uno. Va a otra ruta —`/reports/breakdown`— porque
+   * contesta otra pregunta: aquel resume el periodo, este lo enseña.
+   */
+  rutaDelDesglose?: string
   label?: string
 }>()
 
 const descargando = ref<string | null>(null)
 const error = ref<string | null>(null)
 
-async function exportar(clave: string, extra: Record<string, QueryValue>): Promise<void> {
+async function exportar(
+  clave: string,
+  extra: Record<string, QueryValue>,
+  ruta?: string,
+): Promise<void> {
   if (descargando.value) return
   descargando.value = clave
   error.value = null
 
   try {
-    await downloadFile(props.path, { query: { ...props.query, ...extra } })
+    await downloadFile(ruta ?? props.path, { query: { ...props.query, ...extra } })
   } catch (fallo) {
     /*
      * El aviso se pinta AQUÍ, junto al botón, y no en la alerta de la página:
@@ -72,7 +82,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
     })
   }
 
-  return [
+  const grupos: DropdownMenuItem[][] = [
     excel,
     [
       {
@@ -82,6 +92,31 @@ const items = computed<DropdownMenuItem[][]>(() => {
       },
     ],
   ]
+
+  /*
+   * El desglose va en su propio grupo: no es «otro formato» del reporte de
+   * arriba, es otro documento. Aquel resume el periodo con una fila por
+   * persona; este trae los días de cada quien, sus retardos y sus horas extra
+   * uno por uno, con su propio turno.
+   */
+  if (props.rutaDelDesglose) {
+    grupos.push([
+      {
+        label: 'Desglose · Excel, día a día por persona',
+        icon: 'i-lucide-list-tree',
+        onSelect: () =>
+          void exportar('desglose-xlsx', { format: 'xlsx' }, props.rutaDelDesglose),
+      },
+      {
+        label: 'Desglose · Word, para entregar',
+        icon: 'i-lucide-file-type-2',
+        onSelect: () =>
+          void exportar('desglose-docx', { format: 'docx' }, props.rutaDelDesglose),
+      },
+    ])
+  }
+
+  return grupos
 })
 </script>
 

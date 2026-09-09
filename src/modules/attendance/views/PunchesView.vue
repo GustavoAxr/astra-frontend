@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { useAsync } from '@/shared/composables/useAsync'
+import { useLegalEntityFilter } from '@/modules/org/store'
+import { devicesApi } from '@/modules/devices/api'
 import { mergeQuery, type QueryChanges } from '@/shared/router/query'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
 import PageHeader from '@/shared/ui/PageHeader.vue'
@@ -26,6 +29,33 @@ const employeeId = computed(() => q('employeeId'))
 const deviceUserType = computed(() => q('deviceUserType'))
 const page = computed(() => Number(route.query.page ?? 1) || 1)
 
+/** La razón social de la barra superior. Filtro de comodidad, no alcance. */
+const { selectedId } = storeToRefs(useLegalEntityFilter())
+
+/**
+ * EL RELOJ, cuando hay más de uno.
+ *
+ * Con un solo equipo el selector sobra y se esconde: un desplegable de una
+ * opción solo ocupa sitio. Va en la URL como el resto de los filtros, para que
+ * la pantalla se pueda compartir tal cual se está viendo.
+ */
+const deviceId = computed(() => q('deviceId'))
+const devices = useAsync((signal) => devicesApi.list(undefined, signal))
+void devices.run()
+
+const deviceItems = computed(() => [
+  { label: 'Todos los relojes', value: NINGUNO },
+  ...(devices.data.value ?? [])
+    .filter((d) => selectedId.value === null || d.legalEntityId === selectedId.value)
+    .map((d) => ({
+      label: [d.brand, d.model].filter(Boolean).join(' ') || d.serialNumber,
+      value: d.id,
+    })),
+])
+
+/** Un desplegable de una sola opción no ayuda a nadie. */
+const hayVariosRelojes = computed(() => deviceItems.value.length > 2)
+
 const LIMIT = 50
 
 const list = useAsync((signal) =>
@@ -35,6 +65,8 @@ const list = useAsync((signal) =>
       to: to.value,
       employeeId: employeeId.value,
       deviceUserType: deviceUserType.value,
+      legalEntityId: selectedId.value ?? undefined,
+      deviceId: deviceId.value,
       page: page.value,
       limit: LIMIT,
     },
@@ -88,7 +120,11 @@ function apply(changes: QueryChanges): void {
   void router.replace({ query: mergeQuery(route.query, changes) })
 }
 
-watch([from, to, employeeId, deviceUserType, page], () => void list.run(), { immediate: true })
+watch(
+  [from, to, employeeId, deviceUserType, deviceId, selectedId, page],
+  () => void list.run(),
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -99,6 +135,20 @@ watch([from, to, employeeId, deviceUserType, page], () => void list.run(), { imm
       :count="list.loaded.value ? `${total}` : undefined"
     >
       <template #actions>
+        <!--
+          Solo cuando hay más de uno: con un equipo el desplegable no ayuda y
+          ocupa sitio. La razón social se elige en la barra de arriba, que es
+          donde vive para toda la aplicación.
+        -->
+        <USelectMenu
+          v-if="hayVariosRelojes"
+          :model-value="conNinguno(deviceId)"
+          :items="deviceItems"
+          value-key="value"
+          icon="i-lucide-alarm-clock"
+          class="w-52"
+          @update:model-value="(v: string) => apply({ deviceId: sinNinguno(v), page: undefined })"
+        />
         <USelectMenu
           :model-value="conNinguno(deviceUserType)"
           :items="tipoItems"

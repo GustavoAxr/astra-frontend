@@ -1,9 +1,34 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useAsync } from '@/shared/composables/useAsync'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
 import PageHeader from '@/shared/ui/PageHeader.vue'
+import { useAuthStore } from '@/modules/auth/store'
 import { healthApi } from '../api'
+import PasarListaModal from '../components/PasarListaModal.vue'
+import { DIAGNOSTICO } from '../types'
+import type { DeviceSyncState } from '../types'
+
+/**
+ * El diagnóstico de una fila. Va por una función porque las filas de `UTable`
+ * llegan sin tipo, y sin esto un diagnóstico que el servidor añadiera mañana
+ * reventaría en pantalla en vez de en el compilador.
+ */
+const diag = (estado: string) =>
+  DIAGNOSTICO[estado as DeviceSyncState['diagnostico']] ?? DIAGNOSTICO.SIN_ESTRENAR
+
+const auth = useAuthStore()
+
+/**
+ * Quién puede pasar lista. Los mismos que en el servidor —el supervisor de la
+ * nave incluido, porque es quien está ahí el día que el reloj muere—.
+ */
+const puedePasarLista = computed(() =>
+  auth.roles.some((r) => ['SUPERVISOR', 'RRHH', 'ADMIN_EMPRESA', 'SOPORTE'].includes(r)),
+)
+
+/** La base sobre la que se está pasando lista, si hay alguna. */
+const pasandoLista = ref<{ id: string; nombre: string } | null>(null)
 
 const state = useAsync((signal) => healthApi.syncState(signal))
 void state.run()
@@ -35,16 +60,61 @@ function failureLook(failures: number): { color: 'success' | 'warning' | 'error'
       :data="rows"
       :columns="[
         { accessorKey: 'serialNumber', header: 'Reloj' },
+        { id: 'diagnostico', header: 'Qué pasa' },
         { id: 'watermark', header: 'Marca de agua' },
         { accessorKey: 'lastSuccessAt', header: 'Última lectura buena' },
         { accessorKey: 'consecutiveFailures', header: 'Fallos' },
         { id: 'totals', header: 'Checadas' },
+        { id: 'acciones', header: '' },
       ]"
       :loading="state.pending.value"
       empty="Todavía no hay lecturas registradas. Aparecerán cuando un agente empiece a leer relojes."
     >
       <template #serialNumber-cell="{ row }">
         <span class="font-mono text-xs">{{ row.original.serialNumber }}</span>
+      </template>
+
+      <!--
+        La primera pregunta cuando dejan de llegar checadas es «¿qué se rompió?»,
+        y hasta ahora la pantalla solo sabía decir «no llegan». Un reloj mudo con
+        el agente vivo es una avería del aparato y las horas de ese rato NO
+        existen en ninguna parte; un agente mudo es el enlace, y esas checadas
+        están guardadas y van a llegar solas. Se atienden de forma opuesta.
+      -->
+      <!--
+        PASAR LISTA SOLO APARECE CON EL RELOJ MUDO.
+        Con el enlace caído las checadas están en la cola del agente y van a
+        llegar solas: registrarlas a mano ahí duplicaría a todo el mundo. Y con
+        todo al día no hay nada que suplir. Ofrecerlo siempre invitaría a usarlo
+        el día que no toca.
+      -->
+      <template #acciones-cell="{ row }">
+        <UButton
+          v-if="
+            puedePasarLista &&
+            row.original.diagnostico === 'RELOJ_MUDO' &&
+            row.original.installationId
+          "
+          label="Pasar lista"
+          icon="i-lucide-clipboard-list"
+          size="xs"
+          @click="
+            pasandoLista = {
+              id: row.original.installationId,
+              nombre: row.original.installationName ?? 'esta base',
+            }
+          "
+        />
+      </template>
+
+      <template #diagnostico-cell="{ row }">
+        <UBadge
+          :label="diag(row.original.diagnostico).label"
+          :color="diag(row.original.diagnostico).color"
+        />
+        <p class="text-dimmed mt-1 max-w-sm text-xs">
+          {{ diag(row.original.diagnostico).accion }}
+        </p>
       </template>
 
       <template #watermark-cell="{ row }">
@@ -77,5 +147,12 @@ function failureLook(failures: number): { color: 'success' | 'warning' | 'error'
         </span>
       </template>
     </UTable>
+
+    <PasarListaModal
+      v-if="pasandoLista"
+      :installation-id="pasandoLista.id"
+      :installation-name="pasandoLista.nombre"
+      @close="pasandoLista = null"
+    />
   </section>
 </template>

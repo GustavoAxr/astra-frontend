@@ -13,6 +13,7 @@ import { orgApi } from '../api'
 import { useLegalEntityFilter } from '../store'
 import LegalEntityFormModal from '../components/LegalEntityFormModal.vue'
 import InstallationFormModal from '../components/InstallationFormModal.vue'
+import { useAviso } from '@/shared/ui/aviso'
 import type { Installation, LegalEntity } from '../types'
 
 const auth = useAuthStore()
@@ -29,6 +30,8 @@ const installations = useAsync((signal) =>
 const canCreate = computed(() => auth.can('createLegalEntity'))
 const canEdit = computed(() => auth.can('editLegalEntity'))
 const canDelete = computed(() => auth.can('deleteLegalEntity'))
+const aviso = useAviso()
+
 const canCreateBase = computed(() => auth.can('createInstallation'))
 const canEditBase = computed(() => auth.can('editInstallation'))
 const canDeleteBase = computed(() => auth.can('deleteInstallation'))
@@ -75,6 +78,10 @@ function askToggleBase(installation: Installation): void {
     isActive: installation.isActive,
     apply: async () => {
       await orgApi.updateInstallation(installation.id, { isActive: !installation.isActive })
+      aviso.actualizado(
+        installation.name,
+        installation.isActive ? 'Queda inactiva.' : 'Vuelve a estar activa.',
+      )
     },
   }
 }
@@ -253,8 +260,17 @@ void refresh()
               </p>
               <p class="text-dimmed mt-1 text-xs">
                 {{ installation.timezone }}
-                <template v-if="installation.geofence">
-                  · geocerca {{ installation.geofence.radiusMeters }} m
+                <!--
+                  Se distingue el área dibujada del círculo porque son cosas
+                  distintas: «geocerca 105 m» en una nave alargada abarca la
+                  calle de atrás, y desde la tarjeta no habría forma de saber
+                  cuáles bases siguen así.
+                -->
+                <template v-if="installation.geofence?.polygon?.length">
+                  · área de {{ installation.geofence.polygon.length }} esquinas
+                </template>
+                <template v-else-if="installation.geofence">
+                  · círculo de {{ installation.geofence.radiusMeters }} m
                 </template>
                 <template v-else>· sin geocerca</template>
               </p>
@@ -340,7 +356,13 @@ void refresh()
       resource-kind="razón social"
       :resource-name="deleting.businessName"
       :load-dependencies="() => orgApi.legalEntityDependencies(deleting!.id)"
-      :remove="() => orgApi.deleteLegalEntity(deleting!.id)"
+      :remove="
+        async () => {
+          const nombre = deleting!.businessName
+          await orgApi.deleteLegalEntity(deleting!.id)
+          aviso.borrado('Razón social', nombre)
+        }
+      "
       @update:open="
         (value: boolean) => {
           if (!value) deleting = null
@@ -385,6 +407,7 @@ void refresh()
       :remove="
         async () => {
           await orgApi.deleteInstallation(deletingBase!.installation.id)
+          aviso.borrado(deletingBase!.installation.name)
         }
       "
       @update:open="

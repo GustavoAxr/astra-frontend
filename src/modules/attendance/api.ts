@@ -1,7 +1,9 @@
 import { http } from '@/shared/api/http'
+import { downloadFile } from '@/shared/api/download'
 import type {
   Adjustment,
   AttendanceDay,
+  PendingOvertime,
   AttendanceDayList,
   AttendanceSummary,
   DerivedAttendance,
@@ -13,6 +15,8 @@ export interface PunchQuery {
   employeeId?: string
   deviceId?: string
   installationId?: string
+  /** Filtro de comodidad; el alcance lo aplica RLS en el servidor. */
+  legalEntityId?: string
   from?: string
   to?: string
   /** Código crudo del fabricante, tal cual. Ver `@/domain/device-user-type`. */
@@ -24,6 +28,9 @@ export interface PunchQuery {
 export interface AttendanceQuery {
   employeeId?: string
   installationId?: string
+  legalEntityId?: string
+  /** La gente ENROLADA en ese reloj, no las checadas que salieron de él. */
+  deviceId?: string
   from?: string
   to?: string
   status?: string
@@ -55,7 +62,14 @@ export const attendanceApi = {
    * Es lo que alimenta las gráficas.
    */
   summary: (
-    q: { from?: string; to?: string; legalEntityId?: string; installationId?: string },
+    q: {
+      from?: string
+      to?: string
+      legalEntityId?: string
+      installationId?: string
+      /** La gente ENROLADA en ese reloj, no las checadas que salieron de él. */
+      deviceId?: string
+    },
     signal?: AbortSignal,
   ) => http.get<AttendanceSummary>('/attendance/summary', { query: { ...q }, signal }),
 
@@ -64,7 +78,12 @@ export const attendanceApi = {
    * Sale del mismo motor que el resumen, así que no puede sumar distinto.
    */
   day: (
-    q: { date: string; legalEntityId?: string; installationId?: string },
+    q: {
+      date: string
+      legalEntityId?: string
+      installationId?: string
+      deviceId?: string
+    },
     signal?: AbortSignal,
   ) => http.get<AttendanceDayList>('/attendance/day', { query: { ...q }, signal }),
 
@@ -73,7 +92,15 @@ export const attendanceApi = {
    * se autorizó no es un privilegio, es lo que hace auditable el pago.
    */
   adjustments: (
-    q: { employeeId?: string; status?: string; from?: string; to?: string },
+    q: {
+      employeeId?: string
+      status?: string
+      from?: string
+      to?: string
+      legalEntityId?: string
+      /** La gente enrolada en ese reloj. */
+      deviceId?: string
+    },
     signal?: AbortSignal,
   ) => http.get<Adjustment[]>('/attendance-adjustments', { query: { ...q }, signal }),
 
@@ -87,6 +114,9 @@ export const attendanceApi = {
     /** `REMOTE_WORK` exige minutos: no hay checadas de donde deducirlos. */
     adjustmentType: 'AUTHORIZE_OVERTIME' | 'REMOTE_WORK'
     proposedMinutes?: number
+    /** «de 18:00 a 22:00». Cuando van las dos, los minutos los calcula el servidor. */
+    requestedStart?: string
+    requestedEnd?: string
     reason: string
   }) =>
     http.post<Adjustment>('/attendance-adjustments', {
@@ -94,15 +124,64 @@ export const attendanceApi = {
       workDate: input.workDate,
       adjustmentType: input.adjustmentType,
       ...(input.proposedMinutes === undefined ? {} : { proposedMinutes: input.proposedMinutes }),
+      ...(input.requestedStart === undefined ? {} : { requestedStart: input.requestedStart }),
+      ...(input.requestedEnd === undefined ? {} : { requestedEnd: input.requestedEnd }),
       reason: input.reason,
     }),
 
   /**
-   * Aprobar o rechazar. El servidor rechaza que alguien apruebe lo que él mismo
-   * pidió —y antes que el servidor, una restricción de la base—.
+   * El PDF de una solicitud. Sale en CUALQUIER estado —pendiente, autorizada o
+   * rechazada— porque así circula: RRHH firma y el papel va a Dirección con esa
+   * firma puesta.
    */
-  resolveAdjustment: (id: string, decision: 'approve' | 'reject') =>
-    http.post<Adjustment>(`/attendance-adjustments/${id}/${decision}`),
+  descargarSolicitud: (id: string) => downloadFile(`/reports/overtime-requests/${id}`),
+
+  /**
+   * Aprobar o rechazar. El servidor rechaza que alguien apruebe lo que él mismo
+   * pidió —y antes que el servidor, una restricción de la base—. Al rechazar,
+   * la nota es obligatoria.
+   */
+  resolveAdjustment: (id: string, decision: 'approve' | 'reject', note?: string) =>
+    http.post<Adjustment>(
+      `/attendance-adjustments/${id}/${decision}`,
+      note === undefined ? {} : { note },
+    ),
+
+  /**
+   * El tiempo extra que detectó el reloj y nadie ha resuelto, por persona.
+   * El umbral de cada turno ya viene aplicado por el motor.
+   */
+  pendingOvertime: (
+    q: {
+      from?: string
+      to?: string
+      legalEntityId?: string
+      installationId?: string
+      /** La gente ENROLADA en ese reloj, no las checadas que salieron de él. */
+      deviceId?: string
+    },
+    signal?: AbortSignal,
+  ) => http.get<PendingOvertime>('/attendance/pending-overtime', { query: { ...q }, signal }),
+
+  /**
+   * Aceptar o rechazar de golpe los días detectados de una persona.
+   *
+   * Solo viajan las FECHAS: cuántos minutos tenía cada día lo recalcula el
+   * servidor. Es dinero de nómina y no puede depender de lo que mande esta
+   * pantalla.
+   */
+  resolveDetected: (input: {
+    employeeId: string
+    workDates: string[]
+    status: 'APPROVED' | 'REJECTED'
+    note?: string
+  }) =>
+    http.post<{ resueltos: number }>('/attendance-adjustments/detected', {
+      employeeId: input.employeeId,
+      workDates: input.workDates,
+      status: input.status,
+      ...(input.note === undefined ? {} : { note: input.note }),
+    }),
 
   /** El resultado calculado, solo la versión vigente de cada día. */
   attendance: (q: AttendanceQuery, signal?: AbortSignal) =>

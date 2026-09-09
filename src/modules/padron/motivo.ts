@@ -9,6 +9,11 @@ const TEXTOS: Record<MotivoDeDivergencia, { label: string; color: 'warning' | 'e
   // a alguien a quien Astra ya le puso fecha de salida.
   vigencia: { label: 'Vigencia', color: 'error' },
   bloqueo: { label: 'Bloqueo', color: 'error' },
+  // El fallo que no se ve: la credencial se reconoce, la checada llega y el
+  // imán no se suelta. La persona se queda fuera con el marcaje hecho.
+  permiso: { label: 'Sin permiso de puerta', color: 'error' },
+  // Una vigencia que empieza tarde deja fuera a quien acaba de entrar.
+  inicio: { label: 'Fecha de alta', color: 'warning' },
   nombre: { label: 'Nombre', color: 'warning' },
 }
 
@@ -16,7 +21,13 @@ export const motivoLabel = (m: MotivoDeDivergencia) => TEXTOS[m].label
 export const motivoColor = (m: MotivoDeDivergencia) => TEXTOS[m].color
 
 /** Lo que abre la puerta manda sobre lo cosmético al ordenar la lista. */
-const PESO: Record<MotivoDeDivergencia, number> = { vigencia: 0, bloqueo: 1, nombre: 2 }
+const PESO: Record<MotivoDeDivergencia, number> = {
+  permiso: 0,
+  vigencia: 1,
+  bloqueo: 2,
+  inicio: 3,
+  nombre: 4,
+}
 
 export const gravedad = (d: Divergencia): number =>
   Math.min(...d.motivos.map((m) => PESO[m]))

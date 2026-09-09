@@ -9,12 +9,15 @@ import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
 import DeleteResourceDialog from '@/shared/ui/DeleteResourceDialog.vue'
 import { summarizeShift } from '@/modules/employees/shift-summary'
 import type { ShiftPolicy } from '@/modules/employees/types'
+import { useAviso } from '@/shared/ui/aviso'
 import { useAuthStore } from '@/modules/auth/store'
 import { useLegalEntityFilter } from '@/modules/org/store'
 import { orgApi } from '@/modules/org/api'
-import { buildCycle, formatMinutes } from '../cycle'
+import { buildCycle, compromisoDelCiclo, formatMinutes } from '../cycle'
 import { shiftsApi } from '../api'
 import ShiftFormModal from '../components/ShiftFormModal.vue'
+
+const aviso = useAviso()
 
 const auth = useAuthStore()
 const { selectedId } = storeToRefs(useLegalEntityFilter())
@@ -45,6 +48,24 @@ const rows = computed(() =>
       entityName(a.legalEntityId).localeCompare(entityName(b.legalEntityId), 'es') ||
       a.code.localeCompare(b.code, 'es'),
   ),
+)
+
+/**
+ * El ciclo y su compromiso, calculados UNA vez por turno.
+ *
+ * Estaban resueltos en la plantilla, y ahí `buildCycle` corría tres veces por
+ * turno —una para la rejilla y dos para la frase— en cada repintado. Con
+ * veinte turnos en pantalla eso es sesenta reconstrucciones por cada tecla que
+ * alguien pulse en el buscador.
+ */
+const ciclos = computed(
+  () =>
+    new Map(
+      rows.value.map((p) => {
+        const dias = buildCycle(p)
+        return [p.id, { dias, compromiso: compromisoDelCiclo(p, dias) }]
+      }),
+    ),
 )
 
 /** `null` = alta; con turno = edición. */
@@ -134,6 +155,15 @@ const JORNADA: Record<string, string> = {
           <p class="text-muted mt-0.5 text-sm">
             {{ summarizeShift(policy).schedule }}
           </p>
+          <!--
+            QUÉ SE DEBE, cuando el turno no fija horas de entrada.
+            Un flexible no se explica con siete casillas iguales: lo que obliga
+            es «cumplir 20 h antes de que acabe el ciclo», y esa frase tiene que
+            estar donde alguien la lee, no deducirse de la rejilla.
+          -->
+          <p v-if="ciclos.get(policy.id)?.compromiso" class="text-primary mt-0.5 text-sm">
+            {{ ciclos.get(policy.id)?.compromiso }}
+          </p>
         </div>
 
         <div v-if="canWrite" class="ml-auto flex gap-1">
@@ -177,14 +207,30 @@ const JORNADA: Record<string, string> = {
       -->
       <div class="grid gap-2 px-5 py-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         <div
-          v-for="day in buildCycle(policy)"
+          v-for="day in ciclos.get(policy.id)?.dias ?? []"
           :key="day.day"
           class="border-default rounded-lg border p-3"
           :class="day.rest ? 'bg-elevated/30' : 'bg-default'"
         >
           <p class="text-dimmed text-xs font-medium tracking-wide uppercase">Día {{ day.day }}</p>
 
-          <p v-if="day.rest" class="text-muted mt-2 text-sm">Descanso</p>
+          <!--
+            CUATRO ESTADOS Y NO UN BOOLEANO. «Descanso» solo cuando alguien lo
+            declaró —o cuando el turno tiene horario fijo y ese día no lleva
+            jornada—. En un flexible, un día sin bloques es un día en el que SE
+            PUEDE trabajar, y llamarlo descanso era decir lo contrario de lo que
+            pasa.
+          -->
+          <p v-if="day.estado === 'DESCANSO'" class="text-muted mt-2 text-sm">Descanso</p>
+
+          <template v-else-if="day.estado === 'DISPONIBLE'">
+            <p class="text-default mt-2 text-sm">Disponible</p>
+            <p class="text-dimmed mt-0.5 text-xs">Cuenta para las horas del ciclo</p>
+          </template>
+
+          <template v-else-if="day.estado === 'SIN_HORARIO'">
+            <p class="text-muted mt-2 text-sm">Sin horario contractual</p>
+          </template>
 
           <template v-else>
             <div v-for="(block, i) in day.blocks" :key="i" class="mt-2">
@@ -195,8 +241,16 @@ const JORNADA: Record<string, string> = {
               </p>
               <p class="text-dimmed text-xs">
                 {{ block.label }}
+                <!--
+                  Se dice si el descanso SE DESCUENTA, no solo cuánto dura.
+                  «60 min de descanso» a secas dejaba creer que la jornada eran
+                  ocho horas cuando el motor contaba nueve.
+                -->
                 <template v-if="block.breakMinutes > 0">
                   · {{ block.breakMinutes }} min de descanso
+                  <span :class="block.breakAutoDeduct ? '' : 'text-warning'">
+                    {{ block.breakAutoDeduct ? 'descontados' : 'que SÍ cuentan como trabajo' }}
+                  </span>
                 </template>
               </p>
             </div>
@@ -235,7 +289,17 @@ const JORNADA: Record<string, string> = {
       "
       :confirm-label="toggling.isActive ? 'Desactivar' : 'Reactivar'"
       :confirm-color="toggling.isActive ? 'warning' : 'primary'"
-      :action="async () => void (await shiftsApi.setActive(toggling!.id, !toggling!.isActive))"
+      :action="
+        async () => {
+          const seDesactiva = toggling!.isActive
+          const nombre = toggling!.name
+          await shiftsApi.setActive(toggling!.id, !seDesactiva)
+          aviso.actualizado(
+            nombre,
+            seDesactiva ? 'Ya no se ofrece en adscripciones.' : 'Vuelve a ofrecerse.',
+          )
+        }
+      "
       @update:open="
         (value: boolean) => {
           if (!value) toggling = null
@@ -251,7 +315,13 @@ const JORNADA: Record<string, string> = {
       resource-kind="turno"
       :resource-name="`${deleting.code} · ${deleting.name}`"
       :load-dependencies="() => shiftsApi.dependencies(deleting!.id)"
-      :remove="() => shiftsApi.remove(deleting!.id)"
+      :remove="
+        async () => {
+          const nombre = deleting!.name
+          await shiftsApi.remove(deleting!.id)
+          aviso.borrado('Turno', nombre)
+        }
+      "
       @update:open="
         (value: boolean) => {
           if (!value) deleting = null

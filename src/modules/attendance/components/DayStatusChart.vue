@@ -32,6 +32,17 @@ const TRAMOS: Tramo[] = [
   { clave: 'onTime', label: 'Puntual', color: 'fill-success', valor: (d) => d.onTime },
   { clave: 'late', label: 'Retardo', color: 'fill-warning', valor: (d) => d.late },
   { clave: 'absent', label: 'Falta', color: 'fill-error', valor: (d) => d.absent },
+  /*
+   * PEGADO al de faltas y a propósito: quien mire la barra tiene que ver de un
+   * vistazo cuánto de lo que parece ausencia es en realidad un día que el reloj
+   * no reportó. En ámbar rayado, no en rojo: no es una falta.
+   */
+  {
+    clave: 'noData',
+    label: 'Sin datos del reloj',
+    color: 'fill-warning opacity-50',
+    valor: (d) => d.noData,
+  },
   { clave: 'incomplete', label: 'Incompleto', color: 'fill-info', valor: (d) => d.incomplete },
   // Lo que trae la migración 019. Sin estos tramos, un puente de tres días
   // dibujaría barras a la mitad y parecería que faltan datos, cuando lo que

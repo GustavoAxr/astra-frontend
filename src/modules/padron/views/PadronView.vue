@@ -5,11 +5,14 @@ import { useAsync } from '@/shared/composables/useAsync'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 import PageHeader from '@/shared/ui/PageHeader.vue'
+import { useAviso } from '@/shared/ui/aviso'
 import { useAuthStore } from '@/modules/auth/store'
 import { devicesApi } from '@/modules/devices/api'
 import { padronApi } from '../api'
 import { diaLegible, gravedad, motivoColor, motivoLabel } from '../motivo'
 import type { Divergencia, SyncResult } from '../types'
+
+const aviso = useAviso()
 
 const route = useRoute()
 const deviceId = String(route.params.deviceId)
@@ -52,6 +55,31 @@ const alDia = computed(() => difs.data.value?.alDia ?? 0)
  */
 const elegidas = ref(new Set<string>())
 
+/**
+ * A QUIÉN SE VIENE A ARREGLAR.
+ *
+ * El expediente manda aquí con `?destacar=<número del reloj>` justo después de
+ * dar de baja o reactivar a alguien. Se marca esa fila sola tras comparar: es
+ * exactamente el trabajo que quedaba pendiente y buscarla a ojo en un listado
+ * de cien números es cómo se olvida.
+ *
+ * Se marca, NO se empuja: escribir en la puerta lo sigue decidiendo una
+ * persona, con las credenciales del equipo delante.
+ */
+const destacado = computed(() => {
+  const q = route.query.destacar
+  const valor = Array.isArray(q) ? q[0] : q
+  return typeof valor === 'string' && valor.trim() !== '' ? valor : null
+})
+
+/** Si el reloj ya coincide con Astra, esa persona no sale en la lista. */
+const destacadoResuelto = computed(
+  () =>
+    destacado.value !== null &&
+    difs.loaded.value &&
+    !rows.value.some((r) => r.externalUserId === destacado.value),
+)
+
 const pushing = ref(false)
 const pushError = ref<Error | null>(null)
 const resultado = ref<SyncResult | null>(null)
@@ -77,6 +105,12 @@ async function buscar(): Promise<void> {
   resultado.value = null
   elegidas.value = new Set()
   await difs.run()
+
+  // La marca se pone DESPUÉS de comparar: antes no se sabe si esa persona
+  // siquiera difiere del reloj.
+  if (destacado.value && rows.value.some((r) => r.externalUserId === destacado.value)) {
+    elegidas.value = new Set([destacado.value])
+  }
 }
 
 async function empujar(): Promise<void> {
@@ -87,6 +121,16 @@ async function empujar(): Promise<void> {
     resultado.value = await padronApi.sync(deviceId, username.value, password.value, [
       ...elegidas.value,
     ])
+    /*
+     * «Encoladas», no «enviadas»: la orden viaja al reloj cuando el agente
+     * pase por ella. Decir que ya está en el equipo sería mentir por un rato.
+     */
+    aviso.hecho(
+      `${resultado.value.encoladas} órdenes encoladas`,
+      resultado.value.rechazadas.length > 0
+        ? `${resultado.value.rechazadas.length} no se pudieron encolar.`
+        : 'El agente las llevará al reloj en su próxima vuelta.',
+    )
     confirmando.value = false
     elegidas.value = new Set()
     await Promise.all([difs.run(), ordenes.run()])
@@ -124,6 +168,27 @@ const ESTADOS: Record<string, { label: string; color: 'neutral' | 'warning' | 's
       un empleado; esto corrige el nombre de quien ya está vinculado. Son dos
       decisiones distintas y se toman en dos pantallas distintas a propósito.
     -->
+    <!--
+      Se llega aquí desde una baja o una reactivación. Se dice a quién se venía a
+      arreglar, y se dice también cuando ya no hace falta: un padrón sin esa
+      fila, sin explicación, se lee como que algo salió mal.
+    -->
+    <UAlert
+      v-if="destacado"
+      :icon="destacadoResuelto ? 'i-lucide-check' : 'i-lucide-user-round-cog'"
+      :color="destacadoResuelto ? 'success' : 'info'"
+      :title="
+        destacadoResuelto
+          ? `El número ${destacado} ya coincide con Astra`
+          : `Vienes por el número ${destacado}`
+      "
+      :description="
+        destacadoResuelto
+          ? 'No queda nada que empujar para esa persona en este equipo.'
+          : 'Compara el padrón y quedará marcado solo. Revisa lo que dice su fila antes de empujar.'
+      "
+    />
+
     <UAlert
       icon="i-lucide-info"
       color="neutral"
@@ -173,7 +238,7 @@ const ESTADOS: Record<string, { label: string; color: 'neutral' | 'warning' | 's
       v-if="difs.loaded.value && !rows.length"
       icon="i-lucide-check-check"
       title="El reloj está como Astra dice"
-      :description="`Las ${alDia} personas vinculadas coinciden en nombre, vigencia y bloqueo. Los acentos y las mayúsculas no cuentan como diferencia: «Gomez» y «Gómez» son la misma persona.`"
+      :description="`Las ${alDia} personas vinculadas coinciden en nombre, vigencia, bloqueo y permiso de puerta. Los acentos y las mayúsculas no cuentan como diferencia: «Gomez» y «Gómez» son la misma persona.`"
     />
 
     <UCard v-else-if="rows.length">
@@ -233,7 +298,12 @@ const ESTADOS: Record<string, { label: string; color: 'neutral' | 'warning' | 's
         </template>
 
         <template #externalUserId-cell="{ row }">
-          <span class="font-mono text-xs">{{ row.original.externalUserId }}</span>
+          <!-- La fila por la que se vino se distingue sin leer los cien números. -->
+          <span
+            class="font-mono text-xs"
+            :class="row.original.externalUserId === destacado ? 'text-primary font-semibold' : ''"
+            >{{ row.original.externalUserId }}</span
+          >
           <span class="text-dimmed ml-2 font-mono text-xs">{{ row.original.employeeCode }}</span>
         </template>
 
@@ -253,8 +323,22 @@ const ESTADOS: Record<string, { label: string; color: 'neutral' | 'warning' | 's
             <div v-if="row.original.motivos.includes('vigencia')">
               {{ diaLegible(row.original.vigencia.enElEquipo) }}
             </div>
+            <div v-if="row.original.motivos.includes('inicio')">
+              desde {{ diaLegible(row.original.inicio.enElEquipo) }}
+            </div>
             <div v-if="row.original.motivos.includes('bloqueo')">
               {{ row.original.bloqueo.enElEquipo ? 'le abre' : 'bloqueado' }}
+            </div>
+            <!--
+              Se dice qué significa, no el número de plantilla: «sin permiso»
+              es la frase que explica por qué esa persona checa y no entra.
+            -->
+            <div v-if="row.original.motivos.includes('permiso')" class="text-error">
+              {{
+                row.original.permiso.enElEquipo
+                  ? `plantilla ${row.original.permiso.enElEquipo}`
+                  : 'sin permiso: checa y no abre'
+              }}
             </div>
           </div>
         </template>
@@ -267,8 +351,14 @@ const ESTADOS: Record<string, { label: string; color: 'neutral' | 'warning' | 's
             <div v-if="row.original.motivos.includes('vigencia')">
               {{ diaLegible(row.original.vigencia.enAstra) }}
             </div>
+            <div v-if="row.original.motivos.includes('inicio')">
+              desde {{ diaLegible(row.original.inicio.enAstra) }}
+            </div>
             <div v-if="row.original.motivos.includes('bloqueo')">
               {{ row.original.bloqueo.enAstra ? 'le abre' : 'bloqueado' }}
+            </div>
+            <div v-if="row.original.motivos.includes('permiso')">
+              plantilla {{ row.original.permiso.enAstra }}
             </div>
           </div>
         </template>
@@ -283,7 +373,8 @@ const ESTADOS: Record<string, { label: string; color: 'neutral' | 'warning' | 's
       <template #body>
         <div class="space-y-3">
           <p class="text-muted text-sm">
-            Se manda el estado completo de cada persona —nombre, vigencia y bloqueo—, no solo
+            Se manda el estado completo de cada persona —nombre, vigencia, bloqueo y permiso de
+            puerta—, no solo
             lo que difiere: el equipo sustituye el registro entero en cada escritura. El número
             interno no cambia, así que sus marcajes anteriores siguen asociados.
           </p>

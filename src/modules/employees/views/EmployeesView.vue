@@ -12,7 +12,7 @@ import { useAuthStore } from '@/modules/auth/store'
 import { orgApi } from '@/modules/org/api'
 import { employeesApi } from '../api'
 import EmployeeFormModal from '../components/EmployeeFormModal.vue'
-import type { Employee } from '../types'
+import { ESTADOS_DE_PLANTILLA, type Employee, type EstadoDePlantilla } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -39,6 +39,19 @@ void entities.run()
  */
 const page = computed(() => Number(route.query.page ?? 1) || 1)
 const search = computed(() => String(route.query.search ?? ''))
+
+/**
+ * Qué parte de la plantilla se mira. En la URL, como el resto de los filtros:
+ * así «los dados de baja» es un enlace que se puede compartir y sobrevive a un
+ * recargar.
+ *
+ * Por omisión, los activos. La vista de las bajas es la que hacía falta para
+ * responder a «¿quién sigue en el reloj pero ya no trabaja aquí?».
+ */
+const estado = computed<EstadoDePlantilla>(() => {
+  const valor = String(route.query.estado ?? 'activos')
+  return valor === 'inactivos' || valor === 'todos' ? valor : 'activos'
+})
 const legalEntityId = computed(() =>
   typeof route.query.legalEntityId === 'string' ? route.query.legalEntityId : undefined,
 )
@@ -51,6 +64,7 @@ const { data, pending, error, loaded, run } = useAsync((signal) =>
       page: page.value,
       limit: PAGE_SIZE,
       search: search.value,
+      estado: estado.value,
       legalEntityId: legalEntityId.value,
     },
     signal,
@@ -104,7 +118,7 @@ watch(legalEntityId, (value) => {
   if (value !== undefined) legalEntityFilter.select(value)
 })
 
-watch([page, search, legalEntityId], () => void run(), { immediate: true })
+watch([page, search, estado, legalEntityId], () => void run(), { immediate: true })
 </script>
 
 <template>
@@ -120,6 +134,16 @@ watch([page, search, legalEntityId], () => void run(), { immediate: true })
           placeholder="Nombre o clave"
           icon="i-lucide-search"
           class="w-64"
+        />
+        <USelectMenu
+          :model-value="estado"
+          :items="ESTADOS_DE_PLANTILLA"
+          value-key="value"
+          class="w-44"
+          @update:model-value="
+            (value: string) =>
+              apply({ estado: value === 'activos' ? undefined : value, page: undefined })
+          "
         />
         <UButton
           v-if="canCreate"

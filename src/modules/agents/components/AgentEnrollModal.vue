@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
+import { useAviso } from '@/shared/ui/aviso'
 import type { Installation } from '@/modules/org/types'
 import { agentsApi } from '../api'
 import type { AgentEnrollment } from '../types'
 
 defineProps<{ installations: Installation[] }>()
 const emit = defineEmits<{ enrolled: [] }>()
+const aviso = useAviso()
 
 const open = ref(false)
 const installationId = ref('')
@@ -32,6 +34,12 @@ async function submit(): Promise<void> {
       installationId: installationId.value,
       agentCode: agentCode.value,
     })
+    /*
+     * El modal NO se cierra: adentro está el secreto, que solo se ve esta vez.
+     * Por eso el aviso dice además que hay que copiarlo — es lo único que
+     * distingue este alta de cualquier otra.
+     */
+    aviso.creado('Agente', 'Copia el secreto antes de cerrar: no se vuelve a mostrar.')
     emit('enrolled')
   } catch (cause) {
     error.value = cause instanceof Error ? cause : new Error(String(cause))
@@ -42,8 +50,14 @@ async function submit(): Promise<void> {
 
 async function copy(): Promise<void> {
   if (!enrollment.value) return
-  await navigator.clipboard.writeText(enrollment.value.secret)
-  copied.value = true
+  try {
+    await navigator.clipboard.writeText(enrollment.value.secret)
+    copied.value = true
+  } catch (cause) {
+    // Sin HTTPS el portapapeles no existe, y fallaba en silencio: alguien
+    // cerraba el modal creyendo que ya tenía el secreto copiado.
+    aviso.fallo(cause, 'copiar el secreto')
+  }
 }
 
 watch(open, (isOpen) => {

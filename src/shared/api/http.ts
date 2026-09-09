@@ -48,8 +48,22 @@ export const http = {
     request<T>(path, 'POST', body, options),
   patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>(path, 'PATCH', body, options),
-  delete: <T>(path: string, options?: RequestOptions) =>
-    request<T>(path, 'DELETE', undefined, options),
+  /**
+   * `PUT` para lo que se SUSTITUYE entero, no se retoca: la foto del
+   * expediente. `PATCH` significaría que se puede mandar media foto.
+   */
+  put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+    request<T>(path, 'PUT', body, options),
+  /**
+   * `DELETE` con cuerpo opcional.
+   *
+   * Casi ninguno lo lleva, pero un borrado que exige teclear el nombre de lo
+   * que se borra sí: ese nombre no puede ir en la URL —acabaría en los registros
+   * de acceso de cualquier proxy— y el método correcto para borrar sigue siendo
+   * DELETE. Los dos extremos son nuestros, así que el cuerpo llega entero.
+   */
+  delete: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+    request<T>(path, 'DELETE', body, options),
 }
 
 export type { QueryValue }

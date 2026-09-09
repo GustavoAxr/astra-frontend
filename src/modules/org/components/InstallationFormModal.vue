@@ -1,10 +1,38 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, h, ref, watch } from 'vue'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
 import { timezoneItems, timezoneOffset } from '@/shared/ui/timezones'
 import { orgApi } from '../api'
+import { useAviso } from '@/shared/ui/aviso'
 import { installationPlan } from '../installation-plan'
-import type { Installation, LegalEntity, UpdateInstallationForm } from '../types'
+import type {
+  GeoPoint,
+  Installation,
+  LegalEntity,
+  UpdateInstallationForm,
+} from '../types'
+/**
+ * El editor se baja aparte, y solo al abrir este formulario.
+ *
+ * Se lleva dentro a Leaflet, que son unos 150 KB. Yendo con el resto de la
+ * pantalla, esos 150 KB los pagaba TODO EL MUNDO al entrar en Organización
+ * —para mirar razones sociales, para renombrar un puesto—, y el mapa lo abre
+ * una persona cada muchos días. Aquí se piden cuando de verdad hacen falta, y
+ * van en paralelo con las primeras imágenes.
+ */
+const CartelParaChecar = defineAsyncComponent(() => import('./CartelParaChecar.vue'))
+
+const GeofenceEditor = defineAsyncComponent({
+  loader: () => import('./GeofenceEditor.vue'),
+  /*
+   * Un hueco de la misma altura que el mapa mientras baja. Sin él, el
+   * formulario crece de golpe al llegar el editor y lo que estabas leyendo se
+   * te va de debajo del cursor.
+   */
+  loadingComponent: () =>
+    h('div', { class: 'ring-default bg-elevated/50 h-96 w-full rounded-lg ring-1' }),
+  delay: 0,
+})
 
 const props = defineProps<{
   /** La empresa de contexto. Al clonar es la de ORIGEN, no la de destino. */
@@ -49,8 +77,42 @@ const address = ref('')
 const latitude = ref('')
 const longitude = ref('')
 const radius = ref(DEFAULT_RADIUS)
+
+/**
+ * El área dibujada. Manda sobre el radio cuando tiene tres o más esquinas.
+ *
+ * Se guarda aparte del radio y no lo sustituye: una base puede seguir con su
+ * círculo, y obligar a redibujar todas para poder actualizar el sistema sería
+ * garantizar que nadie lo actualice.
+ */
+const poligono = ref<GeoPoint[]>([])
+
+/**
+ * Dónde abrir el mapa. El centro capturado si lo hay; si no, la primera esquina
+ * del área. Sin ninguno de los dos, el editor abre en su punto por omisión: es
+ * preferible a un mapa del océano.
+ */
+const centroDelMapa = computed<GeoPoint | null>(() => {
+  const lat = Number(latitude.value)
+  const lng = Number(longitude.value)
+  if (latitude.value.trim() !== '' && !Number.isNaN(lat) && !Number.isNaN(lng)) {
+    return { lat, lng }
+  }
+  return poligono.value[0] ?? null
+})
+const aviso = useAviso()
+
 const submitting = ref(false)
 const error = ref<Error | null>(null)
+
+/**
+ * La base ya guardada, para enseñar su cartel sin cerrar el formulario.
+ *
+ * El QR es una propiedad de la base como su domicilio: existe desde que la base
+ * existe y no caduca. Enseñarlo AQUÍ, en el momento de guardar, es lo que
+ * evita que el día de la avería alguien tenga que ir a buscar dónde se genera.
+ */
+const guardada = ref<Installation | null>(null)
 
 const editing = computed(() => props.installation != null && props.clone !== true)
 const cloning = computed(() => props.clone === true)
@@ -97,6 +159,7 @@ watch(
     latitude.value = current?.geofence ? String(current.geofence.center.lat) : ''
     longitude.value = current?.geofence ? String(current.geofence.center.lng) : ''
     radius.value = current?.geofence ? String(current.geofence.radiusMeters) : DEFAULT_RADIUS
+    poligono.value = current?.geofence?.polygon ?? []
     // Al clonar no se elige destino por omisión: que la persona lo diga.
     targetEntityId.value = ''
     error.value = null
@@ -139,14 +202,27 @@ async function submit(): Promise<void> {
       if (lng !== current.geofence?.center.lng) changes.longitude = lng
       if (rad !== current.geofence?.radiusMeters) changes.geofenceRadiusMeters = rad
 
+      /*
+       * El área se manda si cambió, y una lista VACÍA es un cambio legítimo:
+       * significa «borra el dibujo y vuelve al círculo». Por eso se compara el
+       * contenido y no se descarta por estar vacía como el resto.
+       */
+      const antes = JSON.stringify(current.geofence?.polygon ?? [])
+      if (JSON.stringify(poligono.value) !== antes) {
+        changes.geofencePolygon = poligono.value
+      }
+
       // Un `undefined` suelto viajaría como campo desconocido: se descarta.
       for (const key of Object.keys(changes) as (keyof UpdateInstallationForm)[]) {
         if (changes[key] === undefined) delete changes[key]
       }
 
-      if (Object.keys(changes).length > 0) await orgApi.updateInstallation(current.id, changes)
+      guardada.value =
+        Object.keys(changes).length > 0
+          ? await orgApi.updateInstallation(current.id, changes)
+          : current
     } else {
-      await orgApi.createInstallation({
+      guardada.value = await orgApi.createInstallation({
         legalEntityId: plan.legalEntityId,
         name: name.value,
         timezone: timezone.value,
@@ -154,10 +230,23 @@ async function submit(): Promise<void> {
         latitude: latitude.value,
         longitude: longitude.value,
         geofenceRadiusMeters: radius.value,
+        geofencePolygon: poligono.value,
       })
     }
 
-    open.value = false
+    /*
+     * NO SE CIERRA AL GUARDAR: se queda enseñando el cartel de esa base.
+     *
+     * Cerrar de golpe era lo cómodo de programar y lo peor de usar — quien
+     * acaba de dar de alta una base es exactamente quien puede imprimir su
+     * cartel y pegarlo, y en ese momento tiene la impresora a mano y la cabeza
+     * en esa base. La lista de atrás ya está actualizada por el `saved`.
+     */
+    if (guardada.value) {
+      if (editing.value) aviso.actualizado(guardada.value.name)
+      else aviso.creado(guardada.value.name, 'Su cartel para checar ya funciona.')
+    }
+
     emit('saved')
   } catch (cause) {
     error.value = cause instanceof Error ? cause : new Error(String(cause))
@@ -178,6 +267,36 @@ async function submit(): Promise<void> {
     "
   >
     <template #body>
+      <!--
+        EL CARTEL, JUSTO DESPUÉS DE GUARDAR.
+        No es una pantalla aparte ni hay que «abrir» nada: la base tiene su QR
+        desde que existe, y este es el único momento en que quien la dio de alta
+        lo tiene delante con la impresora cerca.
+      -->
+      <div v-if="guardada" class="space-y-4">
+        <UAlert
+          color="success"
+          icon="i-lucide-circle-check-big"
+          :title="`${guardada.name} guardada`"
+          description="Su cartel para checar sin reloj ya funciona. Imprímelo y pégalo en la puerta: sirve siempre, no solo cuando el reloj falla."
+        />
+
+        <UAlert
+          v-if="poligono.length < 3"
+          color="warning"
+          icon="i-lucide-map-pin-off"
+          title="Esta base no tiene área dibujada"
+          description="Sin área, una checada desde el teléfono vale desde cualquier parte. Dibújala en el mapa antes de pegar el cartel."
+        />
+
+        <CartelParaChecar :installation="guardada" />
+
+        <div class="flex justify-end">
+          <UButton label="Listo" @click="open = false" />
+        </div>
+      </div>
+
+      <template v-else>
       <form class="space-y-4" @submit.prevent="submit">
         <!--
           Solo al duplicar. Es un alta normal con el formulario ya relleno: lo
@@ -222,13 +341,23 @@ async function submit(): Promise<void> {
         </UFormField>
 
         <!--
-          La geocerca es para la checada por teléfono, que todavía no existe.
-          El dato se captura desde ahora; no hace falta un mapa para eso.
+          La geocerca decide si vale una checada hecha por teléfono cuando el
+          reloj está roto. El radio sirve para un patio cuadrado; el ÁREA
+          dibujada es lo que hace falta en cuanto la nave es alargada, porque un
+          círculo que la cubra entera abarca también la calle de atrás.
         -->
         <fieldset class="border-default rounded-lg border p-3">
           <legend class="text-muted px-1 text-xs font-medium tracking-wide uppercase">
             Geocerca
           </legend>
+
+          <GeofenceEditor
+            v-model="poligono"
+            :centro="centroDelMapa"
+            :radio-metros="Number(radius) || 75"
+            class="mb-3"
+          />
+
           <div class="grid gap-3 sm:grid-cols-3">
             <UFormField label="Latitud">
               <UInput v-model="latitude" placeholder="18.6439" class="w-full font-mono" />
@@ -241,7 +370,8 @@ async function submit(): Promise<void> {
             </UFormField>
           </div>
           <p class="text-dimmed mt-2 text-xs">
-            Entre 10 y 5000 metros. Sirve para la checada por teléfono, que aún no existe.
+            El centro y el radio siguen valiendo mientras no haya área dibujada. Entre 10 y 5000
+            metros.
           </p>
         </fieldset>
 
@@ -257,6 +387,7 @@ async function submit(): Promise<void> {
           />
         </div>
       </form>
+      </template>
     </template>
   </UModal>
 </template>

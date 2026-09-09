@@ -16,7 +16,15 @@ export interface Installation {
   name: string
   timezone: string
   address: string | null
-  geofence: { center: { lat: number; lng: number }; radiusMeters: number } | null
+  /**
+   * `polygon` con vértices MANDA sobre `radiusMeters`: es el área dibujada de
+   * verdad. Vacío = la base sigue con su círculo.
+   */
+  geofence: {
+    center: { lat: number; lng: number }
+    radiusMeters: number
+    polygon: GeoPoint[]
+  } | null
   isActive: boolean
 }
 
@@ -60,6 +68,14 @@ export interface CreateInstallationForm {
   latitude: string
   longitude: string
   geofenceRadiusMeters: string
+  /** El área real, dibujada. Vacío = la instalación se queda con su círculo. */
+  geofencePolygon: GeoPoint[]
+}
+
+/** Un punto en el mapa. Grados decimales, como los da cualquier mapa. */
+export interface GeoPoint {
+  lat: number
+  lng: number
 }
 
 /** El `code` **no** se puede cambiar: no existe en el PATCH. */
@@ -70,6 +86,12 @@ export interface UpdateInstallationForm {
   latitude?: number
   longitude?: number
   geofenceRadiusMeters?: number
+  /**
+   * Mandar una lista VACÍA borra el área y devuelve la base a su círculo. Es
+   * la única forma de deshacer un dibujo sin que el servidor tenga que adivinar
+   * si «sin polígono» significa «bórralo» o «no lo toques».
+   */
+  geofencePolygon?: GeoPoint[]
   isActive?: boolean
 }
 
