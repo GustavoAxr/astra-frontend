@@ -1,3 +1,10 @@
+import type {
+  AuthenticationResponseJSON,
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+  RegistrationResponseJSON,
+} from '@simplewebauthn/browser'
+
 import { http } from '@/shared/api/http'
 
 /**
@@ -29,6 +36,8 @@ export interface ChecadaRemota {
   nombre: string
   /** Si salió el acuse al correo. `false` = no tiene correo en el expediente. */
   comprobante: boolean
+  /** Si se firmó con la huella. Se pinta, porque cambia lo que vale la checada. */
+  firmada: boolean
 }
 
 export interface TelefonoRemoto {
@@ -60,11 +69,50 @@ export const remotoApi = {
 
   checar: (
     entityId: string,
-    cuerpo: { token: string; lat: number; lng: number; accuracyMeters?: number },
+    cuerpo: {
+      token: string
+      lat: number
+      lng: number
+      accuracyMeters?: number
+      firma?: AuthenticationResponseJSON
+    },
   ) =>
     http.post<ChecadaRemota>(`/remote/${entityId}/punch`, cuerpo, {
       skipRefresh: true,
     }),
+
+  /* ---- La llave del propio teléfono -------------------------------- */
+
+  /*
+   * Las tres van con el token porque es lo único que dice DE QUIÉN es este
+   * teléfono. La passkey demuestra que quien está delante es su dueño; el
+   * token, a qué expediente pertenece ese dueño. Hacen falta las dos.
+   */
+
+  opcionesDeLlave: (entityId: string, token: string) =>
+    http.post<PublicKeyCredentialCreationOptionsJSON>(
+      `/remote/${entityId}/passkey/options`,
+      { token },
+      { skipRefresh: true },
+    ),
+
+  activarLlave: (
+    entityId: string,
+    token: string,
+    respuesta: RegistrationResponseJSON,
+  ) =>
+    http.post<{ listo: true }>(
+      `/remote/${entityId}/passkey`,
+      { token, respuesta },
+      { skipRefresh: true },
+    ),
+
+  opcionesDeChecada: (entityId: string, token: string) =>
+    http.post<PublicKeyCredentialRequestOptionsJSON>(
+      `/remote/${entityId}/punch/options`,
+      { token },
+      { skipRefresh: true },
+    ),
 
   /* ---- Y lo que se ve desde Astra, con sesión ----------------------- */
 

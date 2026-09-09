@@ -42,13 +42,17 @@ export const asistenteApi = {
     http.get<VinculoDelAsistente[]>('/assistant/links', { signal }),
 
   /**
-   * Abre un alta y devuelve el enlace.
+   * Abre un alta y MANDA EL ENLACE AL CORREO de esa cuenta.
    *
-   * `porCorreo` además se lo manda a su buzón. El enlace se devuelve en los dos
-   * casos: el correo es una comodidad, no la vía — si el buzón falla, quien
-   * administra lo copia o lo enseña como QR igual.
+   * El correo es la vía por omisión, no un extra: el enlace sale al buzón
+   * registrado de la persona y a ningún otro sitio, sin que nadie tenga que
+   * copiarlo ni pegarlo en otro chat.
+   *
+   * Se devuelve igualmente para enseñarlo aquí —como QR o para copiar—, porque
+   * si el correo falla el alta ya existe y hay que poder entregarla a mano.
+   * `porCorreo: false` es para eso: dárselo en persona sin llenarle el buzón.
    */
-  crear: (userId: string, porCorreo = false) =>
+  crear: (userId: string, porCorreo = true) =>
     http.post<AltaAbierta>('/assistant/links', { userId, porCorreo }),
 
   revocar: (id: string) => http.delete<{ revocado: boolean }>(`/assistant/links/${id}`),

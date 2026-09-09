@@ -6,6 +6,7 @@ import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import ui from '@nuxt/ui/vite'
+import { VitePWA } from 'vite-plugin-pwa'
 
 // Variantes por defecto del proyecto, verificadas contra el tema de @nuxt/ui 4.11
 // (son los únicos componentes que declaran `variants.variant.ghost` / `.soft`).
@@ -29,6 +30,156 @@ export default defineConfig({
      * verdad.
      */
     basicSsl(),
+    /*
+     * LA PANTALLA DE CHECAR A DISTANCIA, INSTALABLE.
+     *
+     * POR QUÉ HACE FALTA, Y NO ES COMODIDAD
+     * 1. El front vive en un servidor que puede caer (capa gratuita). Sin
+     *    service worker, si ese servidor está muerto a las ocho de la mañana
+     *    nadie que trabaje desde casa puede checar, y eso es nómina. Con él, el
+     *    caparazón carga de la caché del propio teléfono y solo hace falta que
+     *    conteste la API, que vive en otro servidor.
+     * 2. **iOS solo entrega notificaciones push a una web instalada en la
+     *    pantalla de inicio.** Sin esto no hay recordatorios en iPhone, y punto.
+     * 3. Un icono en la pantalla de inicio es lo que convierte «abre esta URL»
+     *    en «dale al botón verde».
+     *
+     * EL ALCANCE ES `/remoto`, NO TODA ASTRA
+     * El manifiesto acota la aplicación instalada a la pantalla de checar. Las
+     * pantallas de administración no tienen nada que hacer en un icono del
+     * teléfono de un operario, y una pantalla de nómina cacheada en un aparato
+     * personal es justo lo que no queremos.
+     *
+     * EL SERVICE WORKER, EN CAMBIO, VA EN LA RAÍZ, y es a propósito: un worker
+     * registrado en `/remoto/` NO puede servir `/assets/*`, que es donde vive
+     * todo el JavaScript. Con el alcance acotado, el caparazón no se podría
+     * cargar sin red — que es justo lo único que se le pide.
+     */
+    VitePWA({
+      /*
+       * `autoUpdate` y no `prompt`. Preguntar «¿quieres actualizar?» a alguien
+       * que abrió la aplicación para checar y llega tarde es ponerle un
+       * obstáculo delante; y una versión vieja de una pantalla que registra
+       * jornada no es algo que convenga dejar a su elección.
+       */
+      registerType: 'autoUpdate',
+      /*
+       * LOS ICONOS VIVEN EN `/iconos/`, NO EN `/remoto/`.
+       *
+       * `public/remoto/` creaba una CARPETA REAL con el mismo nombre que la
+       * ruta de la aplicación. nginx la encontraba antes que el reenvío de la
+       * página única y contestaba a `/remoto` con un 301 hacia `/remoto/` —
+       * justo la dirección que el manifiesto declara como `start_url`. Una
+       * redirección ahí rompe la comprobación de alcance de la aplicación
+       * instalada, que es lo único que sostiene el icono de la pantalla de
+       * inicio.
+       */
+      includeAssets: ['iconos/apple-touch-icon.png', 'iconos/icono.svg'],
+      manifest: {
+        id: '/remoto',
+        name: 'Astra · Checar a distancia',
+        /* Lo que cabe debajo del icono en un teléfono: doce caracteres. */
+        short_name: 'Checar',
+        description: 'Registra tu jornada desde donde trabajas.',
+        lang: 'es-MX',
+        dir: 'ltr',
+        /*
+         * `/remoto` sin empresa: la pantalla recuerda la última y redirige. El
+         * manifiesto es un archivo estático y no puede llevar dentro el
+         * identificador de una razón social.
+         */
+        start_url: '/remoto',
+        scope: '/remoto',
+        display: 'standalone',
+        orientation: 'portrait',
+        background_color: '#059669',
+        theme_color: '#059669',
+        categories: ['business', 'productivity'],
+        icons: [
+          {
+            src: '/iconos/icono-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: '/iconos/icono-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+          },
+          /*
+           * `maskable` aparte y con el dibujo encogido al 72 %: Android recorta
+           * el icono a la forma que tenga el lanzador —círculo, cuadrado con
+           * esquinas, gota— y sin margen se come el tejado de la casa.
+           */
+          {
+            src: '/iconos/icono-maskable-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+        ],
+      },
+      workbox: {
+        /*
+         * PRECARGA MÍNIMA, A PROPÓSITO.
+         *
+         * Lo cómodo sería precargar `**\/*.js`, pero eso baja a un teléfono con
+         * datos móviles el paquete ENTERO de Astra —mapas, editor de geocercas,
+         * pantallas de nómina— para una pantalla que tiene un botón. Aquí solo
+         * entra el caparazón; los trozos de JavaScript que la pantalla use de
+         * verdad se quedan cacheados al pasar por ellos, con la regla de abajo.
+         */
+        globPatterns: ['index.html', 'favicon.ico', 'iconos/*.{png,svg}'],
+        navigateFallback: '/index.html',
+        /*
+         * Y SOLO PARA `/remoto`. Sin esta lista, el worker contestaría con el
+         * caparazón cacheado a CUALQUIER navegación de Astra estando sin red, y
+         * quien abriera la pantalla de empleados vería una aplicación que
+         * arranca y luego falla en cada llamada. Es peor que un error del
+         * navegador: parece que funciona.
+         */
+        navigateFallbackAllowlist: [/^\/remoto/],
+        runtimeCaching: [
+          {
+            /*
+             * Los nombres llevan hash: un archivo de `/assets/` nunca cambia de
+             * contenido sin cambiar de nombre, así que `CacheFirst` no puede
+             * servir nada viejo. Es lo que hace que la segunda visita —y la
+             * visita con el servidor caído— tengan JavaScript.
+             */
+            urlPattern: ({ url, sameOrigin }) =>
+              sameOrigin && url.pathname.startsWith('/assets/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'astra-assets',
+              expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            /*
+             * LA API NO SE CACHEA NUNCA, Y SE DICE EN VOZ ALTA.
+             *
+             * Workbox no cachearía estas llamadas de todos modos —son de otro
+             * origen y ninguna regla las toca—, pero dejarlo escrito es lo que
+             * impide que un día alguien añada una regla amplia «para que vaya
+             * más rápido» y una checada se sirva de la caché. Una checada
+             * cacheada es una jornada que no ocurrió.
+             */
+            urlPattern: ({ url }) => /\/(remote|contingency|auth)\//.test(url.pathname),
+            handler: 'NetworkOnly',
+          },
+        ],
+        /* Que la versión nueva mande desde el primer instante. */
+        clientsClaim: true,
+        skipWaiting: true,
+      },
+      /*
+       * Activo también en desarrollo: sin esto, la única forma de comprobar que
+       * la instalación y el modo sin red funcionan sería desplegando.
+       */
+      devOptions: { enabled: true, type: 'module', navigateFallback: 'index.html' },
+    }),
     vue(),
     vueJsx(),
     vueDevTools(),

@@ -3,7 +3,20 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ApiError } from '@/shared/api/errors'
 import { remotoApi } from '../api'
-import { guardarTelefono, leerTelefono, olvidarTelefono } from '../telefono-guardado'
+import {
+  guardarTelefono,
+  leerTelefono,
+  marcarConLlave,
+  olvidarTelefono,
+  recordarEmpresa,
+} from '../telefono-guardado'
+import {
+  activarLlave as activarLlaveEnElServidor,
+  firmarChecada,
+  loQuePasoConLaLlave,
+  sePuedeUsarLlave,
+} from '../llave'
+import { colaDisponible, encolar, pendientes, sacar } from '../cola-de-checadas'
 
 /**
  * CHECAR DESDE CASA.
@@ -36,23 +49,108 @@ const error = ref<string | null>(null)
 /** El token del teléfono, si este ya estaba dado de alta. */
 const token = ref<string | null>(null)
 
+/** Si este teléfono ya firma con huella. Lo impone el servidor; aquí se recuerda. */
+const conLlave = ref(false)
+/** Si el aparato PUEDE tener huella. Sin esto no se ofrece activarla. */
+const puedeLlave = ref(false)
+const activando = ref(false)
+
+/** Checadas que se pulsaron sin red y siguen esperando. */
+const enEspera = ref(0)
+/** Lo que se le dice a alguien cuya checada quedó en la cola. */
+const guardadaSinRed = ref(false)
+
 const clave = ref('')
 const codigo = ref('')
 const etiqueta = ref('')
 const pendiente = ref<{ nonce: string; enviadoA: string; nombre: string } | null>(null)
 
-const listo = ref<{ hora: string; nombre: string; comprobante: boolean } | null>(null)
+const listo = ref<{
+  hora: string
+  nombre: string
+  comprobante: boolean
+  firmada: boolean
+} | null>(null)
 
 const puedePedir = computed(() => clave.value.trim().length >= 1 && !enviando.value)
 const puedeConfirmar = computed(() => /^\d{6}$/.test(codigo.value) && !enviando.value)
 
-onMounted(() => {
+onMounted(async () => {
+  /*
+   * Se recuerda la empresa AUNQUE el teléfono no esté dado de alta todavía.
+   * Quien abre el enlace, instala el icono y solo entonces teclea su número
+   * tiene que poder volver por el icono — y en ese momento aún no hay token.
+   */
+  recordarEmpresa(entityId)
+
   const guardado = leerTelefono(entityId)
   if (guardado !== null) {
     token.value = guardado.token
+    conLlave.value = guardado.conLlave === true
     paso.value = 'checar'
   }
+
+  puedeLlave.value = await sePuedeUsarLlave()
+
+  /*
+   * Y lo primero de todo: sacar lo que se quedó atrapado sin red. Se hace al
+   * abrir y no al recuperar la conexión porque una pantalla que nadie mira no
+   * recupera nada: el navegador de un teléfono con la aplicación cerrada no
+   * ejecuta este código.
+   */
+  await vaciarCola()
 })
+
+/**
+ * MANDA LO QUE QUEDÓ ATRAPADO SIN RED.
+ *
+ * Va una a una y en orden. Si una falla por red, se para: insistir con las
+ * demás solo gastaría batería para fallar igual. Si falla por otra cosa —el
+ * teléfono se revocó mientras tanto— se saca de la cola, porque reintentarla
+ * mañana daría el mismo error para siempre.
+ */
+async function vaciarCola(): Promise<void> {
+  if (!(await colaDisponible())) return
+
+  let cola
+  try {
+    cola = await pendientes()
+  } catch {
+    return
+  }
+
+  const mias = cola.filter((c) => c.entityId === entityId)
+  enEspera.value = mias.length
+
+  for (const p of mias) {
+    if (token.value === null) return
+    try {
+      await remotoApi.checar(entityId, {
+        token: token.value,
+        lat: p.lat,
+        lng: p.lng,
+        accuracyMeters: p.accuracyMeters,
+      })
+      await sacar(p.id)
+      enEspera.value -= 1
+    } catch (e) {
+      if (e instanceof ApiError) {
+        /*
+         * El servidor contestó: la checada llegó y no la quiso. Reintentarla
+         * dará el mismo resultado mañana, así que se saca. La excepción es un
+         * 5xx, que sí es transitorio.
+         */
+        if (e.status < 500) {
+          await sacar(p.id)
+          enEspera.value -= 1
+        }
+        return
+      }
+      /* Sin respuesta = sigue sin haber red. Se deja todo como está. */
+      return
+    }
+  }
+}
 
 async function pedirCodigo(): Promise<void> {
   enviando.value = true
@@ -78,7 +176,9 @@ async function confirmar(): Promise<void> {
       etiqueta: etiqueta.value.trim() || undefined,
     })
     token.value = alta.token
+    conLlave.value = false
     guardarTelefono(entityId, { token: alta.token, venceEl: alta.venceEl })
+    recordarEmpresa(entityId)
     paso.value = 'checar'
     codigo.value = ''
   } catch (e) {
@@ -123,22 +223,57 @@ function ubicacion(): Promise<GeolocationPosition> {
   })
 }
 
+/**
+ * ACTIVAR LA HUELLA EN ESTE TELÉFONO.
+ *
+ * Se dice ANTES lo que implica —a partir de aquí no se puede checar sin ella—
+ * porque es irreversible desde el teléfono: quitarla exige que Recursos
+ * Humanos revoque el aparato. Enterarse después sería una trampa.
+ */
+async function activarHuella(): Promise<void> {
+  if (token.value === null) return
+  activando.value = true
+  error.value = null
+  try {
+    await activarLlaveEnElServidor(entityId, token.value)
+    conLlave.value = true
+    marcarConLlave(entityId)
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : loQuePasoConLaLlave(e)
+  } finally {
+    activando.value = false
+  }
+}
+
 async function checar(): Promise<void> {
   if (token.value === null) return
   enviando.value = true
   error.value = null
+  guardadaSinRed.value = false
 
   try {
     const pos = await ubicacion()
+
+    /*
+     * LA HUELLA VA ANTES QUE EL ENVÍO, y el orden importa: si se pidiera
+     * después, alguien podría quedarse mirando «mandando…» mientras el
+     * teléfono espera un dedo que nadie ve que hace falta.
+     */
+    const firma = conLlave.value
+      ? await firmarChecada(entityId, token.value)
+      : undefined
+
     const r = await remotoApi.checar(entityId, {
       token: token.value,
       lat: pos.coords.latitude,
       lng: pos.coords.longitude,
       accuracyMeters: Math.round(pos.coords.accuracy),
+      firma,
     })
     listo.value = {
       nombre: r.nombre,
       comprobante: r.comprobante,
+      firmada: r.firmada,
       hora: new Date(r.cuando).toLocaleTimeString('es-MX', {
         hour: '2-digit',
         minute: '2-digit',
@@ -158,6 +293,17 @@ async function checar(): Promise<void> {
         token.value = null
         paso.value = 'numero'
       }
+    } else if (esFalloDeLlave(e)) {
+      error.value = loQuePasoConLaLlave(e)
+    } else if (e instanceof TypeError) {
+      /*
+       * SIN RED: `fetch` falla con `TypeError` y sin respuesta. Es el ÚNICO
+       * caso en que la checada se encola, y se distingue a propósito de un
+       * error del servidor: si el servidor contestó, la checada llegó y fue
+       * rechazada; guardarla para reintentarla sería prometer algo que no va a
+       * pasar.
+       */
+      await guardarParaDespues()
     } else if (e instanceof Error && !('code' in e)) {
       error.value = e.message
     } else {
@@ -169,9 +315,51 @@ async function checar(): Promise<void> {
   }
 }
 
+/** Un fallo del diálogo de la huella, que se cuenta distinto de todo lo demás. */
+function esFalloDeLlave(e: unknown): boolean {
+  return (
+    e instanceof Error &&
+    ['NotAllowedError', 'InvalidStateError', 'NotSupportedError', 'AbortError'].includes(
+      e.name,
+    )
+  )
+}
+
+/**
+ * La checada se queda en el teléfono hasta que vuelva la red.
+ *
+ * Se guarda la HORA EN QUE SE PULSÓ, no la del envío: es la única que dice algo
+ * de la jornada de esa persona. El servidor conserva las dos y la diferencia
+ * entre ambas es exactamente el tiempo que estuvo sin cobertura.
+ */
+async function guardarParaDespues(): Promise<void> {
+  if (!(await colaDisponible())) {
+    error.value =
+      'No hay conexión y este navegador no puede guardar la checada. ' +
+      'Vuelve a intentarlo cuando tengas señal.'
+    return
+  }
+  try {
+    const pos = await ubicacion()
+    await encolar({
+      entityId,
+      cuando: new Date().toISOString(),
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      accuracyMeters: Math.round(pos.coords.accuracy),
+    })
+    enEspera.value += 1
+    guardadaSinRed.value = true
+  } catch {
+    error.value =
+      'No hay conexión y no pude guardar la checada. Vuelve a intentarlo con señal.'
+  }
+}
+
 function otraVez(): void {
   listo.value = null
   error.value = null
+  guardadaSinRed.value = false
 }
 
 /** Para cuando alguien cambia de teléfono o quiere quitar este de en medio. */
@@ -183,6 +371,8 @@ function olvidarEsteTelefono(): void {
   codigo.value = ''
   listo.value = null
   error.value = null
+  conLlave.value = false
+  guardadaSinRed.value = false
   paso.value = 'numero'
 }
 </script>
@@ -195,8 +385,29 @@ function olvidarEsteTelefono(): void {
         <h1 class="text-highlighted text-xl font-semibold">Checar a distancia</h1>
       </header>
 
+      <!--
+        SIN RED: la checada quedó guardada en el teléfono. Se dice con las
+        mismas palabras que la registrada y con un color distinto, porque son
+        dos cosas distintas y confundirlas es lo peor que puede pasar aquí:
+        alguien que cree haber checado y no checó.
+      -->
+      <template v-if="guardadaSinRed">
+        <div class="border-warning/40 bg-warning/10 space-y-2 rounded-xl border p-6 text-center">
+          <UIcon name="i-lucide-cloud-off" class="text-warning size-12" />
+          <p class="text-highlighted text-lg font-semibold">Guardada en este teléfono</p>
+          <p class="text-default text-sm">
+            No hay conexión ahora mismo. Se mandará sola en cuanto vuelva la señal, con
+            la hora en que le diste al botón.
+          </p>
+          <p class="text-muted text-xs">
+            Abre esta pantalla otra vez cuando tengas red para que salga.
+          </p>
+        </div>
+        <UButton label="Listo" icon="i-lucide-check" size="xl" block @click="otraVez" />
+      </template>
+
       <!-- Ya checó. -->
-      <template v-if="listo">
+      <template v-else-if="listo">
         <div class="border-success/40 bg-success/10 space-y-2 rounded-xl border p-6 text-center">
           <UIcon name="i-lucide-circle-check-big" class="text-success size-12" />
           <p class="text-highlighted text-lg font-semibold">Quedó registrada</p>
@@ -214,6 +425,15 @@ function olvidarEsteTelefono(): void {
             No tienes correo en tu expediente, así que no hay comprobante. Pídele a
             Recursos Humanos que lo capture.
           </p>
+          <!--
+            Se dice que fue con huella. No es un adorno: es la diferencia entre
+            una checada que cuenta sola y una que un supervisor tiene que
+            aprobar, y quien la hizo tiene derecho a saber en cuál está.
+          -->
+          <p v-if="listo.firmada" class="text-muted text-xs">
+            <UIcon name="i-lucide-fingerprint" class="size-3 align-[-2px]" />
+            Firmada con tu huella.
+          </p>
         </div>
         <UButton label="Listo" icon="i-lucide-check" size="xl" block @click="otraVez" />
       </template>
@@ -223,17 +443,60 @@ function olvidarEsteTelefono(): void {
         <UAlert v-if="error" color="error" icon="i-lucide-circle-alert" :description="error" />
 
         <UButton
-          label="Checar ahora"
-          icon="i-lucide-map-pin"
+          :label="conLlave ? 'Checar con mi huella' : 'Checar ahora'"
+          :icon="conLlave ? 'i-lucide-fingerprint' : 'i-lucide-map-pin'"
           size="xl"
           block
           :loading="enviando"
           @click="checar"
         />
+
+        <!--
+          Lo que quedó esperando señal. Se pinta SIEMPRE que haya algo, y no
+          solo justo después de encolarlo: alguien que cerró la aplicación y
+          vuelve al día siguiente tiene que ver que aquello sigue sin salir.
+        -->
+        <p v-if="enEspera > 0" class="text-warning text-center text-xs">
+          <UIcon name="i-lucide-cloud-off" class="size-3 align-[-2px]" />
+          {{ enEspera }} checada(s) esperando señal para mandarse.
+        </p>
+
         <p class="text-dimmed text-center text-xs">
           Este teléfono ya está dado de alta. Se guarda desde dónde checas y te llega un
           comprobante por correo cada vez.
         </p>
+
+        <!--
+          ACTIVAR LA HUELLA. Se ofrece solo si el aparato puede —preguntar por
+          una huella a un navegador sin lector manda a un diálogo que termina
+          en nada— y se dice lo que implica ANTES, porque desde el teléfono no
+          hay vuelta atrás: quitarla exige que RRHH revoque el aparato.
+        -->
+        <div
+          v-if="!conLlave && puedeLlave"
+          class="border-default bg-elevated/50 space-y-3 rounded-xl border p-5"
+        >
+          <p class="text-highlighted text-sm font-semibold">
+            <UIcon name="i-lucide-fingerprint" class="size-4 align-[-3px]" />
+            Checa con tu huella
+          </p>
+          <p class="text-muted text-xs">
+            Tu checada pasa a valer por sí sola, sin que nadie tenga que aprobarla. Y si
+            alguien se lleva tu teléfono, no puede checar por ti.
+          </p>
+          <p class="text-dimmed text-xs">
+            Una vez activada, este teléfono ya no podrá checar sin tu huella. Para
+            quitarla hay que hablar con Recursos Humanos.
+          </p>
+          <UButton
+            label="Activar mi huella"
+            icon="i-lucide-fingerprint"
+            size="lg"
+            block
+            :loading="activando"
+            @click="activarHuella"
+          />
+        </div>
         <UButton label="Este no es mi teléfono" size="lg" block @click="olvidarEsteTelefono" />
       </template>
 

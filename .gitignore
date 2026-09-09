@@ -38,6 +38,10 @@ __screenshots__/
 # Vite
 *.timestamp-*-*.mjs
 
+# El service worker que vite-plugin-pwa genera para DESARROLLO. Es código de
+# Workbox compilado: no se commitea y no se lintea.
+dev-dist
+
 # Variables de entorno (nunca se commitean; solo .env.example)
 .env
 .env.*

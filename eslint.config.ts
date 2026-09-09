@@ -15,7 +15,14 @@ export default defineConfigWithVueTs(
     files: ['**/*.{vue,ts,mts,tsx}'],
   },
 
-  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**']),
+  // `dev-dist` es el service worker que genera vite-plugin-pwa al levantar el
+  // servidor de desarrollo: Workbox ya compilado, ni escrito ni mantenido aquí.
+  globalIgnores([
+    '**/dist/**',
+    '**/dist-ssr/**',
+    '**/dev-dist/**',
+    '**/coverage/**',
+  ]),
 
   ...pluginVue.configs['flat/essential'],
   vueTsConfigs.recommended,

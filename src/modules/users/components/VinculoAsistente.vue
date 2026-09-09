@@ -2,6 +2,7 @@
 import { computed, nextTick, ref } from 'vue'
 import QRCode from 'qrcode'
 import { useAviso } from '@/shared/ui/aviso'
+import { useAuthStore } from '@/modules/auth/store'
 import { asistenteApi, type VinculoDelAsistente } from '../api-asistente'
 
 /**
@@ -57,6 +58,20 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ cambio: [] }>()
 const aviso = useAviso()
+const auth = useAuthStore()
+
+/**
+ * QUIÉN REPARTE ESTE ACCESO. No es quien ve esta pantalla.
+ *
+ * La pantalla es de `manageUsers` —dirección del grupo, dirección de la
+ * empresa y soporte—, pero dar acceso al asistente es solo de la dirección de
+ * la empresa y de RRHH: los dos roles a los que el asistente contesta.
+ *
+ * Así que soporte y la dirección del grupo ven la tarjeta de cada persona y
+ * NO ven esta parte. Oculta, no protege: el servidor contesta 403 igual. Si
+ * esta línea se quedara vieja, el peor síntoma es un botón de más.
+ */
+const puedeRepartir = computed(() => auth.can('manageAssistantLinks'))
 
 /**
  * A QUIÉN LE CONTESTA EL ASISTENTE. Espejo de `ROLES_QUE_PREGUNTAN` en el
@@ -116,11 +131,19 @@ async function abrirAlta(porCorreo = false): Promise<void> {
        * que no existe. Ya pasó una vez en esta casa con el despachador.
        */
       if (alta.correoEncolado) {
-        aviso.hecho('Invitación enviada', `A ${alta.correoA}. Vale media hora.`)
+        aviso.hecho(
+          'Enlace enviado',
+          `A ${alta.correoA}. Vale media hora y un solo uso.`,
+        )
       } else {
+        /*
+         * Se dice que NO salió, nunca «ya se lo mandamos». El alta se creó
+         * igual —el enlace está en pantalla— y dar por enviado lo que no salió
+         * deja a alguien esperando un correo que no existe.
+         */
         aviso.aviso(
           'El correo no salió',
-          'El enlace está aquí: cópialo o enséñale el QR.',
+          'El alta sí quedó: cópiale el enlace o enséñale el QR.',
         )
       }
     }
@@ -189,7 +212,12 @@ async function revocar(): Promise<void> {
 </script>
 
 <template>
-  <div class="mt-2 flex flex-wrap items-center gap-2">
+  <!--
+    SIN PERMISO NO SE PINTA NADA, ni siquiera el chip de quien ya está ligado.
+    Enseñar «tiene Telegram» a quien no puede tocarlo es contar una concesión
+    de acceso a alguien que no la administra.
+  -->
+  <div v-if="puedeRepartir" class="mt-2 flex flex-wrap items-center gap-2">
     <!-- Ligado y confirmado: contesta. -->
     <template v-if="vinculo && vinculo.verifiedAt">
       <span
@@ -269,18 +297,18 @@ async function revocar(): Promise<void> {
           El enlace de antes ya no se puede volver a ver.
         </span>
         <UButton
-          label="Generar otro"
+          label="Mandar otro por correo"
           icon="i-lucide-refresh-cw"
           size="xs"
           :loading="trabajando"
-          @click="abrirAlta(false)"
+          @click="abrirAlta(true)"
         />
         <UButton
-          label="…y mandárselo por correo"
-          icon="i-lucide-mail"
+          label="Sin correo"
+          icon="i-lucide-qr-code"
           size="xs"
           :disabled="trabajando"
-          @click="abrirAlta(true)"
+          @click="abrirAlta(false)"
         />
       </template>
 
@@ -306,23 +334,28 @@ async function revocar(): Promise<void> {
 
     <!-- Sin nada. -->
     <template v-else>
+      <!--
+        EL BOTÓN NORMAL MANDA EL CORREO. El enlace sale al buzón registrado de
+        esa persona y a ningún otro sitio: nadie tiene que copiarlo ni pegarlo
+        en otro chat, que es donde se pierden y donde acaban reenviados.
+      -->
       <UButton
         label="Dar acceso por Telegram"
         icon="i-lucide-send"
         size="xs"
         :loading="trabajando"
-        @click="abrirAlta(false)"
+        @click="abrirAlta(true)"
       />
       <!--
-        Manda el enlace Y lo enseña igual. No es una vía distinta: es la misma
-        con el correo de regalo, para no tener que abrir el buzón a mano.
+        Y la salida para cuando la persona está delante: se genera sin llenarle
+        el buzón y se le enseña el QR.
       -->
       <UButton
-        label="…y mandárselo por correo"
-        icon="i-lucide-mail"
+        label="Sin correo, se lo doy en mano"
+        icon="i-lucide-qr-code"
         size="xs"
         :disabled="trabajando"
-        @click="abrirAlta(true)"
+        @click="abrirAlta(false)"
       />
     </template>
   </div>

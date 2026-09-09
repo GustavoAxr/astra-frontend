@@ -57,6 +57,25 @@ export const routes: RouteRecordRaw[] = [
     meta: { public: true, title: 'Checar a distancia' },
     component: () => import('@/modules/remoto/views/RemoteCheckInView.vue'),
   },
+  /*
+   * LA PUERTA DE LA APLICACIÓN INSTALADA.
+   *
+   * El manifiesto es un archivo estático y no puede llevar dentro el
+   * identificador de una razón social, así que el icono de la pantalla de
+   * inicio no puede apuntar a `/remoto/<uuid>`. Apunta aquí, y aquí se
+   * recuerda cuál fue la última empresa desde la que esta persona dio de alta
+   * su teléfono.
+   *
+   * Quien llegue sin nada recordado —icono instalado en un teléfono nuevo, o
+   * alguien que teclea la dirección a mano— ve un texto que le dice qué le
+   * falta, no una pantalla en blanco.
+   */
+  {
+    path: '/remoto',
+    name: 'remote-entry',
+    meta: { public: true, title: 'Checar a distancia' },
+    component: () => import('@/modules/remoto/views/RemoteEntryView.vue'),
+  },
   {
     path: '/entrar',
     component: () => import('@/app/layouts/AuthLayout.vue'),
