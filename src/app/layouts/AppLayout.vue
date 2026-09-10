@@ -285,9 +285,23 @@ async function signOut(): Promise<void> {
           aria-label="Menú"
           @click="menuOpen = !menuOpen"
         />
-        <span class="text-muted text-sm">{{ route.meta.title }}</span>
-        <div class="ml-auto">
+        <!--
+          `min-w-0` y `truncate`: en una ventana estrecha, el que cede es el
+          título. Sin ellos, un título largo no se deja encoger y empuja los
+          selectores fuera de la barra.
+        -->
+        <span class="text-muted min-w-0 truncate text-sm">{{ route.meta.title }}</span>
+        <div class="ml-auto flex min-w-0 items-center gap-2">
           <!--
+            `flex` NO ES DECORACIÓN. Esto era un `div` a secas, así que los dos
+            selectores se apilaban en vertical y el segundo se salía de la barra
+            —que tiene altura fija `h-14`—.
+
+            No se veía porque hacen falta LOS DOS a la vez, y eso solo le pasa a
+            un operador de plataforma que además alcanza más de una razón
+            social. Cualquier otra persona ve uno solo, y uno solo se ve bien
+            apilado o no.
+
             El de CLIENTES va antes que el de razones sociales, y ese orden
             cuenta algo: primero se elige de quién son los datos, y solo
             después qué parte de ellos. Al revés se leería como si las empresas
