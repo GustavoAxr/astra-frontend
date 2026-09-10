@@ -1,0 +1,28 @@
+<svg width="512" height="512" viewBox="91 91 330 330" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    EL FAVICON, CON EL MISMO DIBUJO QUE AstraLogo.vue.
+
+    viewBox ajustado a la caja real del trazo (91..421 en los dos ejes) y no al
+    lienzo de 512: con ese aire dentro, a 16 pixeles de pestaña el logotipo se
+    quedaba en un punto de color.
+
+    Los colores van escritos, no en variables CSS como en el componente. Un
+    favicon se pinta fuera del documento, sin la hoja de estilos de la pagina,
+    asi que una variable aqui no resuelve a nada y el degradado saldria negro.
+    Si cambian en main.css hay que cambiarlos aqui: son las dos unicas copias.
+
+    OJO AL EDITAR ESTE COMENTARIO: un comentario XML no admite dos guiones
+    seguidos. Nombrar aqui una variable CSS rompe el archivo entero, y el
+    navegador no pinta nada en la pestaña sin decir por que.
+  -->
+  <defs>
+    <linearGradient id="astra" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#22c55e" />
+    </linearGradient>
+  </defs>
+  <path d="M 235 118 A 140 140 0 1 0 394 280" fill="none" stroke="url(#astra)"
+        stroke-width="50" stroke-linecap="round" />
+  <path d="M 256 116 L 256 256 L 355 355" fill="none" stroke="url(#astra)"
+        stroke-width="50" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

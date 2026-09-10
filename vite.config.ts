@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs'
+import { extname, join } from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 
@@ -16,6 +18,42 @@ import { VitePWA } from 'vite-plugin-pwa'
 //            distinga del fondo sin llegar a tener borde.
 const ghost = { defaultVariants: { variant: 'ghost' } } as const
 const soft = { defaultVariants: { variant: 'soft' } } as const
+
+/**
+ * QUÉ ICONOS HAY QUE METER EN EL PAQUETE.
+ *
+ * Recorre `src/` y recoge cada `i-lucide-…` que aparezca escrito. Se hace aquí,
+ * al compilar, y no a mano en una lista: una lista a mano se queda corta el día
+ * que alguien añade una pantalla, y el síntoma —un icono que no aparece— no se
+ * parece en nada a la causa.
+ *
+ * FUNCIONA PORQUE NINGÚN NOMBRE SE CONSTRUYE EN TIEMPO DE EJECUCIÓN. Están los
+ * 111 escritos enteros. Si algún día alguien escribe `i-lucide-${'${'}algo}`, este
+ * barrido no lo verá y ese icono volverá a pedirse a internet —o sea, a no
+ * aparecer—. Es el precio de no depender de un servicio ajeno, y es barato:
+ * escribir el nombre completo.
+ */
+function iconosUsados(): string[] {
+  const raiz = fileURLToPath(new URL('./src', import.meta.url))
+  const extensiones = new Set(['.vue', '.ts', '.tsx'])
+  const encontrados = new Set<string>()
+
+  const recorrer = (dir: string): void => {
+    for (const entrada of readdirSync(dir, { withFileTypes: true })) {
+      const ruta = join(dir, entrada.name)
+      if (entrada.isDirectory()) {
+        recorrer(ruta)
+      } else if (extensiones.has(extname(entrada.name))) {
+        for (const m of readFileSync(ruta, 'utf8').matchAll(/i-lucide-[a-z0-9-]+/g)) {
+          encontrados.add(`lucide:${m[0].slice('i-lucide-'.length)}`)
+        }
+      }
+    }
+  }
+  recorrer(raiz)
+
+  return [...encontrados].sort()
+}
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -129,7 +167,7 @@ export default defineConfig({
          * entra el caparazón; los trozos de JavaScript que la pantalla use de
          * verdad se quedan cacheados al pasar por ellos, con la regla de abajo.
          */
-        globPatterns: ['index.html', 'favicon.ico', 'iconos/*.{png,svg}'],
+        globPatterns: ['index.html', 'favicon.{ico,svg}', 'iconos/*.{png,svg}'],
         navigateFallback: '/index.html',
         /*
          * Y SOLO PARA `/remoto`. Sin esta lista, el worker contestaría con el
@@ -184,6 +222,39 @@ export default defineConfig({
     vueJsx(),
     vueDevTools(),
     ui({
+      /*
+       * LOS ICONOS SE EMPAQUETAN, NO SE PIDEN A INTERNET.
+       *
+       * Nuxt UI empaqueta por omisión SOLO SUS PROPIOS iconos —el chevrón, la
+       * equis, el más— y los de la aplicación los resuelve en tiempo de
+       * ejecución contra `api.iconify.design`. En desarrollo no se nota; en
+       * producción la CSP bloquea esa llamada y el menú entero se queda sin
+       * iconos, sin ningún error en la página.
+       *
+       * Depender de esa API sería malo aunque la CSP la dejara pasar:
+       *   · la pantalla de checar es una PWA que tiene que funcionar sin red, y
+       *     unos iconos que se piden a un tercero no están ahí cuando no hay
+       *     señal;
+       *   · cada visita le contaría a un servidor ajeno qué iconos usa Astra,
+       *     que es tanto como decirle qué pantallas existen;
+       *   · y el día que ese servicio esté caído, lo está para todos.
+       *
+       * La lista sale de `iconosUsados()`, que barre `src/` al compilar. Se
+       * probó antes la opción `scan: true` de la propia biblioteca —que hace
+       * eso mismo— y NO empaquetó nada: está marcada como experimental y aquí
+       * no surtió efecto. Comprobado buscando el trazado de un icono concreto
+       * dentro de `dist/`.
+       *
+       * Solo entran los que se usan, no la colección entera (568 KB). El tope
+       * de tamaño está para que, si un día alguien mete media colección sin
+       * darse cuenta, el build FALLE en vez de engordar en silencio.
+       */
+      icon: {
+        clientBundle: {
+          icons: iconosUsados(),
+          sizeLimitKb: 256,
+        },
+      },
       ui: {
         colors: {
           primary: 'emerald',

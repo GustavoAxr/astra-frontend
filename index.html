@@ -2,7 +2,14 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8">
-    <link rel="icon" href="/favicon.ico">
+    <!--
+      El logotipo de Astra como icono de pestaña. Dos formatos y el orden
+      importa: los navegadores actuales se quedan con el SVG —nítido a
+      cualquier tamaño y en cualquier pantalla— y los que no lo entienden
+      caen al .ico, que lleva dentro 16, 32 y 48 píxeles.
+    -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
     <!--
       iOS NO lee los iconos del manifiesto: para el icono de la pantalla de
       inicio mira esta etiqueta, y solo acepta PNG. Sin ella, quien instale la
