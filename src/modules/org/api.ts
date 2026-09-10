@@ -1,3 +1,4 @@
+import { TTL_CATALOGO } from '@/shared/api/cache'
 import { http } from '@/shared/api/http'
 import type {
   CreateInstallationForm,
@@ -26,6 +27,7 @@ export const orgApi = {
     http.get<LegalEntity[]>('/legal-entities', {
       query: { incluirInactivas: incluirInactivas ? true : undefined },
       signal,
+      cacheTtlMs: TTL_CATALOGO,
     }),
 
   createLegalEntity: (form: CreateLegalEntityForm) =>
@@ -82,7 +84,11 @@ export const orgApi = {
    * lo que hace falta para saber si se puede retirar sin dejar gente colgando.
    */
   departments: (legalEntityId: string | undefined, signal?: AbortSignal) =>
-    http.get<Department[]>('/departments', { query: { legalEntityId }, signal }),
+    http.get<Department[]>('/departments', {
+      query: { legalEntityId },
+      signal,
+      cacheTtlMs: TTL_CATALOGO,
+    }),
 
   createDepartment: (legalEntityId: string, form: DepartmentForm) =>
     http.post<Department>('/departments', {
@@ -105,7 +111,11 @@ export const orgApi = {
   removeDepartment: (id: string) => http.delete<void>(`/departments/${id}`),
 
   positions: (legalEntityId: string | undefined, signal?: AbortSignal) =>
-    http.get<Position[]>('/positions', { query: { legalEntityId }, signal }),
+    http.get<Position[]>('/positions', {
+      query: { legalEntityId },
+      signal,
+      cacheTtlMs: TTL_CATALOGO,
+    }),
 
   createPosition: (legalEntityId: string, form: PositionForm) =>
     http.post<Position>('/positions', {

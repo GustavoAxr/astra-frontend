@@ -1,3 +1,4 @@
+import { TTL_CATALOGO } from '@/shared/api/cache'
 import { http } from '@/shared/api/http'
 import type { RolDisponible, TipoDeAlcance, UsuarioDeAstra } from './types'
 
@@ -11,8 +12,9 @@ export interface AltaDeUsuario {
 }
 
 export const usersApi = {
+  /* El catálogo de roles lo fija el backend y no cambia sin un despliegue. */
   roles: (signal?: AbortSignal) =>
-    http.get<RolDisponible[]>('/users/roles', { signal }),
+    http.get<RolDisponible[]>('/users/roles', { signal, cacheTtlMs: TTL_CATALOGO }),
 
   list: (signal?: AbortSignal) =>
     http.get<UsuarioDeAstra[]>('/users', { signal }),

@@ -1,3 +1,4 @@
+import { TTL_CATALOGO } from '@/shared/api/cache'
 import { http } from '@/shared/api/http'
 import { CURP_OFICIAL, RFC_OFICIAL } from './identidad'
 import { E164, aE164 } from './telefono'
@@ -78,9 +79,14 @@ export const employeesApi = {
    * no hay forma de saber si alguien llegó tarde.
    */
   shiftPolicies: (legalEntityId: string | undefined, signal?: AbortSignal) =>
-    http.get<ShiftPolicy[]>('/shift-policies', { query: { legalEntityId }, signal }),
+    http.get<ShiftPolicy[]>('/shift-policies', {
+      query: { legalEntityId },
+      signal,
+      cacheTtlMs: TTL_CATALOGO,
+    }),
 
-  departments: (signal?: AbortSignal) => http.get<Department[]>('/departments', { signal }),
+  departments: (signal?: AbortSignal) =>
+    http.get<Department[]>('/departments', { signal, cacheTtlMs: TTL_CATALOGO }),
 
   /** Solo los campos que cambiaron. `isActive: true` reactiva. */
   update: (id: string, changes: UpdateEmployeeForm) =>
@@ -100,7 +106,7 @@ export const employeesApi = {
     }),
 
   exceptionTypes: (signal?: AbortSignal) =>
-    http.get<ExceptionType[]>('/exception-types', { signal }),
+    http.get<ExceptionType[]>('/exception-types', { signal, cacheTtlMs: TTL_CATALOGO }),
 
   exceptions: (q: {
       employeeId?: string

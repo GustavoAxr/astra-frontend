@@ -1,3 +1,4 @@
+import { vaciarCache } from './cache'
 import { fetchJson } from './fetch-json'
 import { SessionLostError } from './errors'
 
@@ -38,6 +39,15 @@ export function markSessionStarted(): void {
   sessionDead = false
   refreshing = null
   generation += 1
+  /*
+   * LA CACHÉ DE CATÁLOGOS SE TIRA AL ENTRAR Y AL SALIR.
+   *
+   * Sin esto, quien entre después en el mismo navegador arrancaría viendo los
+   * catálogos de quien estuvo antes —los departamentos de otra empresa, la
+   * lista de puestos de otro cliente— hasta que caducaran solos. Una caché que
+   * sobrevive al cambio de usuario deja de ser una caché y pasa a ser una fuga.
+   */
+  vaciarCache()
 }
 
 /** Se avisa a quien escuche (el store de auth, el router) de que hay que volver a entrar. */
@@ -49,6 +59,7 @@ export function onSessionLost(listener: () => void): () => void {
 export function killSession(): void {
   sessionDead = true
   refreshing = null
+  vaciarCache()
   for (const listener of listeners) listener()
 }
 

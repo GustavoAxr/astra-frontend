@@ -1,4 +1,12 @@
 import { ApiError } from './errors'
+import {
+  claveDe,
+  guardarEnCache,
+  leerDeCache,
+  promesaEnVuelo,
+  registrarEnVuelo,
+  vaciarCache,
+} from './cache'
 import { fetchJson, type FetchOptions, type QueryValue } from './fetch-json'
 import { refreshSession, sessionGeneration } from './session'
 
@@ -8,6 +16,16 @@ export interface RequestOptions extends Omit<FetchOptions, 'method' | 'body'> {
    * respuesta legítima y no algo que reparar refrescando.
    */
   skipRefresh?: boolean
+
+  /**
+   * Cuánto vale esta respuesta sin volver a pedirla. **Solo GET, y solo para
+   * catálogos.**
+   *
+   * Se pide en cada llamada y no hay valor por omisión, a propósito: cachear
+   * por defecto convertiría cualquier endpoint nuevo en un candidato a servir
+   * datos viejos sin que nadie lo decidiera. Ver `cache.ts`.
+   */
+  cacheTtlMs?: number
 }
 
 /**
@@ -23,7 +41,12 @@ async function request<T>(
   body: unknown,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { skipRefresh = false, ...rest } = options
+  /*
+   * `_cacheTtlMs` se desestructura SOLO para quitarlo de `rest`: lo consume
+   * `get`, y si se colara hasta `fetchJson` acabaría como un parámetro de más
+   * en la petición. El guion bajo dice que se descarta a propósito.
+   */
+  const { skipRefresh = false, cacheTtlMs: _cacheTtlMs, ...rest } = options
   const generation = sessionGeneration()
 
   try {
@@ -42,18 +65,77 @@ async function request<T>(
   }
 }
 
+/**
+ * GET con caché opcional.
+ *
+ * Va aquí y no dentro de `request` porque `request` reintenta tras refrescar la
+ * sesión: envolviendo desde fuera, el intento y el reintento son una sola
+ * entrada de caché y una sola promesa compartida.
+ */
+function get<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { cacheTtlMs } = options
+  if (cacheTtlMs === undefined || cacheTtlMs <= 0) {
+    return request<T>(path, 'GET', undefined, options)
+  }
+
+  const clave = claveDe(path, options.query)
+
+  const guardado = leerDeCache<T>(clave)
+  if (guardado !== undefined) return Promise.resolve(guardado)
+
+  /*
+   * Solo se comparte la petición en vuelo cuando NADIE trae su propio
+   * `AbortSignal`. Compartirla con señales distintas significaría que quien
+   * cancele su búsqueda cancela también la del componente de al lado — un fallo
+   * que aparecería una vez cada mil y sería imposible de reproducir.
+   */
+  if (options.signal === undefined) {
+    const yaVaEnCamino = promesaEnVuelo<T>(clave)
+    if (yaVaEnCamino !== undefined) return yaVaEnCamino
+  }
+
+  const promesa = request<T>(path, 'GET', undefined, options).then((valor) => {
+    guardarEnCache(clave, valor, cacheTtlMs)
+    return valor
+  })
+
+  return options.signal === undefined ? registrarEnVuelo(clave, promesa) : promesa
+}
+
+/**
+ * Cualquier escritura tira la caché ENTERA.
+ *
+ * Es tosco y es lo que se quiere: la alternativa —que cada endpoint declare qué
+ * invalida— funciona hasta que alguien añade uno y se le olvida, y entonces el
+ * síntoma es «creé un departamento y no aparece». Aquí solo hay catálogos, así
+ * que volver a pedirlos cuesta una llamada.
+ *
+ * Se vacía tras el ÉXITO. Una escritura que falló no cambió nada al otro lado,
+ * y tirar la caché por un 400 solo regalaría viajes a Francia.
+ */
+async function escribir<T>(
+  path: string,
+  method: FetchOptions['method'],
+  body: unknown,
+  options?: RequestOptions,
+): Promise<T> {
+  const resultado = await request<T>(path, method, body, options)
+  vaciarCache()
+  return resultado
+}
+
 export const http = {
-  get: <T>(path: string, options?: RequestOptions) => request<T>(path, 'GET', undefined, options),
+  get,
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(path, 'POST', body, options),
+    escribir<T>(path, 'POST', body, options),
   patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(path, 'PATCH', body, options),
+    escribir<T>(path, 'PATCH', body, options),
   /**
    * `PUT` para lo que se SUSTITUYE entero, no se retoca: la foto del
    * expediente. `PATCH` significaría que se puede mandar media foto.
    */
   put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(path, 'PUT', body, options),
+    escribir<T>(path, 'PUT', body, options),
   /**
    * `DELETE` con cuerpo opcional.
    *
@@ -63,7 +145,7 @@ export const http = {
    * DELETE. Los dos extremos son nuestros, así que el cuerpo llega entero.
    */
   delete: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(path, 'DELETE', body, options),
+    escribir<T>(path, 'DELETE', body, options),
 }
 
 export type { QueryValue }

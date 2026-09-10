@@ -1,3 +1,4 @@
+import { TTL_CATALOGO } from '@/shared/api/cache'
 import { http } from '@/shared/api/http'
 import type { ShiftPolicy, ShiftSegment } from '@/modules/employees/types'
 import type { Dependencies } from '@/modules/org/types'
@@ -91,6 +92,7 @@ export const shiftsApi = {
     http.get<ShiftPolicy[]>('/shift-policies', {
       query: { legalEntityId, incluirInactivos: incluirInactivos ? 'true' : undefined },
       signal,
+      cacheTtlMs: TTL_CATALOGO,
     }),
 
   get: (id: string, signal?: AbortSignal) =>
