@@ -10,11 +10,7 @@ export const padronApi = {
    * preguntárselo por HTTP solo funcionaba con las dos cosas en la misma LAN.
    */
   state: (deviceId: string, signal?: AbortSignal) =>
-    http.post<EstadoDelPadron>(
-      `/devices/${deviceId}/padron/divergences`,
-      undefined,
-      { signal },
-    ),
+    http.post<EstadoDelPadron>(`/devices/${deviceId}/padron/divergences`, undefined, { signal }),
 
   /**
    * Pide una lectura nueva. **Vuelve en el acto, sin esperar al reloj.**
@@ -23,32 +19,27 @@ export const padronApi = {
    * inmediato—, lee el equipo y entrega. La pantalla se entera al volver a
    * consultar: si `readAt` avanzó, la foto es nueva.
    */
-  refresh: (deviceId: string) =>
-    http.post<{ pedida: true }>(`/devices/${deviceId}/padron/refresh`),
+  refresh: (deviceId: string) => http.post<{ pedida: true }>(`/devices/${deviceId}/padron/refresh`),
 
   /**
    * Encola; NO escribe. Manda el estado completo de cada persona —nombre,
    * vigencia, bloqueo— porque el equipo sustituye el registro entero en cada
    * escritura: una orden parcial dejaría en blanco el acceso de alguien.
+   *
+   * TAMPOCO PIDE YA LA CLAVE DEL RELOJ. Quien escribe es el agente, con las
+   * suyas; lo único que necesitaba el servidor —saber qué admite el equipo—
+   * llega ahora pegado al padrón.
    */
-  sync: (deviceId: string, username: string, password: string, externalUserIds: string[]) =>
-    http.post<SyncResult>(`/devices/${deviceId}/padron/sync`, {
-      username,
-      password,
-      externalUserIds,
-    }),
+  sync: (deviceId: string, externalUserIds: string[]) =>
+    http.post<SyncResult>(`/devices/${deviceId}/padron/sync`, { externalUserIds }),
 
   /**
    * Retira a esas personas del equipo. El único verbo que destruye: con la
    * persona se van sus huellas, que en este aparato solo se dan de alta con el
    * dedo delante. Encola igual que `sync`; escribe el agente.
    */
-  remove: (deviceId: string, username: string, password: string, externalUserIds: string[]) =>
-    http.post<SyncResult>(`/devices/${deviceId}/padron/remove`, {
-      username,
-      password,
-      externalUserIds,
-    }),
+  remove: (deviceId: string, externalUserIds: string[]) =>
+    http.post<SyncResult>(`/devices/${deviceId}/padron/remove`, { externalUserIds }),
 
   /**
    * Da de alta a alguien EN EL RELOJ: le asigna número, lo vincula y encola su

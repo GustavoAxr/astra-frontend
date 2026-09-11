@@ -21,9 +21,6 @@ const auth = useAuthStore()
 /** Encolar es de RRHH y del administrador. Ver, cualquiera. Regla 6: oculta, no protege. */
 const canPush = computed(() => auth.can('assignEmployee'))
 
-const username = ref('')
-const password = ref('')
-
 const devices = useAsync((signal) => devicesApi.list(undefined, signal))
 void devices.run()
 const device = computed(() => (devices.data.value ?? []).find((d) => d.id === deviceId) ?? null)
@@ -62,7 +59,7 @@ const elegidas = ref(new Set<string>())
  * de cien números es cómo se olvida.
  *
  * Se marca, NO se empuja: escribir en la puerta lo sigue decidiendo una
- * persona, con las credenciales del equipo delante.
+ * persona, fila por fila.
  */
 const destacado = computed(() => {
   const q = route.query.destacar
@@ -84,9 +81,10 @@ const resultado = ref<SyncResult | null>(null)
 const confirmando = ref(false)
 
 /*
- * Comparar ya NO pide credenciales: se compara contra la foto que trajo el
- * agente. Las de abajo siguen haciendo falta para APLICAR, porque escribir en
- * el equipo aún pasa por ahí.
+ * ESTA PANTALLA YA NO PIDE LA CLAVE DEL RELOJ, ni para comparar ni para
+ * aplicar. Se compara contra la foto que trajo el agente, y quien escribe en
+ * el equipo es el propio agente con sus credenciales. Pedirlas aquí era pedir
+ * algo que ya no servía para nada.
  */
 const pidiendoLectura = ref(false)
 
@@ -161,9 +159,7 @@ async function empujar(): Promise<void> {
   pushing.value = true
   pushError.value = null
   try {
-    resultado.value = await padronApi.sync(deviceId, username.value, password.value, [
-      ...elegidas.value,
-    ])
+    resultado.value = await padronApi.sync(deviceId, [...elegidas.value])
     /*
      * «Encoladas», no «enviadas»: la orden viaja al reloj cuando el agente
      * pase por ella. Decir que ya está en el equipo sería mentir por un rato.
@@ -184,14 +180,16 @@ async function empujar(): Promise<void> {
   }
 }
 
-const ESTADOS: Record<string, { label: string; color: 'neutral' | 'warning' | 'success' | 'error' }> =
-  {
-    pending: { label: 'En cola', color: 'warning' },
-    sent: { label: 'Entregada al agente', color: 'warning' },
-    applied: { label: 'Aplicada', color: 'success' },
-    failed: { label: 'Rechazada por el reloj', color: 'error' },
-    cancelled: { label: 'Sustituida', color: 'neutral' },
-  }
+const ESTADOS: Record<
+  string,
+  { label: string; color: 'neutral' | 'warning' | 'success' | 'error' }
+> = {
+  pending: { label: 'En cola', color: 'warning' },
+  sent: { label: 'Entregada al agente', color: 'warning' },
+  applied: { label: 'Aplicada', color: 'success' },
+  failed: { label: 'Rechazada por el reloj', color: 'error' },
+  cancelled: { label: 'Sustituida', color: 'neutral' },
+}
 </script>
 
 <template>
@@ -265,8 +263,10 @@ const ESTADOS: Record<string, { label: string; color: 'neutral' | 'warning' | 's
         />
 
         <p v-if="edadDeLaFoto" class="text-muted text-sm">
-          Leído {{ edadDeLaFoto }}<span v-if="difs.data.value?.foto.usersCount !== null">
-            · {{ difs.data.value?.foto.usersCount }} personas en el equipo</span>
+          Leído {{ edadDeLaFoto
+          }}<span v-if="difs.data.value?.foto.usersCount !== null">
+            · {{ difs.data.value?.foto.usersCount }} personas en el equipo</span
+          >
         </p>
         <p v-else class="text-warning text-sm">
           Este equipo no se ha leído nunca. Pide una lectura antes de comparar.
@@ -275,31 +275,12 @@ const ESTADOS: Record<string, { label: string; color: 'neutral' | 'warning' | 's
 
       <p v-if="lecturaEnVuelo" class="text-muted mt-2 text-xs">
         <UIcon name="i-lucide-loader" class="size-3 align-[-2px]" />
-        Se pidió una lectura y todavía no llega. El agente la trae en su
-        siguiente ciclo; vuelve a comparar en un momento.
+        Se pidió una lectura y todavía no llega. El agente la trae en su siguiente ciclo; vuelve a
+        comparar en un momento.
       </p>
 
       <p v-if="difs.data.value?.foto.lastError" class="text-error mt-2 text-xs">
         La última lectura falló: {{ difs.data.value?.foto.lastError }}
-      </p>
-    </UCard>
-
-    <UCard>
-      <template #header>
-        <h2 class="font-medium">Credenciales del equipo</h2>
-      </template>
-
-      <div class="flex flex-wrap items-end gap-3">
-        <UFormField label="Usuario">
-          <UInput v-model="username" placeholder="admin" autocomplete="off" />
-        </UFormField>
-        <UFormField label="Contraseña">
-          <!-- No se guarda: vive en esta pantalla y se olvida al salir. -->
-          <UInput v-model="password" type="password" autocomplete="off" />
-        </UFormField>
-      </div>
-      <p class="text-dimmed mt-2 text-xs">
-        Hacen falta para APLICAR los cambios en el equipo, no para compararlos.
       </p>
     </UCard>
 
@@ -458,15 +439,20 @@ const ESTADOS: Record<string, { label: string; color: 'neutral' | 'warning' | 's
         <div class="space-y-3">
           <p class="text-muted text-sm">
             Se manda el estado completo de cada persona —nombre, vigencia, bloqueo y permiso de
-            puerta—, no solo
-            lo que difiere: el equipo sustituye el registro entero en cada escritura. El número
-            interno no cambia, así que sus marcajes anteriores siguen asociados.
+            puerta—, no solo lo que difiere: el equipo sustituye el registro entero en cada
+            escritura. El número interno no cambia, así que sus marcajes anteriores siguen
+            asociados.
           </p>
           <ul class="space-y-1 text-sm">
             <li v-for="ext in [...elegidas]" :key="ext" class="font-mono text-xs">
               {{ ext }} · {{ rows.find((r) => r.externalUserId === ext)?.nombre.enAstra }}
               <span class="text-dimmed">
-                ({{ rows.find((r) => r.externalUserId === ext)?.motivos.map(motivoLabel).join(', ') }})
+                ({{
+                  rows
+                    .find((r) => r.externalUserId === ext)
+                    ?.motivos.map(motivoLabel)
+                    .join(', ')
+                }})
               </span>
             </li>
           </ul>

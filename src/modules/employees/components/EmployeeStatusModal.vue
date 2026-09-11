@@ -66,8 +66,6 @@ type Accion = 'cerrar' | 'abrir' | 'retirar' | 'nada'
 const accion = ref<Accion>('cerrar')
 
 const deviceId = ref('')
-const username = ref('admin')
-const password = ref('')
 
 const trabajando = ref(false)
 const error = ref<Error | null>(null)
@@ -143,11 +141,16 @@ const ayudaDeLaAccion = computed(
   () => ACCIONES.value.find((a) => a.value === accion.value)?.ayuda ?? '',
 )
 
-const credencialesPuestas = computed(
-  () => deviceId.value !== '' && username.value.trim() !== '' && password.value !== '',
-)
+/*
+ * YA NO SE PIDE LA CLAVE DEL RELOJ, ni para mirar ni para escribir.
+ *
+ * Se comparaba contra la foto que trae el agente, y quien escribe en el equipo
+ * es el propio agente con sus credenciales: las de esta pantalla no se usaban
+ * para nada. Lo único que hace falta es saber SOBRE QUÉ RELOJ se actúa.
+ */
+const hayEquipo = computed(() => deviceId.value !== '')
 
-const puedeEmpujar = computed(() => accion.value === 'nada' || credencialesPuestas.value)
+const puedeEmpujar = computed(() => accion.value === 'nada' || hayEquipo.value)
 
 /** Lo que el equipo tiene hoy, dicho en una línea. */
 const comoEstaAhora = computed(() => {
@@ -160,15 +163,11 @@ const comoEstaAhora = computed(() => {
 })
 
 async function comprobar(): Promise<void> {
-  if (comprobando.value || !credencialesPuestas.value) return
+  if (comprobando.value || !hayEquipo.value) return
   comprobando.value = true
   error.value = null
   try {
-    /*
-     * Sin credenciales: se compara contra la última foto del padrón, que trae
-     * el agente. Las de esta pantalla siguen haciendo falta para ESCRIBIR en el
-     * equipo, que es lo que viene después de comprobar.
-     */
+    // Se compara contra la última foto del padrón, la que trajo el agente.
     const estado = await padronApi.state(deviceId.value)
     const ext = enrolamiento.value?.externalUserId
     enElEquipo.value = estado.divergencias.find((d) => d.externalUserId === ext) ?? null
@@ -184,8 +183,6 @@ watch(
   open,
   (abierto) => {
     if (!abierto) {
-      // La contraseña del equipo vive lo justo y se olvida al cerrar.
-      password.value = ''
       error.value = null
       resultado.value = null
       soloElReloj.value = false
@@ -257,12 +254,10 @@ async function empujar(): Promise<void> {
   error.value = null
 
   try {
-    const usuario = username.value.trim()
     resultado.value =
       accion.value === 'retirar'
-        ? await padronApi.remove(deviceId.value, usuario, password.value, [ext])
-        : await padronApi.sync(deviceId.value, usuario, password.value, [ext])
-    password.value = ''
+        ? await padronApi.remove(deviceId.value, [ext])
+        : await padronApi.sync(deviceId.value, [ext])
     aviso.hecho(
       accion.value === 'retirar' ? 'Retirado del reloj' : 'Enviado al reloj',
       props.fullName,
@@ -280,9 +275,7 @@ async function empujar(): Promise<void> {
 <template>
   <UModal
     v-model:open="open"
-    :title="
-      paso === 'reloj' ? 'Y ahora el reloj' : daráDeBaja ? 'Dar de baja' : 'Reactivar'
-    "
+    :title="paso === 'reloj' ? 'Y ahora el reloj' : daráDeBaja ? 'Dar de baja' : 'Reactivar'"
     :description="fullName"
   >
     <template #body>
@@ -305,12 +298,12 @@ async function empujar(): Promise<void> {
 
         <!--
           Se anuncia el segundo paso ANTES de pulsar: quien da la baja tiene que
-          saber que va a necesitar la contraseña del reloj, no descubrirlo con
-          el diálogo ya abierto.
+          saber que la puerta es otra decisión, no descubrirlo con el diálogo ya
+          abierto.
         -->
         <p v-if="enrollments.length && canPush" class="text-dimmed text-sm">
           Después se te pedirá qué hacer en el reloj, que es otro aparato y no se entera de esto
-          solo. Ten a mano las credenciales del equipo.
+          solo.
         </p>
         <p v-else-if="enrollments.length" class="text-warning text-sm">
           Está enrolado en un reloj y tu perfil no puede escribir en los equipos. Pídeselo a
@@ -354,12 +347,7 @@ async function empujar(): Promise<void> {
           </p>
 
           <UFormField v-if="equipos.length > 1" label="En qué reloj">
-            <USelectMenu
-              v-model="deviceId"
-              :items="equipos"
-              value-key="value"
-              class="w-full"
-            />
+            <USelectMenu v-model="deviceId" :items="equipos" value-key="value" class="w-full" />
           </UFormField>
           <p v-else-if="enrolamiento" class="text-dimmed text-sm">
             {{ enrolamiento.deviceLabel }} · número
@@ -372,17 +360,9 @@ async function empujar(): Promise<void> {
           <p v-if="ayudaDeLaAccion" class="text-dimmed text-sm">{{ ayudaDeLaAccion }}</p>
 
           <template v-if="accion !== 'nada'">
-            <div class="grid gap-3 sm:grid-cols-2">
-              <UFormField label="Usuario del reloj">
-                <UInput v-model="username" autocomplete="off" class="w-full" />
-              </UFormField>
-              <UFormField label="Contraseña del reloj">
-                <UInput v-model="password" type="password" autocomplete="off" class="w-full" />
-              </UFormField>
-            </div>
             <p class="text-dimmed text-xs">
-              Son las credenciales del equipo, no las tuyas. No se guardan. Nada se escribe al
-              pulsar: la orden se encola y la aplica el agente con las suyas.
+              Nada se escribe al pulsar: la orden se encola y la aplica el agente, con las
+              credenciales del equipo que él tiene.
             </p>
 
             <!--
@@ -396,7 +376,7 @@ async function empujar(): Promise<void> {
                 label="Ver cómo está en el reloj"
                 size="xs"
                 :loading="comprobando"
-                :disabled="!credencialesPuestas"
+                :disabled="!hayEquipo"
                 @click="comprobar"
               />
               <p v-if="comoEstaAhora" class="text-muted text-xs">{{ comoEstaAhora }}</p>
@@ -405,12 +385,12 @@ async function empujar(): Promise<void> {
           </template>
 
           <p v-if="equipos.length > 1" class="text-dimmed text-xs">
-            Está en {{ equipos.length }} relojes. Cada uno tiene su propia contraseña, así que van
-            de uno en uno: al terminar este, vuelve a abrir y elige el siguiente.
+            Está en {{ equipos.length }} relojes, y van de uno en uno: al terminar este, vuelve a
+            abrir y elige el siguiente.
           </p>
         </template>
 
-        <ApiErrorAlert :error="error" :fields="['username', 'password']" />
+        <ApiErrorAlert :error="error" />
 
         <div class="flex justify-end gap-2">
           <UButton :label="resultado ? 'Cerrar' : 'Ahora no'" @click="open = false" />
