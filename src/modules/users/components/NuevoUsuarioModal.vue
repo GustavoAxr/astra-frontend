@@ -8,7 +8,8 @@ import { orgApi } from '@/modules/org/api'
 import type { Installation, LegalEntity } from '@/modules/org/types'
 import { useAviso } from '@/shared/ui/aviso'
 import { usersApi } from '../api'
-import { ALCANCE, type RolDisponible, type TipoDeAlcance } from '../types'
+import { type RolDisponible, type TipoDeAlcance } from '../types'
+import SelectorDeRolYAlcance from './SelectorDeRolYAlcance.vue'
 
 /**
  * CONVERTIR A ALGUIEN DE LA PLANTILLA EN USUARIO DE ASTRA.
@@ -58,23 +59,6 @@ const visibles = computed(() => {
     .slice(0, 40)
 })
 
-const opcionesDeRol = computed(() =>
-  roles.value.map((r) => ({ label: r.name, value: r.code })),
-)
-
-const opcionesDeAlcance = computed(() =>
-  (Object.keys(ALCANCE) as TipoDeAlcance[]).map((k) => ({
-    label: ALCANCE[k].label,
-    value: k,
-  })),
-)
-
-const opcionesDeDestino = computed(() =>
-  scopeType.value === 'LEGAL_ENTITY'
-    ? empresas.value.map((e) => ({ label: e.businessName, value: e.id }))
-    : bases.value.map((b) => ({ label: b.name, value: b.id })),
-)
-
 const puedeGuardar = computed(
   () =>
     email.value.trim() !== '' &&
@@ -90,10 +74,6 @@ watch(elegido, (persona) => {
   fullName.value = nombreCompleto(persona)
   email.value = persona.email ?? ''
 })
-
-// Cambiar de tipo de alcance invalida el destino elegido: una base no es una
-// empresa, y dejar el id viejo mandaría un destino que no existe en esa lista.
-watch(scopeType, () => (scopeId.value = ''))
 
 onMounted(async () => {
   try {
@@ -148,7 +128,20 @@ async function guardar(): Promise<void> {
     aviso.creado('Cuenta', `${fullName.value.trim()} · ${email.value.trim()}`)
     paso.value = 'listo'
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'No pude crear la cuenta'
+    /*
+     * EL CORREO YA REGISTRADO NO ES UN CALLEJÓN, y por eso se dice la salida.
+     *
+     * Aquí llega quien intenta devolverle el acceso a una cuenta que ya existe
+     * —normalmente porque alguien le quitó su permiso— y la única respuesta era
+     * «ya hay una cuenta con ese correo», que es verdad y no ayuda: dar de alta
+     * otra vez es imposible y lo que hace falta es añadirle el permiso en su
+     * fila. Sin esta línea, el siguiente paso es teclear un correo inventado.
+     */
+    if (e instanceof ApiError && e.status === 409) {
+      error.value = `${e.message}. No hace falta crearla otra vez: búscala en la lista y usa «Añadir permiso» en su fila.`
+    } else {
+      error.value = e instanceof ApiError ? e.message : 'No pude crear la cuenta'
+    }
   } finally {
     enviando.value = false
   }
@@ -267,37 +260,14 @@ async function copiarClave(): Promise<void> {
             </UFormField>
           </div>
 
-          <UFormField label="Rol">
-            <USelectMenu
-              v-model="roleCode"
-              :items="opcionesDeRol"
-              value-key="value"
-              placeholder="Elige un rol"
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField label="Hasta dónde alcanza" :help="ALCANCE[scopeType].ayuda">
-            <USelectMenu
-              v-model="scopeType"
-              :items="opcionesDeAlcance"
-              value-key="value"
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField
-            v-if="scopeType !== 'HOLDING'"
-            :label="scopeType === 'LEGAL_ENTITY' ? 'Razón social' : 'Base'"
-          >
-            <USelectMenu
-              v-model="scopeId"
-              :items="opcionesDeDestino"
-              value-key="value"
-              placeholder="Elige"
-              class="w-full"
-            />
-          </UFormField>
+          <SelectorDeRolYAlcance
+            v-model:role-code="roleCode"
+            v-model:scope-type="scopeType"
+            v-model:scope-id="scopeId"
+            :roles="roles"
+            :empresas="empresas"
+            :bases="bases"
+          />
 
           <div class="flex justify-end gap-2 pt-2">
             <UButton label="Cancelar" @click="emit('close')" />
@@ -326,8 +296,8 @@ async function copiarClave(): Promise<void> {
             </p>
             <p class="text-highlighted font-mono text-2xl tracking-wider">{{ clave }}</p>
             <p class="text-muted text-xs">
-              <strong>Esta es la única vez que se ve.</strong> No se guarda en ningún sitio:
-              cópiala ahora y dásela en persona. Si se pierde, hay que restablecerla.
+              <strong>Esta es la única vez que se ve.</strong> No se guarda en ningún sitio: cópiala
+              ahora y dásela en persona. Si se pierde, hay que restablecerla.
             </p>
             <UButton
               :label="claveCopiada ? 'Copiada' : 'Copiar'"
