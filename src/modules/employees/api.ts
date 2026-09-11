@@ -1,4 +1,6 @@
 import { TTL_CATALOGO } from '@/shared/api/cache'
+import { fetchBlob } from '@/shared/api/download'
+import { ApiError } from '@/shared/api/errors'
 import { http } from '@/shared/api/http'
 import { CURP_OFICIAL, RFC_OFICIAL } from './identidad'
 import { E164, aE164 } from './telefono'
@@ -70,6 +72,30 @@ export const employeesApi = {
    */
   savePhoto: (id: string, dataUri: string) =>
     http.put<{ uploadedAt: string }>(`/employees/${id}/photo`, { dataUri }),
+
+  /**
+   * La foto que hay guardada, o `null` si esa persona no tiene ninguna.
+   *
+   * **El 404 es «no tiene foto», no un fallo.** El servidor contesta eso cuando
+   * no hay imagen, y pintarlo como error dejaría media plantilla con una alerta
+   * roja en su expediente.
+   *
+   * Se devuelve como data URI —no como URL de objeto— para que sea LO MISMO que
+   * produce `PhotoPicker` al elegir una: así el formulario compara la foto de
+   * ahora con la guardada y sabe si hay algo que mandar.
+   */
+  photo: async (id: string, signal?: AbortSignal): Promise<string | null> => {
+    try {
+      const blob = await fetchBlob(`/employees/${id}/photo`, { signal, cache: 'no-store' })
+      return await aDataUri(blob)
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.isNotFound) return null
+      throw cause
+    }
+  },
+
+  /** Quita la foto del expediente. 404 si no había ninguna. */
+  deletePhoto: (id: string) => http.delete<void>(`/employees/${id}/photo`),
 
   /** Baja: el backend la desactiva, no la borra. La historia se conserva. */
   deactivate: (id: string) => http.delete<void>(`/employees/${id}`),
@@ -165,6 +191,22 @@ export const employeesApi = {
   ) => http.patch<Holiday>(`/holidays/${id}`, cambios),
 
   borrarFestivo: (id: string) => http.delete<void>(`/holidays/${id}`),
+}
+
+/**
+ * La imagen que devolvió el servidor, en la misma forma en que la pantalla la
+ * manda: `data:image/jpeg;base64,…`.
+ *
+ * `FileReader` y no `btoa` sobre un array: son ochenta kilobytes y hacer la
+ * base64 a mano en el hilo de la interfaz se nota.
+ */
+function aDataUri(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const lector = new FileReader()
+    lector.onload = () => resolve(String(lector.result))
+    lector.onerror = () => reject(new Error('No se pudo leer la foto que devolvió el servidor.'))
+    lector.readAsDataURL(blob)
+  })
 }
 
 /** Campo por campo. Los opcionales vacíos no se mandan: sobrar es 400. */

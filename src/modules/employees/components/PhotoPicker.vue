@@ -19,10 +19,23 @@ import { computed, ref } from 'vue'
  */
 const modelo = defineModel<string | null>({ default: null })
 
-const props = withDefaults(defineProps<{ nombre?: string; disabled?: boolean }>(), {
-  nombre: '',
-  disabled: false,
-})
+const props = withDefaults(
+  defineProps<{
+    nombre?: string
+    disabled?: boolean
+    /**
+     * La foto guardada viene en camino. Al editar hay que ir a buscarla, y sin
+     * esto el botón saldría «Añadir foto» apagado durante ese medio segundo —en
+     * alguien que SÍ tiene foto—, que es decir una cosa que no es verdad.
+     */
+    cargando?: boolean
+  }>(),
+  {
+    nombre: '',
+    disabled: false,
+    cargando: false,
+  },
+)
 
 /** Lado largo al que se reduce. Un rostro no necesita más. */
 const LADO = 640
@@ -103,10 +116,10 @@ async function elegir(evento: Event): Promise<void> {
     <div class="min-w-0 space-y-2">
       <div class="flex flex-wrap gap-2">
         <UButton
-          :label="modelo ? 'Cambiar foto' : 'Añadir foto'"
+          :label="cargando ? 'Buscando su foto…' : modelo ? 'Cambiar foto' : 'Añadir foto'"
           icon="i-lucide-camera"
           size="xs"
-          :loading="trabajando"
+          :loading="trabajando || cargando"
           :disabled="disabled"
           @click="entrada?.click()"
         />

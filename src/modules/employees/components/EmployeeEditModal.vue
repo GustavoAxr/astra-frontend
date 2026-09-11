@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useAviso } from '@/shared/ui/aviso'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
 import { employeesApi } from '../api'
+import PhotoPicker from './PhotoPicker.vue'
 import { E164, aE164 } from '../telefono'
 import { NINGUNO, sinNinguno } from '@/shared/ui/select-none'
 import type { EmployeeDetail, UpdateEmployeeForm } from '../types'
@@ -45,6 +46,51 @@ const email = ref('')
  */
 const sexo = ref(NINGUNO)
 
+/**
+ * LA FOTO, que en el alta se podía poner y aquí no: quien llegó por la carga
+ * masiva o desde el padrón del reloj nunca pasó por ese formulario, así que sin
+ * esto su expediente no tenía forma de tener foto nunca.
+ *
+ * `guardada` es la que hay en el servidor. Se compara contra ella para saber si
+ * hay algo que mandar y CUÁL de las dos cosas: sustituirla o quitarla. Reenviar
+ * la misma imagen en cada guardado serían cien kilobytes para nada.
+ *
+ * Sigue sin tocar el reloj de la nave, que declara `face: null`. Ver
+ * `PhotoPicker`.
+ */
+const foto = ref<string | null>(null)
+const fotoGuardada = ref<string | null>(null)
+const cargandoFoto = ref(false)
+/** Aparte del error del formulario: la foto va en su propia petición. */
+const errorFoto = ref<Error | null>(null)
+let fotoEnVuelo: AbortController | null = null
+
+/**
+ * Un fallo al TRAER la foto no bloquea nada: se puede corregir un CURP sin
+ * tenerla delante. Se dice y el resto del formulario sigue en pie.
+ */
+async function cargarFoto(id: string): Promise<void> {
+  fotoEnVuelo?.abort()
+  const control = new AbortController()
+  fotoEnVuelo = control
+
+  cargandoFoto.value = true
+  errorFoto.value = null
+  try {
+    const guardada = await employeesApi.photo(id, control.signal)
+    if (control.signal.aborted) return
+    // Las dos: una es lo que se enseña y se puede cambiar, la otra el punto de
+    // comparación con el que se decide qué mandar al guardar.
+    foto.value = guardada
+    fotoGuardada.value = guardada
+  } catch (cause) {
+    if (control.signal.aborted) return
+    errorFoto.value = cause instanceof Error ? cause : new Error(String(cause))
+  } finally {
+    if (!control.signal.aborted) cargandoFoto.value = false
+  }
+}
+
 /** El número tal como se va a guardar: E.164, y se enseña antes de guardarlo. */
 const telefonoNormalizado = computed(() => aE164(whatsappNumber.value))
 const telefonoValido = computed(() => E164.test(telefonoNormalizado.value))
@@ -56,7 +102,12 @@ const valid = computed(() => firstName.value.trim() !== '' && lastName.value.tri
 watch(
   open,
   (isOpen) => {
-    if (!isOpen) return
+    // Al cerrar se suelta la foto que venía en camino: si no, una petición de
+    // hace dos expedientes podría pisar la del que se abra ahora.
+    if (!isOpen) {
+      fotoEnVuelo?.abort()
+      return
+    }
     const e = props.employee
     firstName.value = e.firstName
     lastName.value = e.lastName
@@ -72,6 +123,10 @@ watch(
     email.value = e.email ?? ''
     sexo.value = e.sex ?? NINGUNO
     error.value = null
+
+    foto.value = null
+    fotoGuardada.value = null
+    void cargarFoto(e.id)
   },
   { immediate: true },
 )
@@ -81,8 +136,10 @@ async function submit(): Promise<void> {
   if (!valid.value || submitting.value) return
   submitting.value = true
   error.value = null
+  errorFoto.value = null
 
   const e = props.employee
+  const cambioLaFoto = foto.value !== fotoGuardada.value
   const changes: UpdateEmployeeForm = {}
   const diff = (campo: keyof UpdateEmployeeForm, valor: string, antes: string | null) => {
     const limpio = valor.trim()
@@ -102,15 +159,45 @@ async function submit(): Promise<void> {
   diff('email', email.value.trim(), e.email)
   diff('sex', sinNinguno(sexo.value), e.sex)
 
+  const hayCampos = Object.keys(changes).length > 0
+
   try {
+    if (hayCampos) await employeesApi.update(e.id, changes)
+
+    /*
+     * LA FOTO VA EN SU PROPIA PETICIÓN, y detrás de los campos.
+     *
+     * Es otra ruta y otro método —se sustituye entera o se quita, nunca se
+     * retoca—, así que puede fallar sola: con los datos ya guardados, un fallo
+     * aquí NO se pinta como si no se hubiera guardado nada. Se queda el
+     * formulario abierto con el fallo de la foto a la vista, y el expediente de
+     * detrás se recarga igual porque los campos sí entraron.
+     */
+    if (cambioLaFoto) {
+      try {
+        if (foto.value) await employeesApi.savePhoto(e.id, foto.value)
+        else await employeesApi.deletePhoto(e.id)
+        fotoGuardada.value = foto.value
+      } catch (cause) {
+        errorFoto.value = cause instanceof Error ? cause : new Error(String(cause))
+        if (hayCampos) emit('saved')
+        return
+      }
+    }
+
     /*
      * Sin cambios no se avisa de nada: un «actualizado» tras abrir y cerrar sin
      * tocar nada le enseña a la gente a ignorar los avisos.
      */
-    if (Object.keys(changes).length > 0) {
-      await employeesApi.update(e.id, changes)
-      aviso.actualizado(`${firstName.value} ${lastName.value}`)
+    if (hayCampos) {
+      aviso.actualizado(
+        `${firstName.value} ${lastName.value}`,
+        cambioLaFoto ? (foto.value ? 'Con su foto nueva.' : 'Se quitó su foto.') : undefined,
+      )
+    } else if (cambioLaFoto) {
+      aviso.hecho(foto.value ? 'Foto guardada' : 'Foto quitada')
     }
+
     open.value = false
     emit('saved')
   } catch (cause) {
@@ -125,6 +212,27 @@ async function submit(): Promise<void> {
   <UModal v-model:open="open" title="Editar expediente" :description="employee.employeeCode">
     <template #body>
       <form class="space-y-4" @submit.prevent="submit">
+        <!--
+          Inhabilitado mientras la foto viene del servidor, y no es por cortesía:
+          quien elige una foto sin saber todavía si hay otra guardada la está
+          sustituyendo a ciegas. Guardar durante esa espera no borra nada —sin
+          respuesta no hay cambio que mandar—.
+        -->
+        <PhotoPicker
+          v-model="foto"
+          :nombre="`${firstName} ${lastName}`"
+          :cargando="cargandoFoto"
+          :disabled="submitting || cargandoFoto"
+        />
+
+        <!--
+          El fallo de la foto se pinta APARTE del de los campos: son dos
+          peticiones, y una puede entrar sin la otra. Decir «no se pudo
+          actualizar» cuando los datos sí entraron haría que alguien los volviera
+          a teclear.
+        -->
+        <ApiErrorAlert :error="errorFoto" />
+
         <div class="grid gap-3 sm:grid-cols-2">
           <UFormField label="Nombre" required>
             <UInput v-model="firstName" class="w-full" />

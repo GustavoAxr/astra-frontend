@@ -21,17 +21,20 @@ import { refreshSession, sessionGeneration } from './session'
 export interface DownloadOptions {
   query?: Record<string, QueryValue>
   signal?: AbortSignal
+  /**
+   * Caché del navegador, para lo que NO se puede servir de ella.
+   *
+   * La foto del expediente llega con `private, max-age=300`: cinco minutos en
+   * los que el navegador la da sin preguntar. Está bien para mirarla y muy mal
+   * para editarla —quien acaba de cambiarla vería la vieja al reabrir el
+   * formulario y creería que no se guardó—, así que esa llamada pide
+   * `no-store`. Un reporte no lo necesita: cada uno tiene su URL.
+   */
+  cache?: RequestCache
 }
 
 export async function downloadFile(path: string, options: DownloadOptions = {}): Promise<void> {
-  const generation = sessionGeneration()
-
-  let response = await pedir(path, options)
-
-  if (response.status === 401 && sessionGeneration() === generation) {
-    await refreshSession()
-    response = await pedir(path, options)
-  }
+  const response = await pedirConRefresco(path, options)
 
   if (!response.ok) throw await comoApiError(response)
 
@@ -49,10 +52,42 @@ export async function downloadFile(path: string, options: DownloadOptions = {}):
   guardar(blob, nombreDeArchivo(response, path))
 }
 
+/**
+ * UN BINARIO DE LA API, EN MEMORIA. No se guarda en disco: es para enseñarlo
+ * —hoy, la foto del expediente—.
+ *
+ * Pasa por aquí y no por un `<img src>` al backend por lo mismo que las
+ * descargas: un enlace directo se salta el refresco y, con el token vencido, en
+ * vez de la foto queda un hueco roto sin explicación ni `requestId`.
+ *
+ * **Un 404 lo decide quien llama.** Aquí sale como `ApiError` y ya: que una
+ * persona no tenga foto no es un fallo que pintar, pero eso solo lo sabe la
+ * pantalla que preguntó.
+ */
+export async function fetchBlob(path: string, options: DownloadOptions = {}): Promise<Blob> {
+  const response = await pedirConRefresco(path, options)
+
+  if (!response.ok) throw await comoApiError(response)
+
+  return await response.blob()
+}
+
+/** La regla del 401 del resto del cliente: **un** refresco y **un** reintento. */
+async function pedirConRefresco(path: string, options: DownloadOptions): Promise<Response> {
+  const generation = sessionGeneration()
+
+  const response = await pedir(path, options)
+  if (response.status !== 401 || sessionGeneration() !== generation) return response
+
+  await refreshSession()
+  return await pedir(path, options)
+}
+
 async function pedir(path: string, options: DownloadOptions): Promise<Response> {
   try {
     return await fetch(construirUrl(path, options.query), {
       credentials: 'include',
+      cache: options.cache,
       signal: options.signal,
     })
   } catch (cause) {
