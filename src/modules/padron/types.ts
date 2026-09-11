@@ -20,7 +20,24 @@ export interface Divergencia {
   bloqueo: { enElEquipo: boolean | undefined; enAstra: boolean }
 }
 
+/**
+ * DE CUÁNDO ES LA FOTO contra la que se comparó.
+ *
+ * El servidor no ve el reloj: lo lee el agente y deja una foto. Esta pantalla
+ * TIENE que decir cuándo se tomó, o una comparación de anteayer se lee como el
+ * estado de ahora mismo — y alguien decide una baja con datos viejos.
+ */
+export interface FotoDelPadron {
+  /** Cuándo se pidió la última lectura. `null` = nunca se pidió. */
+  requestedAt: string | null
+  /** Cuándo llegó. `null` = nunca ha llegado ninguna. */
+  readAt: string | null
+  usersCount: number | null
+  lastError: string | null
+}
+
 export interface EstadoDelPadron {
+  foto: FotoDelPadron
   divergencias: Divergencia[]
   /** Los que ya están como deben. Se dice, para que el cero se lea. */
   alDia: number

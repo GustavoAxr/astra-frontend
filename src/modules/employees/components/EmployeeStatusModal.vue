@@ -164,7 +164,12 @@ async function comprobar(): Promise<void> {
   comprobando.value = true
   error.value = null
   try {
-    const estado = await padronApi.state(deviceId.value, username.value.trim(), password.value)
+    /*
+     * Sin credenciales: se compara contra la última foto del padrón, que trae
+     * el agente. Las de esta pantalla siguen haciendo falta para ESCRIBIR en el
+     * equipo, que es lo que viene después de comprobar.
+     */
+    const estado = await padronApi.state(deviceId.value)
     const ext = enrolamiento.value?.externalUserId
     enElEquipo.value = estado.divergencias.find((d) => d.externalUserId === ext) ?? null
     comprobado.value = true

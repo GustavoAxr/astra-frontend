@@ -3,15 +3,28 @@ import type { EstadoDelPadron, Orden, SyncResult } from './types'
 
 export const padronApi = {
   /**
-   * Credenciales **del reloj**, como en la conciliación: van en el cuerpo, no
-   * se guardan en el navegador y se olvidan al salir de la pantalla.
+   * YA NO PIDE LA CLAVE DEL RELOJ.
+   *
+   * Compara contra la última FOTO del padrón, que trae el agente. El servidor
+   * no ve el equipo —está en otra red y no debe tener forma de entrar— así que
+   * preguntárselo por HTTP solo funcionaba con las dos cosas en la misma LAN.
    */
-  state: (deviceId: string, username: string, password: string, signal?: AbortSignal) =>
+  state: (deviceId: string, signal?: AbortSignal) =>
     http.post<EstadoDelPadron>(
       `/devices/${deviceId}/padron/divergences`,
-      { username, password },
+      undefined,
       { signal },
     ),
+
+  /**
+   * Pide una lectura nueva. **Vuelve en el acto, sin esperar al reloj.**
+   *
+   * El agente la recoge en su próximo latido —con la conexión sostenida, casi
+   * inmediato—, lee el equipo y entrega. La pantalla se entera al volver a
+   * consultar: si `readAt` avanzó, la foto es nueva.
+   */
+  refresh: (deviceId: string) =>
+    http.post<{ pedida: true }>(`/devices/${deviceId}/padron/refresh`),
 
   /**
    * Encola; NO escribe. Manda el estado completo de cada persona —nombre,

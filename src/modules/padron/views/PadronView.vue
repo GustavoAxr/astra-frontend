@@ -28,9 +28,7 @@ const devices = useAsync((signal) => devicesApi.list(undefined, signal))
 void devices.run()
 const device = computed(() => (devices.data.value ?? []).find((d) => d.id === deviceId) ?? null)
 
-const difs = useAsync((signal) =>
-  padronApi.state(deviceId, username.value, password.value, signal),
-)
+const difs = useAsync((signal) => padronApi.state(deviceId, signal))
 const ordenes = useAsync((signal) => padronApi.commands(deviceId, signal))
 void ordenes.run()
 
@@ -85,7 +83,52 @@ const pushError = ref<Error | null>(null)
 const resultado = ref<SyncResult | null>(null)
 const confirmando = ref(false)
 
-const puedeBuscar = computed(() => username.value.trim() !== '' && password.value !== '')
+/*
+ * Comparar ya NO pide credenciales: se compara contra la foto que trajo el
+ * agente. Las de abajo siguen haciendo falta para APLICAR, porque escribir en
+ * el equipo aún pasa por ahí.
+ */
+const pidiendoLectura = ref(false)
+
+/** De cuándo es la foto, en palabras. */
+const edadDeLaFoto = computed<string | null>(() => {
+  const f = difs.data.value?.foto
+  if (!f?.readAt) return null
+  const minutos = Math.round((Date.now() - new Date(f.readAt).getTime()) / 60000)
+  if (minutos < 1) return 'hace un momento'
+  if (minutos < 60) return `hace ${minutos} min`
+  const horas = Math.round(minutos / 60)
+  if (horas < 24) return `hace ${horas} h`
+  return `hace ${Math.round(horas / 24)} d`
+})
+
+/** Se pidió una lectura y todavía no ha llegado. */
+const lecturaEnVuelo = computed(() => {
+  const f = difs.data.value?.foto
+  if (!f?.requestedAt) return false
+  return f.readAt === null || new Date(f.requestedAt) > new Date(f.readAt)
+})
+
+/**
+ * Pide al agente que lea el padrón. NO espera: vuelve en el acto y la pantalla
+ * se entera al volver a consultar. Atar este botón a que el reloj conteste
+ * dejaría la pantalla colgada cada vez que el equipo está ocupado.
+ */
+async function pedirLectura(): Promise<void> {
+  pidiendoLectura.value = true
+  pushError.value = null
+  try {
+    await padronApi.refresh(deviceId)
+    // Un respiro para que al agente le dé tiempo a ir y volver, y se vuelve a
+    // consultar. Si aún no llegó, el aviso de «en vuelo» lo dice.
+    await new Promise((r) => setTimeout(r, 2500))
+    await buscar()
+  } catch (e) {
+    pushError.value = e as Error
+  } finally {
+    pidiendoLectura.value = false
+  }
+}
 
 function alternar(ext: string): void {
   const s = new Set(elegidas.value)
@@ -196,12 +239,57 @@ const ESTADOS: Record<string, { label: string; color: 'neutral' | 'warning' | 's
       description="Las correcciones se encolan y las aplica el agente en su siguiente ciclo. Si el reloj está apagado, esperan; no se pierden."
     />
 
+    <!--
+      COMPARAR NO PIDE CREDENCIALES. Se compara contra la última foto del
+      padrón, que trae el agente: el servidor no ve el reloj y no debe verlo.
+      Se dice de cuándo es la foto, porque una comparación sin fecha se lee
+      como el estado de ahora mismo.
+    -->
+    <UCard>
+      <template #header>
+        <h2 class="font-medium">El padrón del equipo</h2>
+      </template>
+
+      <div class="flex flex-wrap items-center gap-3">
+        <UButton
+          icon="i-lucide-search"
+          label="Comparar padrón"
+          :loading="difs.pending.value"
+          @click="buscar"
+        />
+        <UButton
+          icon="i-lucide-refresh-cw"
+          label="Pedir lectura nueva"
+          :loading="pidiendoLectura"
+          @click="pedirLectura"
+        />
+
+        <p v-if="edadDeLaFoto" class="text-muted text-sm">
+          Leído {{ edadDeLaFoto }}<span v-if="difs.data.value?.foto.usersCount !== null">
+            · {{ difs.data.value?.foto.usersCount }} personas en el equipo</span>
+        </p>
+        <p v-else class="text-warning text-sm">
+          Este equipo no se ha leído nunca. Pide una lectura antes de comparar.
+        </p>
+      </div>
+
+      <p v-if="lecturaEnVuelo" class="text-muted mt-2 text-xs">
+        <UIcon name="i-lucide-loader" class="size-3 align-[-2px]" />
+        Se pidió una lectura y todavía no llega. El agente la trae en su
+        siguiente ciclo; vuelve a comparar en un momento.
+      </p>
+
+      <p v-if="difs.data.value?.foto.lastError" class="text-error mt-2 text-xs">
+        La última lectura falló: {{ difs.data.value?.foto.lastError }}
+      </p>
+    </UCard>
+
     <UCard>
       <template #header>
         <h2 class="font-medium">Credenciales del equipo</h2>
       </template>
 
-      <form class="flex flex-wrap items-end gap-3" @submit.prevent="buscar">
+      <div class="flex flex-wrap items-end gap-3">
         <UFormField label="Usuario">
           <UInput v-model="username" placeholder="admin" autocomplete="off" />
         </UFormField>
@@ -209,14 +297,10 @@ const ESTADOS: Record<string, { label: string; color: 'neutral' | 'warning' | 's
           <!-- No se guarda: vive en esta pantalla y se olvida al salir. -->
           <UInput v-model="password" type="password" autocomplete="off" />
         </UFormField>
-        <UButton
-          type="submit"
-          icon="i-lucide-search"
-          label="Comparar padrón"
-          :disabled="!puedeBuscar"
-          :loading="difs.pending.value"
-        />
-      </form>
+      </div>
+      <p class="text-dimmed mt-2 text-xs">
+        Hacen falta para APLICAR los cambios en el equipo, no para compararlos.
+      </p>
     </UCard>
 
     <ApiErrorAlert :error="difs.error.value" />
