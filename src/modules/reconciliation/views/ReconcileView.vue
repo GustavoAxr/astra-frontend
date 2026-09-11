@@ -14,11 +14,9 @@ const aviso = useAviso()
 const route = useRoute()
 const deviceId = String(route.params.deviceId)
 
-const username = ref('')
-const password = ref('')
 
 const preview = useAsync((signal) =>
-  reconciliationApi.preview(deviceId, username.value, password.value, signal),
+  reconciliationApi.preview(deviceId, signal),
 )
 
 /**
@@ -130,29 +128,30 @@ async function confirmApply(): Promise<void> {
       </div>
     </div>
 
-    <!-- Credenciales DEL RELOJ. No se guardan. -->
+    <!--
+      SIN CREDENCIALES DEL RELOJ. La propuesta sale de la bandeja de marcajes
+      sin dueño, que ya trae el nombre que el equipo reporta en cada checada.
+      Preguntarle al aparato exigía que el servidor compartiera red con él, y
+      eso dejó de ser cierto al desplegar.
+    -->
     <UCard v-if="!preview.data.value">
-      <div class="grid gap-3 sm:grid-cols-2">
-        <UFormField label="Usuario del reloj">
-          <UInput v-model="username" autocomplete="off" class="w-full" />
-        </UFormField>
-        <UFormField label="Contraseña del reloj">
-          <UInput v-model="password" type="password" autocomplete="off" class="w-full" />
-        </UFormField>
-      </div>
-      <p class="text-dimmed mt-2 text-xs">
-        Son las credenciales del equipo, no las tuyas. No se guardan en el navegador.
+      <p class="text-default text-sm">
+        Se propone a partir de quien ha checado en este reloj y todavía no tiene
+        expediente.
+      </p>
+      <p class="text-dimmed mt-1 text-xs">
+        Solo aparece quien haya checado al menos una vez. A quien esté dado de alta
+        en el equipo pero no haya pasado el dedo todavía, aquí no se le ve.
       </p>
       <div class="mt-3">
         <UButton
-          label="Leer el padrón"
-          icon="i-lucide-download"
+          label="Ver propuestas"
+          icon="i-lucide-users"
           :loading="preview.pending.value"
-          :disabled="username === '' || password === ''"
           @click="preview.run"
         />
       </div>
-      <ApiErrorAlert :error="preview.error.value" :fields="['username', 'password']" class="mt-3" />
+      <ApiErrorAlert :error="preview.error.value" class="mt-3" />
     </UCard>
 
     <UAlert
