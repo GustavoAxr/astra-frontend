@@ -56,8 +56,43 @@ function iconosUsados(): string[] {
 }
 
 // https://vite.dev/config/
+/**
+ * SEGURO DE DESPLIEGUE: en producción la API se nombra entera.
+ *
+ * El front vive en un servidor (Oracle, Monterrey) y la API en otro (Contabo,
+ * Francia). El nginx del front no reenvía nada, así que una URL relativa como
+ * la `"/api"` del desarrollo no falla de forma visible: cae en el `index.html`
+ * del SPA y devuelve **200 con HTML**. La aplicación entonces no se cae, hace
+ * algo peor — cierra la sesión sola y contesta «la petición no se pudo
+ * completar» a todo, sin una sola línea en el registro del servidor, porque
+ * ninguna petición llegó a salir del dominio.
+ *
+ * Pasó al publicar un paquete construido con el `.env` de desarrollo. Esto lo
+ * convierte en un build que falla, que es donde se tiene que ver.
+ */
+function apiAbsolutaEnProduccion() {
+  return {
+    name: 'astra:api-absoluta-en-produccion',
+    apply: 'build' as const,
+    configResolved(config: { mode: string; env: Record<string, string> }) {
+      if (config.mode !== 'production') return
+
+      const url = config.env.VITE_API_URL ?? ''
+      if (/^https?:\/\//.test(url)) return
+
+      throw new Error(
+        `VITE_API_URL vale ${JSON.stringify(url)} y un build de producción necesita la ` +
+          'dirección completa de la API (https://…). Ponla en .env.production, que gana ' +
+          'sobre .env y no se commitea. Con una ruta relativa las llamadas caen en el ' +
+          'index.html del propio front: 200, HTML, y la sesión se cierra sola.',
+      )
+    },
+  }
+}
+
 export default defineConfig({
   plugins: [
+    apiAbsolutaEnProduccion(),
     /*
      * Certificado propio para el servidor de desarrollo.
      *
@@ -185,8 +220,7 @@ export default defineConfig({
              * servir nada viejo. Es lo que hace que la segunda visita —y la
              * visita con el servidor caído— tengan JavaScript.
              */
-            urlPattern: ({ url, sameOrigin }) =>
-              sameOrigin && url.pathname.startsWith('/assets/'),
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/assets/'),
             handler: 'CacheFirst',
             options: {
               cacheName: 'astra-assets',
@@ -317,8 +351,7 @@ export default defineConfig({
          */
         tooltip: {
           slots: {
-            content:
-              'z-[60] h-auto max-w-xs items-start px-2.5 py-1.5 leading-snug shadow-md',
+            content: 'z-[60] h-auto max-w-xs items-start px-2.5 py-1.5 leading-snug shadow-md',
             text: 'overflow-visible text-clip whitespace-normal break-words',
           },
         },
