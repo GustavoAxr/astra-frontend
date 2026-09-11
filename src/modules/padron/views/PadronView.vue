@@ -9,7 +9,7 @@ import { useAviso } from '@/shared/ui/aviso'
 import { useAuthStore } from '@/modules/auth/store'
 import { devicesApi } from '@/modules/devices/api'
 import { padronApi } from '../api'
-import { diaLegible, gravedad, motivoColor, motivoLabel } from '../motivo'
+import { diaLegible, gravedad, motivoColor, motivoLabel, sexoLegible } from '../motivo'
 import type { Divergencia, SyncResult } from '../types'
 
 const aviso = useAviso()
@@ -405,6 +405,9 @@ const ESTADOS: Record<
                   : 'sin permiso: checa y no abre'
               }}
             </div>
+            <div v-if="row.original.motivos.includes('sexo')">
+              {{ sexoLegible(row.original.sexo.enElEquipo) }}
+            </div>
           </div>
         </template>
 
@@ -424,6 +427,9 @@ const ESTADOS: Record<
             </div>
             <div v-if="row.original.motivos.includes('permiso')">
               plantilla {{ row.original.permiso.enAstra }}
+            </div>
+            <div v-if="row.original.motivos.includes('sexo')">
+              {{ sexoLegible(row.original.sexo.enAstra) }}
             </div>
           </div>
         </template>

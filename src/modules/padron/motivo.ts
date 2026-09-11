@@ -15,6 +15,9 @@ const TEXTOS: Record<MotivoDeDivergencia, { label: string; color: 'warning' | 'e
   // Una vigencia que empieza tarde deja fuera a quien acaba de entrar.
   inicio: { label: 'Fecha de alta', color: 'warning' },
   nombre: { label: 'Nombre', color: 'warning' },
+  // No abre ni cierra puertas, pero sale en la ficha del aparato y en sus
+  // listados. Se empuja como todo lo demás.
+  sexo: { label: 'Sexo', color: 'warning' },
 }
 
 export const motivoLabel = (m: MotivoDeDivergencia) => TEXTOS[m].label
@@ -27,10 +30,19 @@ const PESO: Record<MotivoDeDivergencia, number> = {
   bloqueo: 2,
   inicio: 3,
   nombre: 4,
+  sexo: 5,
 }
 
 export const gravedad = (d: Divergencia): number =>
   Math.min(...d.motivos.map((m) => PESO[m]))
+
+/** `H`/`M` como se escribe para una persona. Nada que decir si no consta. */
+export function sexoLegible(v: 'H' | 'M' | null | undefined): string {
+  if (v === 'H') return 'Hombre'
+  if (v === 'M') return 'Mujer'
+  if (v === null) return 'sin dato'
+  return 'no consta'
+}
 
 /** `2026-09-30T23:59:59-06:00` → `30/09/2026`. Nulo = sin fecha de fin. */
 export function diaLegible(v: string | null | undefined): string {

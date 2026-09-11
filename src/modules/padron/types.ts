@@ -1,4 +1,10 @@
-export type MotivoDeDivergencia = 'nombre' | 'vigencia' | 'inicio' | 'bloqueo' | 'permiso'
+export type MotivoDeDivergencia =
+  | 'nombre'
+  | 'vigencia'
+  | 'inicio'
+  | 'bloqueo'
+  | 'permiso'
+  | 'sexo'
 
 export interface Divergencia {
   externalUserId: string
@@ -18,6 +24,14 @@ export interface Divergencia {
    */
   permiso: { enElEquipo: string | null | undefined; enAstra: string | null }
   bloqueo: { enElEquipo: boolean | undefined; enAstra: boolean }
+  /**
+   * El sexo. `undefined` en el equipo = la lectura es anterior a que se leyera
+   * ese campo; `null` = el reloj lo tiene en desconocido.
+   *
+   * Solo difiere cuando Astra tiene el dato: con el expediente en blanco no se
+   * le reclama al reloj algo que aquí nadie ha capturado.
+   */
+  sexo: { enElEquipo: 'H' | 'M' | null | undefined; enAstra: 'H' | 'M' | null }
 }
 
 /**
