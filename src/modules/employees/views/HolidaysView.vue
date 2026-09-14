@@ -13,6 +13,7 @@ import { useAviso } from '@/shared/ui/aviso'
 import { useAuthStore } from '@/modules/auth/store'
 import { employeesApi } from '../api'
 import type { Holiday } from '../types'
+import HolidayCopyModal from '../components/HolidayCopyModal.vue'
 import HolidayFormModal from '../components/HolidayFormModal.vue'
 
 const auth = useAuthStore()
@@ -45,10 +46,20 @@ const rows = computed(() =>
   [...(list.data.value ?? [])].sort((a, b) => a.holidayDate.localeCompare(b.holidayDate)),
 )
 
-/** Del año en curso hacia atrás y hacia delante: nadie captura a diez años vista. */
+/**
+ * Dos años atrás y tres adelante.
+ *
+ * ATRÁS, porque la asistencia de un año que ya pasó se sigue consultando y un
+ * festivo mal capturado la sigue midiendo mal. ADELANTE, porque el calendario
+ * del año que viene se prepara en octubre: con un solo año por delante no había
+ * dónde dejarlo hasta enero.
+ */
 const years = computed(() => {
   const actual = new Date().getFullYear()
-  return [actual - 1, actual, actual + 1].map((y) => ({ label: String(y), value: y }))
+  return Array.from({ length: 6 }, (_, i) => actual - 2 + i).map((y) => ({
+    label: String(y),
+    value: y,
+  }))
 })
 
 const fecha = new Intl.DateTimeFormat('es-MX', {
@@ -70,6 +81,7 @@ const obligatorios = computed(() => rows.value.filter((h) => h.isMandatoryRest).
 const editando = ref<Holiday | null>(null)
 const formOpen = ref(false)
 const borrando = ref<Holiday | null>(null)
+const copiando = ref(false)
 
 function nuevo(): void {
   editando.value = null
@@ -104,10 +116,11 @@ watch([year, selectedId], () => void list.run(), { immediate: true })
         />
         <UButton
           v-if="puedeEditar"
-          icon="i-lucide-plus"
-          label="Nuevo festivo"
-          @click="nuevo"
+          icon="i-lucide-copy"
+          label="Copiar días festivos"
+          @click="copiando = true"
         />
+        <UButton v-if="puedeEditar" icon="i-lucide-plus" label="Nuevo festivo" @click="nuevo" />
       </template>
     </PageHeader>
 
@@ -122,7 +135,14 @@ watch([year, selectedId], () => void list.run(), { immediate: true })
       icon="i-lucide-party-popper"
       title="No hay festivos cargados para este año"
       description="Sin festivos, esos días se miden como cualquier otro y trabajarlos no se paga distinto."
-    />
+    >
+      <UButton
+        v-if="puedeEditar"
+        icon="i-lucide-copy"
+        :label="`Traer los de ${year - 1}`"
+        @click="copiando = true"
+      />
+    </EmptyState>
 
     <UTable
       v-else
@@ -164,12 +184,7 @@ watch([year, selectedId], () => void list.run(), { immediate: true })
       -->
       <template #acciones-cell="{ row }">
         <div v-if="puedeEditar && row.original.legalEntityId" class="flex justify-end gap-1">
-          <UButton
-            icon="i-lucide-pencil"
-            label="Editar"
-            size="sm"
-            @click="editar(row.original)"
-          />
+          <UButton icon="i-lucide-pencil" label="Editar" size="sm" @click="editar(row.original)" />
           <UButton
             icon="i-lucide-trash-2"
             color="error"
@@ -181,6 +196,13 @@ watch([year, selectedId], () => void list.run(), { immediate: true })
         </div>
       </template>
     </UTable>
+
+    <HolidayCopyModal
+      v-model:open="copiando"
+      :destino="year"
+      :legal-entity-id="selectedId"
+      @saved="list.run()"
+    />
 
     <HolidayFormModal
       v-model:open="formOpen"
