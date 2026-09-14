@@ -274,10 +274,33 @@ export interface Holiday {
   id: string
   legalEntityId: string | null
   countryCode: string
+  /** LA FECHA DE LEY. No se mueve: es la misma para todas las empresas. */
   holidayDate: string
   name: string
   /** Descanso obligatorio por ley: trabajarlo se paga distinto. */
   isMandatoryRest: boolean
+  /**
+   * En qué día lo toma cada razón social que decidió moverlo. Vacío es el caso
+   * de siempre: todas descansan el día de ley.
+   */
+  observances: HolidayObservance[]
+}
+
+/**
+ * EL DÍA EN QUE UNA EMPRESA TOMA UN FESTIVO DE LEY.
+ *
+ * El festivo de ley no se toca —es de todas las empresas— pero la fecha en que
+ * una da el día sí es suya: se recorre a un lunes, se pega a un puente.
+ */
+export interface HolidayObservance {
+  legalEntityId: string
+  observedDate: string
+  /**
+   * Si trabajar LA FECHA DE LEY sigue pagando la prima aunque el descanso se
+   * haya movido. Mover el día libre es cosa de la empresa, no una reforma al
+   * art. 75, así que por omisión la prima se queda donde la puso la ley.
+   */
+  premiumOnLegalDate: boolean
 }
 
 export interface EmployeeException {

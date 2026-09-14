@@ -14,6 +14,7 @@ import { useAuthStore } from '@/modules/auth/store'
 import { employeesApi } from '../api'
 import type { Holiday } from '../types'
 import HolidayCopyModal from '../components/HolidayCopyModal.vue'
+import HolidayObservanceModal from '../components/HolidayObservanceModal.vue'
 import HolidayFormModal from '../components/HolidayFormModal.vue'
 
 const auth = useAuthStore()
@@ -42,8 +43,38 @@ const list = useAsync((signal) =>
   employeesApi.holidays(year.value, selectedId.value ?? undefined, signal),
 )
 
+/**
+ * EN QUÉ DÍA SE TOMA ESE FESTIVO, con el filtro de arriba puesto.
+ *
+ * Con «Todas las empresas» NO HAY UNA RESPUESTA: dos razones sociales del grupo
+ * pueden tomar el mismo día de ley en fechas distintas, y enseñar la de una como
+ * si fuera la de todas sería mentir en la columna que más se mira. Por eso
+ * devuelve `null` y el renglón se queda con la fecha de ley.
+ */
+function tomadoEl(h: Holiday): string | null {
+  if (selectedId.value === null) return null
+  return h.observances.find((o) => o.legalEntityId === selectedId.value)?.observedDate ?? null
+}
+
+/** La fecha contra la que se mide de verdad. Sin observancia, la de ley. */
+const diaEfectivo = (h: Holiday): string => tomadoEl(h) ?? h.holidayDate
+
+/** Movido de sitio. Ponerlo en la misma fecha de ley no es moverlo. */
+const movido = (h: Holiday): boolean => {
+  const dia = tomadoEl(h)
+  return dia !== null && dia !== h.holidayDate
+}
+
+/** Cómo quedó la prima de quien trabaje la fecha de ley. */
+const primaEnLaLey = (h: Holiday): boolean =>
+  h.observances.find((o) => o.legalEntityId === selectedId.value)?.premiumOnLegalDate ?? true
+
+/*
+ * Se ordena por el día en que SE TOMA y no por el de ley: esta pantalla es un
+ * calendario, y un festivo movido a marzo tiene que aparecer en marzo.
+ */
 const rows = computed(() =>
-  [...(list.data.value ?? [])].sort((a, b) => a.holidayDate.localeCompare(b.holidayDate)),
+  [...(list.data.value ?? [])].sort((a, b) => diaEfectivo(a).localeCompare(diaEfectivo(b))),
 )
 
 /**
@@ -82,6 +113,8 @@ const editando = ref<Holiday | null>(null)
 const formOpen = ref(false)
 const borrando = ref<Holiday | null>(null)
 const copiando = ref(false)
+/** El festivo de ley al que se le está cambiando el día en que se toma. */
+const moviendo = ref<Holiday | null>(null)
 
 function nuevo(): void {
   editando.value = null
@@ -158,8 +191,24 @@ watch([year, selectedId], () => void list.run(), { immediate: true })
       :class="list.loaded.value && list.pending.value ? 'opacity-60 transition-opacity' : ''"
       empty="No hay festivos en este año."
     >
+      <!--
+        Manda el día en que SE TOMA, y la fecha de ley va debajo. Al revés se
+        leería mal: quien abre esta pantalla quiere saber qué día no se trabaja,
+        no qué dice el Diario Oficial.
+      -->
       <template #holidayDate-cell="{ row }">
-        <span class="capitalize">{{ cuando(row.original.holidayDate) }}</span>
+        <span class="capitalize">{{ cuando(diaEfectivo(row.original)) }}</span>
+        <p v-if="movido(row.original)" class="text-dimmed text-xs">
+          De ley: <span class="capitalize">{{ cuando(row.original.holidayDate) }}</span> ·
+          {{
+            primaEnLaLey(row.original) ? 'la prima se queda ahí' : 'la prima se movió con el día'
+          }}
+        </p>
+        <p v-else-if="row.original.observances.length" class="text-dimmed text-xs">
+          {{ row.original.observances.length }}
+          {{ row.original.observances.length === 1 ? 'empresa lo toma' : 'empresas lo toman' }}
+          en otra fecha
+        </p>
       </template>
 
       <!--
@@ -178,12 +227,21 @@ watch([year, selectedId], () => void list.run(), { immediate: true })
       </template>
 
       <!--
-        Los de LEY no llevan botones, y no es que estén deshabilitados: no son
-        de esta empresa. Enseñar un lápiz que siempre va a contestar que no se
-        puede sería prometer algo que no existe.
+        Los de LEY siguen sin lápiz ni bote: no son de esta empresa y editarlos
+        se lo cambiaría a todos los inquilinos de la nube. Lo que sí tienen ahora
+        es lo único que una empresa puede hacer con un día de ley: decir qué día
+        lo toma ella. Eso no edita el festivo, crea una fila suya.
       -->
       <template #acciones-cell="{ row }">
-        <div v-if="puedeEditar && row.original.legalEntityId" class="flex justify-end gap-1">
+        <div v-if="puedeEditar && !row.original.legalEntityId" class="flex justify-end gap-1">
+          <UButton
+            icon="i-lucide-calendar-cog"
+            :label="movido(row.original) ? 'Cambiar el día' : 'Mover el día'"
+            size="sm"
+            @click="moviendo = row.original"
+          />
+        </div>
+        <div v-else-if="puedeEditar && row.original.legalEntityId" class="flex justify-end gap-1">
           <UButton icon="i-lucide-pencil" label="Editar" size="sm" @click="editar(row.original)" />
           <UButton
             icon="i-lucide-trash-2"
@@ -196,6 +254,19 @@ watch([year, selectedId], () => void list.run(), { immediate: true })
         </div>
       </template>
     </UTable>
+
+    <HolidayObservanceModal
+      v-if="moviendo"
+      :open="true"
+      :holiday="moviendo"
+      :legal-entity-id="selectedId"
+      @update:open="
+        (value: boolean) => {
+          if (!value) moviendo = null
+        }
+      "
+      @saved="list.run()"
+    />
 
     <HolidayCopyModal
       v-model:open="copiando"

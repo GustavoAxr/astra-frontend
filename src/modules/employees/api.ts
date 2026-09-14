@@ -17,6 +17,7 @@ import type {
   EmploymentEvent,
   ExceptionType,
   Holiday,
+  HolidayObservance,
   ShiftPolicy,
   UpdateEmployeeForm,
 } from './types'
@@ -134,15 +135,16 @@ export const employeesApi = {
   exceptionTypes: (signal?: AbortSignal) =>
     http.get<ExceptionType[]>('/exception-types', { signal, cacheTtlMs: TTL_CATALOGO }),
 
-  exceptions: (q: {
+  exceptions: (
+    q: {
       employeeId?: string
       from?: string
       to?: string
       /** Filtro de comodidad; el alcance lo aplica RLS en el servidor. */
       legalEntityId?: string
     },
-    signal?: AbortSignal) =>
-    http.get<EmployeeException[]>('/employee-exceptions', { query: { ...q }, signal }),
+    signal?: AbortSignal,
+  ) => http.get<EmployeeException[]>('/employee-exceptions', { query: { ...q }, signal }),
 
   addException: (input: {
     employeeId: string
@@ -167,11 +169,7 @@ export const employeesApi = {
    * globales**: un festivo de ley aplica a todas, y esconderlo al filtrar
    * convertiría el filtro en una trampa.
    */
-  holidays: (
-    year: number | undefined,
-    legalEntityId?: string,
-    signal?: AbortSignal,
-  ) =>
+  holidays: (year: number | undefined, legalEntityId?: string, signal?: AbortSignal) =>
     http.get<Holiday[]>('/holidays', { query: { year, legalEntityId }, signal }),
 
   /**
@@ -191,6 +189,27 @@ export const employeesApi = {
   ) => http.patch<Holiday>(`/holidays/${id}`, cambios),
 
   borrarFestivo: (id: string) => http.delete<void>(`/holidays/${id}`),
+
+  /**
+   * En qué día toma esta empresa ese festivo de ley.
+   *
+   * NO edita el festivo compartido: crea o cambia una fila propia de la razón
+   * social. Es lo único que una empresa puede hacer con un día de ley, y por
+   * eso esta llamada sí acepta uno.
+   *
+   * `PUT` porque es idempotente: mandarlo dos veces con el mismo día deja el
+   * mismo estado.
+   */
+  moverFestivo: (
+    holidayId: string,
+    cuerpo: { legalEntityId: string; observedDate: string; premiumOnLegalDate: boolean },
+  ) => http.put<HolidayObservance>(`/holidays/${holidayId}/observance`, cuerpo),
+
+  /** Vuelve a tomarlo en la fecha de ley. */
+  devolverFestivoALaLey: (holidayId: string, legalEntityId: string) =>
+    http.delete<void>(`/holidays/${holidayId}/observance`, undefined, {
+      query: { legalEntityId },
+    }),
 }
 
 /**
