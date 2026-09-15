@@ -30,8 +30,7 @@ export const devicesApi = {
       /** `null` lo deja sin agente; omitirlo no toca la asignación. */
       edgeAgentId?: string | null
     },
-  ) =>
-    http.patch<Device>(`/devices/${deviceId}`, changes),
+  ) => http.patch<Device>(`/devices/${deviceId}`, changes),
 
   /**
    * Le pregunta al reloj por sus checadas desde la marca de agua guardada.
@@ -49,19 +48,18 @@ export const devicesApi = {
    * por omisión solo entrega lo posterior a la última lectura. Releer no
    * duplica —la clave de cada checada es determinista—.
    */
-  /**
-   * ¿Sirven estas credenciales para este reloj? No lee ni escribe: pregunta.
+  /*
+   * AQUÍ VIVÍA `check`, y lo usaba el alta de personal para comprobar la
+   * contraseña del reloj antes de crear nada. Se quitó porque NO PUEDE
+   * funcionar: abre una conexión desde el SERVIDOR hacia la dirección del
+   * equipo, que es de red local, y el servidor está en otro país. Diez
+   * segundos de espera y un «fetch failed» que abortaba el alta entera.
    *
-   * Está para poner la comprobación DELANTE de algo que sí escribe. El alta de
-   * personal la usa así: si la contraseña del equipo está mal, no se crea ni el
-   * expediente, y no queda medio empleado que borrar a mano.
+   * Desde que existe el agente no hay nada que comprobar por delante: el alta
+   * en el reloj se encola y la aplica quien sí ve el equipo. El endpoint sigue
+   * existiendo en el servidor para quien lo tenga en la misma red, pero desde
+   * esta aplicación no se llama.
    */
-  check: (deviceId: string, username: string, password: string, signal?: AbortSignal) =>
-    http.post<{ ok: true; detalle: string }>(
-      `/devices/${deviceId}/check`,
-      { username, password },
-      { signal },
-    ),
 
   sync: (deviceId: string, input: { username: string; password: string; desde?: string }) =>
     http.post<SyncOutcome>(`/devices/${deviceId}/sync`, {

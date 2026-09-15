@@ -199,10 +199,17 @@ const puedeEnrolar = computed(() => auth.can('assignEmployee'))
  */
 const fueraDeLaOficina = ref(false)
 
+/*
+ * EL RELOJ YA NO SE TOCA DESDE AQUÍ, y por eso ya no se piden sus credenciales.
+ *
+ * Quien escribe en el equipo es el AGENTE, que vive en la nave y usa las suyas.
+ * El servidor está en otro país y la dirección del reloj es una de red local
+ * (192.168.x): desde fuera no existe. El usuario y la contraseña que pedía este
+ * formulario eran de cuando el servidor salía a la red del cliente, y ya no
+ * viajaban a ninguna parte — solo servían para que el alta fallara.
+ */
 const enElReloj = ref(false)
 const deviceId = ref('')
-const clockUser = ref('admin')
-const clockPass = ref('')
 const conClave = ref(true)
 
 /**
@@ -320,8 +327,7 @@ const valid = computed(
     shiftPolicyId.value !== '' &&
     validFrom.value !== '' &&
     (whatsappNumber.value.trim() === '' || telefonoValido.value) &&
-    (!enElReloj.value ||
-      (deviceId.value !== '' && clockUser.value.trim() !== '' && clockPass.value !== '')),
+    (!enElReloj.value || deviceId.value !== ''),
 )
 
 watch(open, (isOpen) => {
@@ -351,7 +357,6 @@ watch(open, (isOpen) => {
   fueraDeLaOficina.value = false
   enElReloj.value = false
   deviceId.value = ''
-  clockPass.value = ''
   conClave.value = true
   resultado.value = null
   avisoDelReloj.value = ''
@@ -405,21 +410,26 @@ async function submit(): Promise<void> {
 
   try {
     /*
-     * LA CONTRASEÑA DEL RELOJ SE COMPRUEBA ANTES DE CREAR NADA.
+     * AQUÍ HABÍA UNA COMPROBACIÓN CONTRA EL RELOJ, Y TUMBABA TODAS LAS ALTAS.
      *
-     * Es el filtro definitivo: si el equipo no acepta esas credenciales, no se
-     * crea el expediente, ni la adscripción, ni la foto. Con la comprobación
-     * detrás, una contraseña mal tecleada dejaba a media persona dada de alta
-     * —expediente sí, reloj no— y había que ir a borrarla a mano. Pasó, y por
-     * eso está aquí.
+     * Llamaba a `POST /devices/:id/check`, que abre una conexión desde el
+     * SERVIDOR hacia la dirección del equipo. Esa dirección es de red local
+     * —192.168.1.66— y el servidor está en Francia: la conexión no podía
+     * llegar a ninguna parte. Diez segundos de espera y un 400 «fetch failed»,
+     * y el alta se abortaba antes de crear nada. No fallaba a veces: no podía
+     * funcionar nunca con el reloj donde está.
      *
-     * No lee ni escribe en el equipo: solo le pregunta si le sirven. Lo que sí
-     * escribe viene después, y ya con la certeza de que va a poder terminar.
+     * Era un resto de cuando el servidor sí salía a la red del cliente. Desde
+     * que existe el agente, el alta en el reloj NO toca la red: los números
+     * ocupados salen de la última lectura y la escritura se encola para que la
+     * aplique el agente, que sí ve el equipo. Así que no queda contraseña que
+     * comprobar, ni ida y vuelta que poner por delante.
+     *
+     * LO QUE SE PIERDE: el alta ya no es todo-o-nada. Si el paso del reloj
+     * falla —porque nunca se ha leído ese equipo, o porque a la persona ya la
+     * tenía—, el expediente queda creado y se dice con esas palabras, que es
+     * lo que ya hacía el aviso de abajo.
      */
-    if (enElReloj.value) {
-      await devicesApi.check(deviceId.value, clockUser.value.trim(), clockPass.value)
-    }
-
     const empleado = await employeesApi.create({
       legalEntityId: legalEntityId.value,
       firstName: firstName.value,
@@ -472,20 +482,15 @@ async function submit(): Promise<void> {
 
     if (enElReloj.value) {
       try {
-        resultado.value = await padronApi.enroll(
-          deviceId.value,
-          clockUser.value.trim(),
-          clockPass.value,
-          {
-            employeeId: empleado.id,
-            conClave: conClave.value,
-            claveLongitud: claveLongitud.value,
-          },
-        )
+        resultado.value = await padronApi.enroll(deviceId.value, {
+          employeeId: empleado.id,
+          conClave: conClave.value,
+          claveLongitud: claveLongitud.value,
+        })
       } catch (cause) {
-        // Las credenciales ya se comprobaron arriba, así que llegar aquí es
-        // raro: el número se ocupó entre medias, o el equipo se apagó en los
-        // segundos que tardó el alta. Se dice y se puede rematar desde la ficha.
+        // El expediente YA existe: esto es lo último que se hace. Se llega aquí
+        // si nunca se ha leído el padrón de ese equipo, o si a esa persona ya
+        // la tenía. Se dice y se puede rematar desde su ficha.
         avisoDelReloj.value =
           `${firstName.value} quedó dado de alta en Astra, pero NO en el reloj: ` +
           (cause instanceof Error ? cause.message : String(cause)) +
@@ -519,7 +524,6 @@ async function submit(): Promise<void> {
     )
 
     emit('saved')
-    clockPass.value = ''
 
     // Con número o clave que enseñar, la pantalla se queda: son datos que solo
     // se ven una vez. Sin nada que contar, se cierra como siempre.
@@ -826,17 +830,9 @@ async function submit(): Promise<void> {
 
           <template v-else-if="enElReloj">
             <p class="text-dimmed text-xs">
-              Se le asigna el siguiente número libre —preguntándole al equipo cuáles tiene— y se
-              encola su alta. El reloj tiene que estar encendido: reutilizar un número le pondría a
-              esta persona el nombre de otra.
-            </p>
-            <!--
-              Que quede claro antes de pulsar: esta contraseña manda sobre todo
-              el formulario, no solo sobre el paso del reloj.
-            -->
-            <p class="text-muted text-xs">
-              La contraseña del equipo se comprueba <strong>antes</strong> de crear nada. Si no
-              sirve, no se da de alta a nadie: ni expediente, ni adscripción, ni foto.
+              Se le asigna el siguiente número libre —de la última lectura del equipo— y se encola
+              su alta. La aplica el agente de la nave en cuanto la recoja; no hace falta que el
+              reloj esté encendido en este momento.
             </p>
 
             <UFormField label="En qué reloj" required>
@@ -848,18 +844,6 @@ async function submit(): Promise<void> {
                 class="w-full"
               />
             </UFormField>
-
-            <div class="grid gap-3 sm:grid-cols-2">
-              <UFormField label="Usuario del reloj" required>
-                <UInput v-model="clockUser" autocomplete="off" class="w-full" />
-              </UFormField>
-              <UFormField label="Contraseña del reloj" required>
-                <UInput v-model="clockPass" type="password" autocomplete="off" class="w-full" />
-              </UFormField>
-            </div>
-            <p class="text-dimmed text-xs">
-              Son las credenciales del equipo, no las tuyas. No se guardan.
-            </p>
 
             <UCheckbox
               v-model="conClave"

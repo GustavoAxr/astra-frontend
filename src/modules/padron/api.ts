@@ -43,15 +43,16 @@ export const padronApi = {
 
   /**
    * Da de alta a alguien EN EL RELOJ: le asigna número, lo vincula y encola su
-   * alta. Le pregunta al equipo qué números tiene, así que **necesita el reloj
-   * encendido**: es la única operación del padrón que no se puede encolar a
-   * ciegas, porque reutilizar un número le pondría a esa persona el nombre de
-   * otra.
+   * alta.
+   *
+   * SIN CREDENCIALES DEL EQUIPO. Las pedía de cuando el servidor salía a la red
+   * del cliente; hoy los números ocupados salen de la última lectura y quien
+   * escribe es el agente, con las suyas. El servidor las seguía aceptando por
+   * compatibilidad —marcadas «ya no se usa»— y mandarlas solo servía para que
+   * un formulario las pidiera.
    */
   enroll: (
     deviceId: string,
-    username: string,
-    password: string,
     body: {
       employeeId: string
       externalUserId?: string
@@ -61,7 +62,7 @@ export const padronApi = {
   ) =>
     http.post<{ externalUserId: string; pin: string | null }>(
       `/devices/${deviceId}/padron/enroll`,
-      { username, password, ...body },
+      body,
     ),
 
   commands: (deviceId: string, signal?: AbortSignal) =>
