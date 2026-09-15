@@ -40,11 +40,12 @@ onMounted(() => {
       <h1 class="text-highlighted text-xl font-semibold">Checar a distancia</h1>
       <div class="border-default bg-elevated/50 space-y-3 border p-5 text-left">
         <p class="text-default text-sm">
-          Este teléfono todavía no está dado de alta en ninguna empresa.
+          Este equipo todavía no está dado de alta en ninguna empresa.
         </p>
         <p class="text-muted text-sm">
-          Pídele a Recursos Humanos el enlace para checar a distancia. Te lo mandan al correo, lo
-          abres una vez en este teléfono, y a partir de entonces este icono ya te trae directo.
+          Pídele a Recursos Humanos el enlace para checar a distancia. Te lo mandan al correo y lo
+          abres una vez en el equipo con el que vas a checar —tu teléfono o tu computadora—; a
+          partir de entonces ese equipo ya te trae directo.
         </p>
       </div>
     </div>

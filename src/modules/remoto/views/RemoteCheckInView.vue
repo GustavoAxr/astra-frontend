@@ -241,7 +241,7 @@ async function confirmar(): Promise<void> {
     paso.value = 'checar'
     codigo.value = ''
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'No pude dar de alta el teléfono'
+    error.value = e instanceof ApiError ? e.message : 'No pude dar de alta este equipo'
   } finally {
     enviando.value = false
   }
@@ -271,7 +271,7 @@ function ubicacion(): Promise<GeolocationPosition> {
       return
     }
     if (!('geolocation' in navigator)) {
-      rechazar(new Error('Este teléfono no puede dar su ubicación'))
+      rechazar(new Error('Este equipo no puede dar su ubicación'))
       return
     }
     navigator.geolocation.getCurrentPosition(resolver, rechazar, {
@@ -448,7 +448,7 @@ function olvidarEsteTelefono(): void {
       <template v-if="guardadaSinRed">
         <div class="border-warning/40 bg-warning/10 space-y-2 border p-6 text-center">
           <UIcon name="i-lucide-cloud-off" class="text-warning size-12" />
-          <p class="text-highlighted text-lg font-semibold">Guardada en este teléfono</p>
+          <p class="text-highlighted text-lg font-semibold">Guardada en este equipo</p>
           <p class="text-default text-sm">
             No hay conexión ahora mismo. Se mandará sola en cuanto vuelva la señal, con la hora en
             que le diste al botón.
@@ -523,7 +523,7 @@ function olvidarEsteTelefono(): void {
         </p>
 
         <p class="text-dimmed text-center text-xs">
-          Este teléfono ya está dado de alta. Se guarda desde dónde checas y te llega un comprobante
+          Este equipo ya está dado de alta. Se guarda desde dónde checas y te llega un comprobante
           por correo cada vez.
         </p>
 
@@ -543,10 +543,10 @@ function olvidarEsteTelefono(): void {
           </p>
           <p class="text-muted text-xs">
             Tu checada pasa a valer por sí sola, sin que nadie tenga que aprobarla. Y si alguien se
-            lleva tu teléfono, no puede checar por ti.
+            lleva tu equipo, no puede checar por ti.
           </p>
           <p class="text-dimmed text-xs">
-            Una vez activada, este teléfono ya no podrá checar sin tu huella. Para quitarla hay que
+            Una vez activada, este equipo ya no podrá checar sin tu huella. Para quitarla hay que
             hablar con Recursos Humanos.
           </p>
           <UButton
@@ -558,7 +558,7 @@ function olvidarEsteTelefono(): void {
             @click="activarHuella"
           />
         </div>
-        <UButton label="Este no es mi teléfono" size="lg" block @click="olvidarEsteTelefono" />
+        <UButton label="Este no es mi equipo" size="lg" block @click="olvidarEsteTelefono" />
       </template>
 
       <!-- Alta, paso 2: el código que llegó por WhatsApp. -->
@@ -587,11 +587,11 @@ function olvidarEsteTelefono(): void {
           <!--
             La etiqueta es opcional pero se pide AQUÍ y no después: es el único
             momento en que la persona sabe desde qué aparato está dando de alta.
-            Sin ella, revocar un teléfono perdido desde Astra es elegir entre
+            Sin ella, revocar un equipo perdido desde Astra es elegir entre
             tres renglones idénticos.
           -->
           <UFormField
-            label="¿Cómo se llama este teléfono?"
+            label="¿Cómo se llama este equipo?"
             help="Opcional. Sirve para reconocerlo si algún día hay que darlo de baja."
           >
             <UInput v-model="etiqueta" placeholder="Mi celular" size="xl" class="w-full" />
@@ -601,7 +601,7 @@ function olvidarEsteTelefono(): void {
 
           <UButton
             type="submit"
-            label="Dar de alta este teléfono"
+            label="Dar de alta este equipo"
             icon="i-lucide-smartphone"
             size="xl"
             block
@@ -628,7 +628,7 @@ function olvidarEsteTelefono(): void {
           title="Ese enlace ya no sirve"
           :description="
             WHATSAPP_ACTIVO
-              ? `${enlaceGastado} Pídele otro a Recursos Humanos, o da de alta tu teléfono aquí abajo.`
+              ? `${enlaceGastado} Pídele otro a Recursos Humanos, o da de alta tu equipo aquí abajo.`
               : `${enlaceGastado} Pídele otro a Recursos Humanos: te lo manda al correo en un momento.`
           "
           class="mb-4"
@@ -656,12 +656,13 @@ function olvidarEsteTelefono(): void {
             Pídele a Recursos Humanos tu enlace
           </p>
           <p class="text-muted text-sm">
-            Te llega por correo y ya trae todo dentro: lo abres EN ESTE TELÉFONO, confirmas con tu
-            huella o tu cara, y a partir de ahí checas de un toque.
+            Te llega por correo y ya trae todo dentro: lo abres EN EL EQUIPO con el que vas a checar
+            todos los días —tu teléfono o tu computadora, el que prefieras—, confirmas con tu huella
+            o tu cara, y a partir de ahí checas de un toque.
           </p>
           <p class="text-dimmed text-xs">
-            El enlace dura 48 horas y sirve una sola vez. Si se te pasó, pide otro — no gastas nada
-            por pedirlo.
+            El enlace dura 48 horas y sirve una sola vez, y da de alta el equipo en el que lo abras.
+            Si se te pasó, pide otro — no gastas nada por pedirlo.
           </p>
         </div>
 
@@ -694,7 +695,7 @@ function olvidarEsteTelefono(): void {
           />
           <p class="text-dimmed text-center text-xs">
             Te llega por WhatsApp al número de tu expediente. Solo hace falta una vez: después este
-            teléfono checa de un toque.
+            equipo checa de un toque.
           </p>
         </form>
       </template>

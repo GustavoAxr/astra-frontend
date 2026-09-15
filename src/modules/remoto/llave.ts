@@ -44,10 +44,7 @@ export async function sePuedeUsarLlave(): Promise<boolean> {
  * firmar: lo impone el servidor. Es la parte que conviene que la pantalla diga
  * antes, no después.
  */
-export async function activarLlave(
-  entityId: string,
-  token: string,
-): Promise<void> {
+export async function activarLlave(entityId: string, token: string): Promise<void> {
   const opciones = await remotoApi.opcionesDeLlave(entityId, token)
   const respuesta = await startRegistration({ optionsJSON: opciones })
   await remotoApi.activarLlave(entityId, token, respuesta)
@@ -89,7 +86,5 @@ export function loQuePasoConLaLlave(e: unknown): string {
         return 'No pudimos usar la huella de este teléfono. Vuelve a intentarlo.'
     }
   }
-  return e instanceof Error
-    ? e.message
-    : 'No pudimos usar la huella de este teléfono.'
+  return e instanceof Error ? e.message : 'No pudimos usar la huella de este teléfono.'
 }

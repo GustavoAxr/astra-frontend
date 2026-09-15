@@ -8,11 +8,17 @@ import { WHATSAPP_ACTIVO } from '@/shared/config/funciones'
 import type { EmployeeDetail } from '../types'
 
 /**
- * CHECAR DESDE EL TELÉFONO: en qué estado está esta persona.
+ * CHECAR DESDE SU EQUIPO: en qué estado está esta persona.
+ *
+ * TELÉFONO O COMPUTADORA, Y UNO SOLO. Obligar a poner la aplicación de la
+ * empresa en el teléfono PERSONAL es donde esto se atascaba: mucha gente no
+ * quiere, y quien trabaja desde casa ya tiene una computadora delante ocho
+ * horas al día. Vale cualquiera de los dos — pero uno, y lo impone el servidor:
+ * dar uno de alta revoca el anterior.
  *
  * ══ TRES PUERTAS, Y SE DICEN LAS TRES ══
  *
- * Para que alguien pueda checar desde su teléfono hacen falta tres cosas, y
+ * Para que alguien pueda checar desde su equipo hacen falta tres cosas, y
  * ninguna de ellas es evidente desde fuera:
  *
  *   1. Su adscripción tiene que decir «a distancia». Es LO ÚNICO que lo
@@ -21,7 +27,7 @@ import type { EmployeeDetail } from '../types'
  *      que da de alta el aparato. HOY NO —WhatsApp está apagado, ver
  *      `WHATSAPP_ACTIVO`— y por eso este camino no se pinta: el código viaja
  *      dentro del enlace que se manda por correo.
- *   3. Tiene que dar de alta el teléfono, una vez, desde el enlace.
+ *   3. Tiene que dar de alta el equipo, una vez, desde el enlace.
  *
  * LA PRIMERA NO SE TRATA AQUÍ: esta tarjeta solo se pinta si la adscripción ya
  * dice «a distancia» —quien la pinta es el expediente—. Para el caso contrario
@@ -73,7 +79,7 @@ const renovando = ref<string | null>(null)
 const correoAlterno = ref('')
 
 /**
- * Un teléfono que vence dentro de dos semanas ya se puede renovar.
+ * Un equipo que vence dentro de dos semanas ya se puede renovar.
  *
  * El aviso de la una de la mañana lo anuncia con una semana; aquí se ofrece con
  * dos, para que quien entra al expediente por otra cosa pueda resolverlo de
@@ -88,10 +94,10 @@ async function renovar(id: string): Promise<void> {
   renovando.value = id
   try {
     const r = await remotoApi.renovar(id)
-    aviso.hecho('Teléfono renovado', `Ahora vence el ${soloDia.format(new Date(r.venceEl))}.`)
+    aviso.hecho('Equipo renovado', `Ahora vence el ${soloDia.format(new Date(r.venceEl))}.`)
     await telefonos.run()
   } catch (e) {
-    aviso.fallo(e, 'renovar el teléfono')
+    aviso.fallo(e, 'renovar el equipo')
   } finally {
     renovando.value = null
   }
@@ -107,9 +113,9 @@ async function renovar(id: string): Promise<void> {
  * persona pregunte.
  */
 const PASOS = [
-  'Abre el enlace EN EL TELÉFONO con el que va a checar. En ese queda dado de alta, y solo en ese.',
-  'Confirma con su huella o su cara cuando el teléfono se lo pida. Es lo que impide que alguien cheque por él.',
-  'Lo añade a su pantalla de inicio cuando se lo indiquemos: así entra de un toque y no busca el correo cada día.',
+  'Abre el enlace EN EL EQUIPO con el que va a checar todos los días: su teléfono o su computadora, el que prefiera. Queda dado de alta ese, y solo ese.',
+  'Confirma con su huella o su cara cuando el equipo se lo pida. Es lo que impide que alguien cheque por él.',
+  'Si es un teléfono, lo añade a su pantalla de inicio cuando se lo indiquemos: así entra de un toque y no busca el correo cada día.',
 ]
 
 async function mandarInvitacion(): Promise<void> {
@@ -137,10 +143,10 @@ async function revocar(id: string): Promise<void> {
   revocando.value = id
   try {
     await remotoApi.revocar(id)
-    aviso.hecho('Teléfono revocado', 'Desde ese aparato ya no se puede checar.')
+    aviso.hecho('Equipo revocado', 'Desde ese aparato ya no se puede checar.')
     await telefonos.run()
   } catch (e) {
-    aviso.fallo(e, 'revocar el teléfono')
+    aviso.fallo(e, 'revocar el equipo')
   } finally {
     revocando.value = null
   }
@@ -166,9 +172,9 @@ const soloDia = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
   <UCard>
     <template #header>
       <div class="flex flex-wrap items-center gap-2">
-        <h2 class="text-highlighted font-semibold">Checar desde el teléfono</h2>
+        <h2 class="text-highlighted font-semibold">Checar desde su equipo</h2>
         <span class="text-muted ml-auto text-sm">
-          {{ vigentes.length }} {{ vigentes.length === 1 ? 'teléfono' : 'teléfonos' }}
+          {{ vigentes.length }} {{ vigentes.length === 1 ? 'equipo' : 'equipos' }}
         </span>
       </div>
     </template>
@@ -242,7 +248,7 @@ const soloDia = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
         v-else-if="!(telefonos.data.value ?? []).length"
         class="border-default text-muted border border-dashed p-4 text-center text-sm"
       >
-        Todavía no ha dado de alta ningún teléfono.
+        Todavía no ha dado de alta ningún equipo.
       </p>
 
       <table v-else class="w-full text-sm">
@@ -301,7 +307,7 @@ const soloDia = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
 
       <!--
         REVOCAR NO BORRA. Hay que poder seguir viendo desde qué aparato entró
-        una checada de hace tres meses, aunque ese teléfono ya no valga.
+        una checada de hace tres meses, aunque ese equipo ya no valga.
       -->
       <p v-if="(telefonos.data.value ?? []).length" class="text-dimmed text-xs">
         Revocar no borra el aparato: deja de poder checar, y las checadas que ya hizo siguen
@@ -325,15 +331,33 @@ const soloDia = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
           </ol>
 
           <!--
-            LO QUE MÁS SE MALENTIENDE, DICHO ANTES DE MANDARLO. Abrir el enlace
-            en la computadora lo gasta sin dar de alta nada, y entonces hay que
-            mandar otro. Quien pulsa este botón tiene que saberlo para poder
-            avisarle.
+            LO QUE MÁS SE MALENTIENDE, DICHO ANTES DE MANDARLO.
+
+            Ya no es «que no lo abra en la computadora» —la computadora vale—,
+            sino que el alta se queda EN EL APARATO QUE ABRE EL ENLACE, y que
+            ese aparato es UNO. Quien pulsa este botón tiene que poder decírselo
+            por teléfono: si lo abre en el equipo equivocado, el enlace se gastó
+            y hay que mandarle otro.
           -->
-          <UAlert icon="i-lucide-smartphone" color="warning">
+          <UAlert icon="i-lucide-monitor-smartphone" color="warning">
             <template #description>
-              El enlace <strong>caduca en 48 horas y sirve una sola vez</strong>. Si lo abre en la
-              computadora se gasta sin dar de alta el teléfono, y habrá que mandarle otro.
+              El enlace <strong>caduca en 48 horas y sirve una sola vez</strong>, y da de alta
+              <strong>el equipo en el que se abra</strong> — su teléfono o su computadora, el que él
+              prefiera. Si lo abre en otro, se gastó y habrá que mandarle otro.
+            </template>
+          </UAlert>
+
+          <!--
+            Y LO QUE LE PASA AL ANTERIOR, dicho aquí y no descubierto el lunes.
+            Solo se pinta si hay algo que tirar: decírselo a quien no tiene
+            ninguno sería inventarle un problema.
+          -->
+          <UAlert v-if="vigentes.length > 0" icon="i-lucide-replace" color="warning">
+            <template #description>
+              Ya tiene <strong>{{ vigentes.length }}</strong>
+              {{ vigentes.length === 1 ? 'equipo dado de alta' : 'equipos dados de alta' }}. En
+              cuanto dé de alta el nuevo, {{ vigentes.length === 1 ? 'ese deja' : 'esos dejan' }}
+              de poder checar: es un equipo por persona.
             </template>
           </UAlert>
 
