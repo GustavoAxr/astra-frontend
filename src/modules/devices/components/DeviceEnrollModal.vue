@@ -247,7 +247,7 @@ async function submit(): Promise<void> {
                      que falta sin volver a la instalación: tiene que copiarse. -->
                 <p
                   v-if="discovery.unidentifiedSummary"
-                  class="bg-elevated mt-2 rounded p-2 font-mono text-xs select-all"
+                  class="bg-elevated mt-2 p-2 font-mono text-xs select-all"
                 >
                   {{ discovery.unidentifiedSummary }}
                 </p>
@@ -271,7 +271,7 @@ async function submit(): Promise<void> {
                   v-for="candidate in discovery.candidates"
                   :key="`${candidate.brand}-${candidate.protocol}-${candidate.port}`"
                   type="button"
-                  class="border-default hover:bg-elevated rounded-lg border p-3 text-left"
+                  class="border-default hover:bg-elevated border p-3 text-left"
                   :class="chosen === candidate ? 'border-primary bg-elevated' : ''"
                   @click="adopt(candidate)"
                 >

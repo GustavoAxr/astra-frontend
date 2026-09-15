@@ -391,7 +391,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="space-y-2">
-    <div class="ring-default h-96 w-full overflow-hidden rounded-lg ring-1" ref="hueco" />
+    <div class="ring-default h-96 w-full overflow-hidden ring-1" ref="hueco" />
 
     <div class="flex flex-wrap items-center gap-2">
       <UButton
@@ -429,8 +429,8 @@ onBeforeUnmount(() => {
       </div>
       <span class="text-dimmed text-xs">
         <template v-if="vertices.length === 0">
-          Toca el mapa para marcar las esquinas de la base sobre la foto. La línea punteada es
-          el círculo actual: fíjate en cuánta calle abarca.
+          Toca el mapa para marcar las esquinas de la base sobre la foto. La línea punteada es el
+          círculo actual: fíjate en cuánta calle abarca.
         </template>
         <template v-else-if="!suficientes">
           {{ vertices.length }} de 3 puntos mínimos. Toca un punto para quitarlo.
@@ -447,8 +447,8 @@ onBeforeUnmount(() => {
       forma de saber que acaba de dejar el radio sin efecto.
     -->
     <p v-if="suficientes" class="text-muted text-xs">
-      Al guardar, el área manda sobre el radio: una checada de contingencia solo valdrá dentro
-      de esta figura, más el margen de error que declare el teléfono.
+      Al guardar, el área manda sobre el radio: una checada de contingencia solo valdrá dentro de
+      esta figura, más el margen de error que declare el teléfono.
     </p>
   </div>
 </template>

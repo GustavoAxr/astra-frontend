@@ -125,7 +125,7 @@ function hhmm(m: number): string {
     <div
       v-for="f in filas"
       :key="f.dia.workDate"
-      class="hover:bg-elevated/40 flex items-center gap-3 rounded py-1 transition-colors"
+      class="hover:bg-elevated/40 flex items-center gap-3 py-1 transition-colors"
     >
       <span class="text-muted w-16 shrink-0 text-xs capitalize">{{ dia(f.dia.workDate) }}</span>
 
@@ -141,7 +141,7 @@ function hhmm(m: number): string {
         <!-- Lo que el turno esperaba. -->
         <span
           v-if="f.inicioEsperado !== null && f.finEsperado !== null"
-          class="bg-elevated absolute inset-y-1 rounded"
+          class="bg-elevated absolute inset-y-1"
           :style="{
             left: `${pct(f.inicioEsperado)}%`,
             width: `${Math.max(0.5, pct(f.finEsperado) - pct(f.inicioEsperado))}%`,
@@ -152,7 +152,7 @@ function hhmm(m: number): string {
         <!-- Lo que ocurrió, entre la primera y la última checada. -->
         <span
           v-if="f.primera !== null && f.ultima !== null && f.ultima > f.primera"
-          class="absolute inset-y-0 rounded"
+          class="absolute inset-y-0"
           :class="COLOR[f.dia.status] ?? 'bg-muted'"
           :style="{
             left: `${pct(f.primera)}%`,
@@ -164,7 +164,7 @@ function hhmm(m: number): string {
         <!-- Una sola checada: un palito, no una barra de ancho cero. -->
         <span
           v-else-if="f.primera !== null"
-          class="absolute inset-y-0 w-1 rounded"
+          class="absolute inset-y-0 w-1"
           :class="COLOR[f.dia.status] ?? 'bg-muted'"
           :style="{ left: `${pct(f.primera)}%` }"
           :title="`Una sola checada: ${reloj(f.dia.firstPunch)}`"

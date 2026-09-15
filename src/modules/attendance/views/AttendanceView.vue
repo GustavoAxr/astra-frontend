@@ -442,11 +442,7 @@ watch([diaAbierto, selectedId, relojId], () => void detalleDia.run(), { immediat
 
 <template>
   <div class="space-y-4">
-    <PageHeader
-      title="Asistencia"
-      description="Cómo va la plantilla en el periodo. Se calcula desde las checadas contra el turno vigente de cada día."
-      :count="datos ? `${datos.employees}` : undefined"
-    >
+    <PageHeader>
       <template #actions>
         <!--
           El reloj SÍ alcanza a las cifras de arriba, al revés que el buscador:
@@ -477,7 +473,7 @@ watch([diaAbierto, selectedId, relojId], () => void detalleDia.run(), { immediat
           La de avanzar se apaga en el mes actual —el futuro no tiene checadas—
           en vez de esconderse, para que se vea que ahí termina el recorrido.
         -->
-        <div class="border-default flex items-center gap-0.5 rounded-lg border">
+        <div class="border-default flex items-center gap-0.5 border">
           <UButton
             icon="i-lucide-chevron-left"
             square
@@ -539,28 +535,28 @@ watch([diaAbierto, selectedId, relojId], () => void detalleDia.run(), { immediat
     <template v-else-if="datos">
       <!-- Lo primero, las cuatro cifras que se preguntan. -->
       <dl class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div class="border-default bg-elevated/20 rounded-xl border p-4">
+        <div class="border-default bg-elevated/20 border p-4">
           <dt class="text-dimmed text-xs">Trabajado</dt>
           <dd class="text-highlighted mt-1 text-xl font-medium">
             {{ hhmm(datos.totals.workedMinutes) }}
           </dd>
           <dd class="text-dimmed text-xs">de {{ hhmm(datos.totals.scheduledMinutes) }}</dd>
         </div>
-        <div class="border-default bg-elevated/20 rounded-xl border p-4">
+        <div class="border-default bg-elevated/20 border p-4">
           <dt class="text-dimmed text-xs">Retardos</dt>
           <dd class="mt-1 text-xl font-medium" :class="datos.totals.lateDays ? 'text-warning' : ''">
             {{ datos.totals.lateDays }}
           </dd>
           <dd class="text-dimmed text-xs">{{ hhmm(datos.totals.lateMinutes) }} acumulados</dd>
         </div>
-        <div class="border-default bg-elevated/20 rounded-xl border p-4">
+        <div class="border-default bg-elevated/20 border p-4">
           <dt class="text-dimmed text-xs">Faltas</dt>
           <dd class="mt-1 text-xl font-medium" :class="datos.totals.absentDays ? 'text-error' : ''">
             {{ datos.totals.absentDays }}
           </dd>
           <dd class="text-dimmed text-xs">{{ datos.totals.onTimeDays }} días puntuales</dd>
         </div>
-        <div class="border-default bg-elevated/20 rounded-xl border p-4">
+        <div class="border-default bg-elevated/20 border p-4">
           <dt class="text-dimmed text-xs">Tiempo extra</dt>
           <dd class="text-highlighted mt-1 text-xl font-medium">
             {{ hhmm(datos.totals.overtimeMinutes) }}
@@ -650,7 +646,7 @@ watch([diaAbierto, selectedId, relojId], () => void detalleDia.run(), { immediat
             v-for="chip in CHIPS"
             :key="chip.estado"
             type="button"
-            class="rounded-md px-1.5 py-0.5 transition-colors"
+            class="px-1.5 py-0.5 transition-colors"
             :class="[
               chip.clase,
               chip.total(detalleDia.data.value.totals) === 0
@@ -666,7 +662,7 @@ watch([diaAbierto, selectedId, relojId], () => void detalleDia.run(), { immediat
           </button>
           <button
             type="button"
-            class="rounded-md px-1.5 py-0.5 transition-colors"
+            class="px-1.5 py-0.5 transition-colors"
             :class="[
               'text-info',
               detalleDia.data.value.totals.incidence === 0

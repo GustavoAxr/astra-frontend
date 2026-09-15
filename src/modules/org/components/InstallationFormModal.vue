@@ -5,12 +5,7 @@ import { timezoneItems, timezoneOffset } from '@/shared/ui/timezones'
 import { orgApi } from '../api'
 import { useAviso } from '@/shared/ui/aviso'
 import { installationPlan } from '../installation-plan'
-import type {
-  GeoPoint,
-  Installation,
-  LegalEntity,
-  UpdateInstallationForm,
-} from '../types'
+import type { GeoPoint, Installation, LegalEntity, UpdateInstallationForm } from '../types'
 /**
  * El editor se baja aparte, y solo al abrir este formulario.
  *
@@ -29,8 +24,7 @@ const GeofenceEditor = defineAsyncComponent({
    * formulario crece de golpe al llegar el editor y lo que estabas leyendo se
    * te va de debajo del cursor.
    */
-  loadingComponent: () =>
-    h('div', { class: 'ring-default bg-elevated/50 h-96 w-full rounded-lg ring-1' }),
+  loadingComponent: () => h('div', { class: 'ring-default bg-elevated/50 h-96 w-full ring-1' }),
   delay: 0,
 })
 
@@ -126,7 +120,6 @@ const entityItems = computed(() =>
     value: entity.id,
   })),
 )
-
 
 const zones = timezoneItems()
 
@@ -297,96 +290,96 @@ async function submit(): Promise<void> {
       </div>
 
       <template v-else>
-      <form class="space-y-4" @submit.prevent="submit">
-        <!--
+        <form class="space-y-4" @submit.prevent="submit">
+          <!--
           Solo al duplicar. Es un alta normal con el formulario ya relleno: lo
           único que falta decidir es a qué razón social va la copia.
         -->
-        <UFormField v-if="cloning" label="Razón social de destino" required>
-          <USelectMenu
-            v-model="targetEntityId"
-            :items="entityItems"
-            value-key="value"
-            placeholder="¿A qué empresa va la copia?"
-            searchable
-            class="w-full"
-          />
-        </UFormField>
-
-        <div class="grid gap-4 sm:grid-cols-2">
-          <!-- El código lo pone el servidor al crear: `ADM-02`, como los que ya hay. -->
-
-          <UFormField label="Nombre" required>
-            <UInput v-model="name" placeholder="Sede Central" class="w-full" />
+          <UFormField v-if="cloning" label="Razón social de destino" required>
+            <USelectMenu
+              v-model="targetEntityId"
+              :items="entityItems"
+              value-key="value"
+              placeholder="¿A qué empresa va la copia?"
+              searchable
+              class="w-full"
+            />
           </UFormField>
-        </div>
 
-        <UFormField label="Zona horaria" required>
-          <USelectMenu
-            v-model="timezone"
-            :items="zones"
-            value-key="value"
-            searchable
-            class="w-full"
-          />
-          <template #help>
-            <span class="text-dimmed text-xs">
-              Ahora mismo {{ timezoneOffset(timezone) }} · puede diferir del de la empresa
-            </span>
-          </template>
-        </UFormField>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <!-- El código lo pone el servidor al crear: `ADM-02`, como los que ya hay. -->
 
-        <UFormField label="Domicilio">
-          <UInput v-model="address" placeholder="Atasta, Campeche" class="w-full" />
-        </UFormField>
+            <UFormField label="Nombre" required>
+              <UInput v-model="name" placeholder="Sede Central" class="w-full" />
+            </UFormField>
+          </div>
 
-        <!--
+          <UFormField label="Zona horaria" required>
+            <USelectMenu
+              v-model="timezone"
+              :items="zones"
+              value-key="value"
+              searchable
+              class="w-full"
+            />
+            <template #help>
+              <span class="text-dimmed text-xs">
+                Ahora mismo {{ timezoneOffset(timezone) }} · puede diferir del de la empresa
+              </span>
+            </template>
+          </UFormField>
+
+          <UFormField label="Domicilio">
+            <UInput v-model="address" placeholder="Atasta, Campeche" class="w-full" />
+          </UFormField>
+
+          <!--
           La geocerca decide si vale una checada hecha por teléfono cuando el
           reloj está roto. El radio sirve para un patio cuadrado; el ÁREA
           dibujada es lo que hace falta en cuanto la nave es alargada, porque un
           círculo que la cubra entera abarca también la calle de atrás.
         -->
-        <fieldset class="border-default rounded-lg border p-3">
-          <legend class="text-muted px-1 text-xs font-medium tracking-wide uppercase">
-            Geocerca
-          </legend>
+          <fieldset class="border-default border p-3">
+            <legend class="text-muted px-1 text-xs font-medium tracking-wide uppercase">
+              Geocerca
+            </legend>
 
-          <GeofenceEditor
-            v-model="poligono"
-            :centro="centroDelMapa"
-            :radio-metros="Number(radius) || 75"
-            class="mb-3"
-          />
+            <GeofenceEditor
+              v-model="poligono"
+              :centro="centroDelMapa"
+              :radio-metros="Number(radius) || 75"
+              class="mb-3"
+            />
 
-          <div class="grid gap-3 sm:grid-cols-3">
-            <UFormField label="Latitud">
-              <UInput v-model="latitude" placeholder="18.6439" class="w-full font-mono" />
-            </UFormField>
-            <UFormField label="Longitud">
-              <UInput v-model="longitude" placeholder="-91.8228" class="w-full font-mono" />
-            </UFormField>
-            <UFormField label="Radio (m)" :error="radiusError">
-              <UInput v-model="radius" placeholder="75" class="w-full font-mono" />
-            </UFormField>
+            <div class="grid gap-3 sm:grid-cols-3">
+              <UFormField label="Latitud">
+                <UInput v-model="latitude" placeholder="18.6439" class="w-full font-mono" />
+              </UFormField>
+              <UFormField label="Longitud">
+                <UInput v-model="longitude" placeholder="-91.8228" class="w-full font-mono" />
+              </UFormField>
+              <UFormField label="Radio (m)" :error="radiusError">
+                <UInput v-model="radius" placeholder="75" class="w-full font-mono" />
+              </UFormField>
+            </div>
+            <p class="text-dimmed mt-2 text-xs">
+              El centro y el radio siguen valiendo mientras no haya área dibujada. Entre 10 y 5000
+              metros.
+            </p>
+          </fieldset>
+
+          <ApiErrorAlert :error="error" :fields="FIELDS" />
+
+          <div class="flex justify-end gap-2 pt-2">
+            <UButton label="Cancelar" @click="open = false" />
+            <UButton
+              type="submit"
+              :label="cloning ? 'Crear la copia' : editing ? 'Guardar cambios' : 'Dar de alta'"
+              icon="i-lucide-check"
+              :loading="submitting"
+            />
           </div>
-          <p class="text-dimmed mt-2 text-xs">
-            El centro y el radio siguen valiendo mientras no haya área dibujada. Entre 10 y 5000
-            metros.
-          </p>
-        </fieldset>
-
-        <ApiErrorAlert :error="error" :fields="FIELDS" />
-
-        <div class="flex justify-end gap-2 pt-2">
-          <UButton label="Cancelar" @click="open = false" />
-          <UButton
-            type="submit"
-            :label="cloning ? 'Crear la copia' : editing ? 'Guardar cambios' : 'Dar de alta'"
-            icon="i-lucide-check"
-            :loading="submitting"
-          />
-        </div>
-      </form>
+        </form>
       </template>
     </template>
   </UModal>

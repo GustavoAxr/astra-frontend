@@ -2,7 +2,16 @@
 @import '@nuxt/ui';
 
 :root {
-  --ui-radius: 0.3rem;
+  /*
+   * TODO CUADRADO. Cero, no «poquito».
+   *
+   * Nuxt UI construye el redondeo de TODOS sus componentes a partir de esta
+   * variable, así que ponerla a cero los cuadra de raíz en vez de taparlos con
+   * una regla encima. Las clases `rounded-*` de las plantillas propias también
+   * se quitaron: si el redondeo no existe, la plantilla no tiene por qué decir
+   * que sí.
+   */
+  --ui-radius: 0rem;
 
   /*
    * Los dos colores de la marca, en un solo sitio.
@@ -26,11 +35,7 @@
  * invisible y cuesta ver por qué.
  */
 .marca-astra {
-  background-image: linear-gradient(
-    to bottom right,
-    var(--astra-desde),
-    var(--astra-hasta)
-  );
+  background-image: linear-gradient(to bottom right, var(--astra-desde), var(--astra-hasta));
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
@@ -66,11 +71,7 @@
     .text-info
   )
   > [data-slot='label'] {
-  background-image: linear-gradient(
-    to bottom right,
-    var(--astra-desde),
-    var(--astra-hasta)
-  );
+  background-image: linear-gradient(to bottom right, var(--astra-desde), var(--astra-hasta));
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
@@ -82,11 +83,7 @@
  * tiene forma de saberlo.
  */
 .dark .enlace-activo > .truncate {
-  background-image: linear-gradient(
-    to bottom right,
-    var(--astra-desde),
-    var(--astra-hasta)
-  );
+  background-image: linear-gradient(to bottom right, var(--astra-desde), var(--astra-hasta));
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
@@ -102,4 +99,26 @@
 body {
   @apply bg-default text-default;
   @apply transition-colors duration-300;
+}
+
+/*
+ * LA RED DE SEGURIDAD DEL «TODO CUADRADO».
+ *
+ * La variable de arriba y el barrido de las plantillas cubren casi todo, pero no
+ * todo, y por eso esto existe:
+ *
+ *   · Nuxt UI lleva `rounded-full` ESCRITO A MANO en su tema para lo que es
+ *     redondo por definición —un avatar, el pulgar de un interruptor, un punto
+ *     de estado— y eso no pasa por la variable.
+ *   · Leaflet trae su propia hoja de estilos, con sus esquinas, y no es nuestra.
+ *
+ * Lleva `!important` porque pelea contra utilidades y contra CSS de terceros,
+ * que es justo lo que no se alcanza de otra forma. El día que haga falta una
+ * esquina redonda para algo, se quita esta regla —está sola y se ve— en vez de
+ * ir persiguiendo de dónde sale cada radio.
+ */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
 }

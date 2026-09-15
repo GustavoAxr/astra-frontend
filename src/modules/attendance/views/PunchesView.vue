@@ -120,20 +120,14 @@ function apply(changes: QueryChanges): void {
   void router.replace({ query: mergeQuery(route.query, changes) })
 }
 
-watch(
-  [from, to, employeeId, deviceUserType, deviceId, selectedId, page],
-  () => void list.run(),
-  { immediate: true },
-)
+watch([from, to, employeeId, deviceUserType, deviceId, selectedId, page], () => void list.run(), {
+  immediate: true,
+})
 </script>
 
 <template>
   <div class="space-y-4">
-    <PageHeader
-      title="Marcajes"
-      description="La evidencia tal como llegó del equipo. No se edita ni se borra: es lo que se enseña en una auditoría."
-      :count="list.loaded.value ? `${total}` : undefined"
-    >
+    <PageHeader>
       <template #actions>
         <!--
           Solo cuando hay más de uno: con un equipo el desplegable no ayuda y

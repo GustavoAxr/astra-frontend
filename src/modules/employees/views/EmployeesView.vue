@@ -58,7 +58,7 @@ const legalEntityId = computed(() =>
 
 const searchInput = ref(search.value)
 
-const { data, pending, error, loaded, run } = useAsync((signal) =>
+const { data, pending, error, run } = useAsync((signal) =>
   employeesApi.list(
     {
       page: page.value,
@@ -123,11 +123,7 @@ watch([page, search, estado, legalEntityId], () => void run(), { immediate: true
 
 <template>
   <section class="space-y-4">
-    <PageHeader
-      title="Plantilla"
-      description="Las personas dadas de alta en las empresas que alcanzas."
-      :count="loaded ? `${total}` : undefined"
-    >
+    <PageHeader>
       <template #actions>
         <UInput
           v-model="searchInput"

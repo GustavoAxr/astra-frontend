@@ -114,11 +114,7 @@ void entities.run()
 
 <template>
   <div class="space-y-4">
-    <PageHeader
-      title="Departamentos"
-      description="Con qué se agrupa a la gente en los reportes. Es opcional: sin departamentos el sistema funciona igual."
-      :count="list.loaded.value ? `${rows.length}` : undefined"
-    >
+    <PageHeader>
       <template #actions>
         <UButton
           v-if="canWrite"

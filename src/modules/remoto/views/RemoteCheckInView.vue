@@ -259,9 +259,7 @@ async function checar(): Promise<void> {
      * después, alguien podría quedarse mirando «mandando…» mientras el
      * teléfono espera un dedo que nadie ve que hace falta.
      */
-    const firma = conLlave.value
-      ? await firmarChecada(entityId, token.value)
-      : undefined
+    const firma = conLlave.value ? await firmarChecada(entityId, token.value) : undefined
 
     const r = await remotoApi.checar(entityId, {
       token: token.value,
@@ -319,9 +317,7 @@ async function checar(): Promise<void> {
 function esFalloDeLlave(e: unknown): boolean {
   return (
     e instanceof Error &&
-    ['NotAllowedError', 'InvalidStateError', 'NotSupportedError', 'AbortError'].includes(
-      e.name,
-    )
+    ['NotAllowedError', 'InvalidStateError', 'NotSupportedError', 'AbortError'].includes(e.name)
   )
 }
 
@@ -351,8 +347,7 @@ async function guardarParaDespues(): Promise<void> {
     enEspera.value += 1
     guardadaSinRed.value = true
   } catch {
-    error.value =
-      'No hay conexión y no pude guardar la checada. Vuelve a intentarlo con señal.'
+    error.value = 'No hay conexión y no pude guardar la checada. Vuelve a intentarlo con señal.'
   }
 }
 
@@ -392,12 +387,12 @@ function olvidarEsteTelefono(): void {
         alguien que cree haber checado y no checó.
       -->
       <template v-if="guardadaSinRed">
-        <div class="border-warning/40 bg-warning/10 space-y-2 rounded-xl border p-6 text-center">
+        <div class="border-warning/40 bg-warning/10 space-y-2 border p-6 text-center">
           <UIcon name="i-lucide-cloud-off" class="text-warning size-12" />
           <p class="text-highlighted text-lg font-semibold">Guardada en este teléfono</p>
           <p class="text-default text-sm">
-            No hay conexión ahora mismo. Se mandará sola en cuanto vuelva la señal, con
-            la hora en que le diste al botón.
+            No hay conexión ahora mismo. Se mandará sola en cuanto vuelva la señal, con la hora en
+            que le diste al botón.
           </p>
           <p class="text-muted text-xs">
             Abre esta pantalla otra vez cuando tengas red para que salga.
@@ -408,7 +403,7 @@ function olvidarEsteTelefono(): void {
 
       <!-- Ya checó. -->
       <template v-else-if="listo">
-        <div class="border-success/40 bg-success/10 space-y-2 rounded-xl border p-6 text-center">
+        <div class="border-success/40 bg-success/10 space-y-2 border p-6 text-center">
           <UIcon name="i-lucide-circle-check-big" class="text-success size-12" />
           <p class="text-highlighted text-lg font-semibold">Quedó registrada</p>
           <p class="text-default text-sm">{{ listo.nombre }} · {{ listo.hora }}</p>
@@ -422,8 +417,8 @@ function olvidarEsteTelefono(): void {
             Te mandamos el comprobante por correo.
           </p>
           <p v-else class="text-warning text-xs">
-            No tienes correo en tu expediente, así que no hay comprobante. Pídele a
-            Recursos Humanos que lo capture.
+            No tienes correo en tu expediente, así que no hay comprobante. Pídele a Recursos Humanos
+            que lo capture.
           </p>
           <!--
             Se dice que fue con huella. No es un adorno: es la diferencia entre
@@ -462,8 +457,8 @@ function olvidarEsteTelefono(): void {
         </p>
 
         <p class="text-dimmed text-center text-xs">
-          Este teléfono ya está dado de alta. Se guarda desde dónde checas y te llega un
-          comprobante por correo cada vez.
+          Este teléfono ya está dado de alta. Se guarda desde dónde checas y te llega un comprobante
+          por correo cada vez.
         </p>
 
         <!--
@@ -474,19 +469,19 @@ function olvidarEsteTelefono(): void {
         -->
         <div
           v-if="!conLlave && puedeLlave"
-          class="border-default bg-elevated/50 space-y-3 rounded-xl border p-5"
+          class="border-default bg-elevated/50 space-y-3 border p-5"
         >
           <p class="text-highlighted text-sm font-semibold">
             <UIcon name="i-lucide-fingerprint" class="size-4 align-[-3px]" />
             Checa con tu huella
           </p>
           <p class="text-muted text-xs">
-            Tu checada pasa a valer por sí sola, sin que nadie tenga que aprobarla. Y si
-            alguien se lleva tu teléfono, no puede checar por ti.
+            Tu checada pasa a valer por sí sola, sin que nadie tenga que aprobarla. Y si alguien se
+            lleva tu teléfono, no puede checar por ti.
           </p>
           <p class="text-dimmed text-xs">
-            Una vez activada, este teléfono ya no podrá checar sin tu huella. Para
-            quitarla hay que hablar con Recursos Humanos.
+            Una vez activada, este teléfono ya no podrá checar sin tu huella. Para quitarla hay que
+            hablar con Recursos Humanos.
           </p>
           <UButton
             label="Activar mi huella"
@@ -502,7 +497,7 @@ function olvidarEsteTelefono(): void {
 
       <!-- Alta, paso 2: el código que llegó por WhatsApp. -->
       <template v-else-if="paso === 'codigo' && pendiente">
-        <div class="border-default bg-elevated/50 rounded-xl border p-5 text-center">
+        <div class="border-default bg-elevated/50 border p-5 text-center">
           <p class="text-muted text-xs tracking-wide uppercase">Le mandamos un código a</p>
           <p class="text-highlighted mt-1 text-lg font-semibold">
             {{ pendiente.enviadoA }}
@@ -582,8 +577,8 @@ function olvidarEsteTelefono(): void {
             :loading="enviando"
           />
           <p class="text-dimmed text-center text-xs">
-            Te llega por WhatsApp al número de tu expediente. Solo hace falta una vez:
-            después este teléfono checa de un toque.
+            Te llega por WhatsApp al número de tu expediente. Solo hace falta una vez: después este
+            teléfono checa de un toque.
           </p>
         </form>
       </template>

@@ -114,11 +114,7 @@ void entities.run()
 
 <template>
   <div class="space-y-4">
-    <PageHeader
-      title="Puestos"
-      description="Qué hace cada quien. Antes era texto libre, y así «Operador» y «operador» eran dos puestos distintos."
-      :count="list.loaded.value ? `${rows.length}` : undefined"
-    >
+    <PageHeader>
       <template #actions>
         <UButton v-if="canWrite" icon="i-lucide-plus" label="Nuevo puesto" @click="abrirAlta" />
       </template>

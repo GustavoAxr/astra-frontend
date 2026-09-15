@@ -165,9 +165,9 @@ async function run(): Promise<void> {
         rfc: '',
         nss: '',
         birthDate: '',
-      // Se concilia desde el padrón del reloj, donde no viene el sexo. Se
-      // captura después en la ficha; inventarlo por el nombre sería peor.
-      sex: '',
+        // Se concilia desde el padrón del reloj, donde no viene el sexo. Se
+        // captura después en la ficha; inventarlo por el nombre sería peor.
+        sex: '',
         whatsappNumber: '',
         // El reloj no sabe correos: se captura después en el expediente.
         email: '',
@@ -285,7 +285,7 @@ async function run(): Promise<void> {
           <span class="text-muted text-sm">{{ selected.length }} de {{ rows.length }}</span>
         </div>
 
-        <div class="border-default max-h-96 overflow-y-auto rounded-lg border">
+        <div class="border-default max-h-96 overflow-y-auto border">
           <table class="w-full text-sm">
             <thead class="bg-elevated/50 sticky top-0">
               <tr class="text-muted text-left text-xs">

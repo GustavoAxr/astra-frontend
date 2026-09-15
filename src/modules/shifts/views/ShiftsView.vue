@@ -106,11 +106,7 @@ const JORNADA: Record<string, string> = {
 
 <template>
   <div class="space-y-6">
-    <PageHeader
-      title="Turnos"
-      description="Los horarios contra los que se mide la asistencia. Sin turno no hay hora de entrada, y sin hora de entrada no hay retardo."
-      :count="shifts.loaded.value ? `${rows.length}` : undefined"
-    >
+    <PageHeader>
       <template #actions>
         <USwitch v-model="showInactive" label="Ver inactivos" />
         <UButton v-if="canWrite" icon="i-lucide-plus" label="Nuevo turno" @click="nuevo" />
@@ -134,7 +130,7 @@ const JORNADA: Record<string, string> = {
       v-for="policy in rows"
       v-else
       :key="policy.id"
-      class="border-default bg-elevated/20 overflow-hidden rounded-xl border"
+      class="border-default bg-elevated/20 overflow-hidden border"
       :class="policy.isActive ? '' : 'opacity-70'"
     >
       <header class="border-default flex flex-wrap items-center gap-3 border-b px-5 py-4">
@@ -209,7 +205,7 @@ const JORNADA: Record<string, string> = {
         <div
           v-for="day in ciclos.get(policy.id)?.dias ?? []"
           :key="day.day"
-          class="border-default rounded-lg border p-3"
+          class="border-default border p-3"
           :class="day.rest ? 'bg-elevated/30' : 'bg-default'"
         >
           <p class="text-dimmed text-xs font-medium tracking-wide uppercase">Día {{ day.day }}</p>

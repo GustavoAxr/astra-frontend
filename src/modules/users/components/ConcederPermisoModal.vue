@@ -123,7 +123,7 @@ async function guardar(): Promise<void> {
               <span
                 v-for="c in usuario.concesiones"
                 :key="c.grantId"
-                class="border-default bg-elevated/50 rounded-full border px-2.5 py-0.5 text-xs"
+                class="border-default bg-elevated/50 border px-2.5 py-0.5 text-xs"
               >
                 {{ c.roleName }} ·
                 {{

@@ -111,7 +111,7 @@ async function pasarLista(): Promise<void> {
           No hay nadie asignado a esta base.
         </p>
 
-        <div v-else class="border-default max-h-80 overflow-y-auto rounded-lg border">
+        <div v-else class="border-default max-h-80 overflow-y-auto border">
           <button
             v-for="persona in visibles"
             :key="persona.id"

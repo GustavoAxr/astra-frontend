@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAsync } from '@/shared/composables/useAsync'
 import { mergeQuery, type QueryChanges } from '@/shared/router/query'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
-import PageHeader from '@/shared/ui/PageHeader.vue'
 import { punchesApi } from '../api'
 import { useUnmatchedCount } from '../store'
 
@@ -35,12 +34,6 @@ watch(deviceId, () => void list.run(), { immediate: true })
 
 <template>
   <section class="space-y-4">
-    <PageHeader
-      title="Marcajes sin dueño"
-      description="Checadas que llegaron con un número de empleado que no corresponde a nadie enrolado. Si esta cifra sube, alguien está trabajando sin quedar registrado."
-      :count="list.loaded.value ? `${rows.length}` : undefined"
-    />
-
     <ApiErrorAlert :error="list.error.value ?? summary.error.value" />
 
     <div v-if="byDevice.length > 0" class="flex flex-wrap gap-2">

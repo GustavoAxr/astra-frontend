@@ -38,12 +38,6 @@ const busqueda = ref('')
 const concediendoA = ref<UsuarioDeAstra | null>(null)
 
 /**
- * Mismo permiso que mira `VinculoAsistente` para pintarse. Aquí sirve para lo
- * contrario: para decirlo cuando NO se tiene, en vez de dejar la pantalla muda.
- */
-const puedeRepartirTelegram = computed(() => auth.can('manageAssistantLinks'))
-
-/**
  * LOS ACCESOS AL ASISTENTE, indexados por usuario.
  *
  * Se traen aparte y se cruzan aquí en vez de venir dentro de cada usuario: el
@@ -176,25 +170,7 @@ onMounted(cargar)
 
 <template>
   <div class="space-y-6">
-    <header class="flex flex-wrap items-start gap-3">
-      <div class="min-w-0 flex-1">
-        <h1 class="text-highlighted text-xl font-semibold">Quién entra a Astra</h1>
-        <p class="text-muted mt-1 text-sm">
-          Alguien de la plantilla pasa a usar el sistema cuando se le da un rol y se dice hasta
-          dónde alcanza. Todo lo demás —quién trabaja aquí— vive en Personal.
-        </p>
-        <!--
-          SE DICE DÓNDE ESTÁ LO QUE NO SE VE.
-          El acceso por Telegram es solo de la dirección de la empresa, así que a
-          soporte y a la dirección del grupo esta pantalla les sale SIN esa
-          parte. Sin esta línea, quien la buscaba creía que se había roto o que
-          dependía de la empresa elegida arriba — pasó.
-        -->
-        <p v-if="!puedeRepartirTelegram" class="text-dimmed mt-1 text-xs">
-          El acceso por Telegram no se reparte desde esta cuenta: es de la administración de la
-          razón social. Entra con una cuenta de ese rol para ligar un chat.
-        </p>
-      </div>
+    <header class="flex flex-wrap items-center justify-end gap-2">
       <UButton label="Dar acceso" icon="i-lucide-user-round-plus" @click="dando = true" />
     </header>
 
@@ -213,7 +189,7 @@ onMounted(cargar)
       <div
         v-for="u in visibles"
         :key="u.id"
-        class="border-default rounded-lg border p-4"
+        class="border-default border p-4"
         :class="u.isActive ? '' : 'opacity-60'"
       >
         <div class="flex flex-wrap items-start gap-3">
@@ -236,7 +212,7 @@ onMounted(cargar)
               <span
                 v-for="c in u.concesiones"
                 :key="c.grantId"
-                class="border-default bg-elevated/50 inline-flex items-center gap-1.5 rounded-full border py-0.5 pr-1 pl-2.5 text-xs"
+                class="border-default bg-elevated/50 inline-flex items-center gap-1.5 border py-0.5 pr-1 pl-2.5 text-xs"
               >
                 {{ comoSeLee(c) }}
                 <UButton

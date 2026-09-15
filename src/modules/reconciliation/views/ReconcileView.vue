@@ -14,10 +14,7 @@ const aviso = useAviso()
 const route = useRoute()
 const deviceId = String(route.params.deviceId)
 
-
-const preview = useAsync((signal) =>
-  reconciliationApi.preview(deviceId, signal),
-)
+const preview = useAsync((signal) => reconciliationApi.preview(deviceId, signal))
 
 /**
  * La propuesta del servidor se queda **inmutable** en `preview.data`. Las
@@ -119,13 +116,12 @@ async function confirmApply(): Promise<void> {
 <template>
   <section class="space-y-5">
     <div class="flex items-center gap-3">
-      <UButton :to="{ name: 'devices' }" icon="i-lucide-arrow-left" square />
-      <div>
-        <h1 class="text-xl font-semibold">Conciliar el padrón del reloj</h1>
-        <p class="text-muted text-sm">
-          Emparejar a cada usuario del equipo con una persona de la plantilla.
-        </p>
-      </div>
+      <UButton
+        :to="{ name: 'devices' }"
+        icon="i-lucide-arrow-left"
+        square
+        aria-label="Volver a los relojes"
+      />
     </div>
 
     <!--
@@ -136,12 +132,11 @@ async function confirmApply(): Promise<void> {
     -->
     <UCard v-if="!preview.data.value">
       <p class="text-default text-sm">
-        Se propone a partir de quien ha checado en este reloj y todavía no tiene
-        expediente.
+        Se propone a partir de quien ha checado en este reloj y todavía no tiene expediente.
       </p>
       <p class="text-dimmed mt-1 text-xs">
-        Solo aparece quien haya checado al menos una vez. A quien esté dado de alta
-        en el equipo pero no haya pasado el dedo todavía, aquí no se le ve.
+        Solo aparece quien haya checado al menos una vez. A quien esté dado de alta en el equipo
+        pero no haya pasado el dedo todavía, aquí no se le ve.
       </p>
       <div class="mt-3">
         <UButton
@@ -200,11 +195,7 @@ async function confirmApply(): Promise<void> {
 
       <ApiErrorAlert :error="applyError" />
 
-      <div
-        v-for="item in pending"
-        :key="item.externalUserId"
-        class="border-default rounded-lg border p-3"
-      >
+      <div v-for="item in pending" :key="item.externalUserId" class="border-default border p-3">
         <div class="flex flex-wrap items-center gap-2">
           <span class="font-mono">{{ item.externalUserId }}</span>
           <span v-if="item.deviceName" class="font-medium">{{ item.deviceName }}</span>
@@ -223,7 +214,7 @@ async function confirmApply(): Promise<void> {
             v-for="suggestion in item.suggestions"
             :key="suggestion.employeeId"
             type="button"
-            class="hover:bg-elevated flex flex-wrap items-center gap-2 rounded-lg border p-2 text-left"
+            class="hover:bg-elevated flex flex-wrap items-center gap-2 border p-2 text-left"
             :class="
               decisions.get(item.externalUserId) === suggestion.employeeId
                 ? 'border-primary bg-elevated'

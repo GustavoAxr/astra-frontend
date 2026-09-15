@@ -452,9 +452,7 @@ async function submit(): Promise<void> {
         <div v-if="!conHorario" class="space-y-2">
           <h3 class="text-sm font-medium">
             Qué días se puede trabajar
-            <span class="text-dimmed font-normal">
-              · apaga los que sean de descanso
-            </span>
+            <span class="text-dimmed font-normal"> · apaga los que sean de descanso </span>
           </h3>
 
           <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
@@ -462,7 +460,7 @@ async function submit(): Promise<void> {
               v-for="(dia, i) in dias"
               :key="i"
               type="button"
-              class="border-default rounded-lg border p-3 text-left"
+              class="border-default border p-3 text-left"
               :class="dia.rest ? 'bg-elevated/30 opacity-70' : 'bg-default'"
               @click="dia.rest = !dia.rest"
             >
@@ -491,7 +489,7 @@ async function submit(): Promise<void> {
           <div
             v-for="(dia, i) in dias"
             :key="i"
-            class="border-default rounded-lg border p-3"
+            class="border-default border p-3"
             :class="dia.rest ? 'opacity-70' : ''"
           >
             <div class="flex items-center gap-3">

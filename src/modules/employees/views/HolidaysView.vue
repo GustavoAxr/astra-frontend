@@ -134,11 +134,7 @@ watch([year, selectedId], () => void list.run(), { immediate: true })
 
 <template>
   <div class="space-y-4">
-    <PageHeader
-      title="Días festivos"
-      description="El calendario contra el que se mide la asistencia. Trabajar un descanso obligatorio se paga distinto."
-      :count="list.loaded.value ? `${rows.length}` : undefined"
-    >
+    <PageHeader>
       <template #actions>
         <USelectMenu
           :model-value="year"

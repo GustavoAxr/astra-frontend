@@ -140,11 +140,7 @@ void staff.run()
 
 <template>
   <div class="space-y-4">
-    <PageHeader
-      title="Vacaciones y permisos"
-      description="Lo que justifica una ausencia. Sin esto, un día sin marcajes se cuenta como falta."
-      :count="list.loaded.value ? `${rows.length}` : undefined"
-    >
+    <PageHeader>
       <template #actions>
         <UInput
           :model-value="from ?? ''"

@@ -526,11 +526,7 @@ async function submit(): Promise<void> {
         <section class="space-y-3">
           <p class="text-muted text-xs font-medium tracking-wide uppercase">La persona</p>
 
-          <PhotoPicker
-            v-model="foto"
-            :nombre="`${firstName} ${lastName}`"
-            :disabled="submitting"
-          />
+          <PhotoPicker v-model="foto" :nombre="`${firstName} ${lastName}`" :disabled="submitting" />
 
           <div class="grid gap-3 sm:grid-cols-2">
             <UFormField label="Razón social" required>
@@ -658,7 +654,11 @@ async function submit(): Promise<void> {
             </UFormField>
 
             <UFormField label="WhatsApp" hint="Para avisos y contingencia">
-              <UInput v-model="whatsappNumber" placeholder="938 111 0001" class="w-full font-mono" />
+              <UInput
+                v-model="whatsappNumber"
+                placeholder="938 111 0001"
+                class="w-full font-mono"
+              />
               <template #help>
                 <span v-if="whatsappNumber.trim() === ''">
                   Diez dígitos basta: se le pone el +52 solo.
@@ -744,12 +744,7 @@ async function submit(): Promise<void> {
             </UFormField>
 
             <UFormField label="Motivo" required>
-              <USelectMenu
-                v-model="reason"
-                :items="reasonItems"
-                value-key="value"
-                class="w-full"
-              />
+              <USelectMenu v-model="reason" :items="reasonItems" value-key="value" class="w-full" />
             </UFormField>
           </div>
 
@@ -757,7 +752,7 @@ async function submit(): Promise<void> {
             El horario elegido, en palabras. Es la respuesta directa a «¿cómo sé
             que llegó tarde?»: la tolerancia de entrada es la que define eso.
           -->
-          <div v-if="chosenShift" class="bg-elevated/50 rounded-lg p-3 text-sm">
+          <div v-if="chosenShift" class="bg-elevated/50 p-3 text-sm">
             <p class="text-highlighted font-medium">{{ chosenShift.summary.schedule }}</p>
             <p class="text-muted mt-0.5 text-xs">
               Ciclo de {{ chosenShift.policy.cycleLengthDays }} días ·

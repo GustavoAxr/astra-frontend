@@ -150,7 +150,7 @@ async function signOut(): Promise<void> {
               :key="link.name"
               :to="{ name: link.name }"
               :title="link.label"
-              class="flex items-center justify-center rounded-lg p-2 transition-colors"
+              class="flex items-center justify-center p-2 transition-colors"
               :class="linkClass(link.name)"
               @click="menuOpen = false"
             >
@@ -162,7 +162,7 @@ async function signOut(): Promise<void> {
             <RouterLink
               v-if="!isGroup(entry)"
               :to="{ name: entry.name }"
-              class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors"
+              class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors"
               :class="linkClass(entry.name)"
               @click="menuOpen = false"
             >
@@ -177,7 +177,7 @@ async function signOut(): Promise<void> {
             <div v-else>
               <button
                 type="button"
-                class="text-muted hover:bg-elevated/60 hover:text-default flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors"
+                class="text-muted hover:bg-elevated/60 hover:text-default flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-sm transition-colors"
                 :aria-expanded="abierto(entry)"
                 @click="alternar(entry)"
               >
@@ -213,7 +213,7 @@ async function signOut(): Promise<void> {
                       v-for="child in entry.children"
                       :key="child.name"
                       :to="{ name: child.name }"
-                      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors"
+                      class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors"
                       :class="linkClass(child.name)"
                       @click="menuOpen = false"
                     >
@@ -231,7 +231,7 @@ async function signOut(): Promise<void> {
       <div class="border-default border-t" :class="colapsado ? 'p-2' : 'p-3'">
         <div class="flex gap-2.5" :class="colapsado ? 'flex-col items-center' : 'items-center'">
           <div
-            class="bg-elevated text-highlighted flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-medium"
+            class="bg-elevated text-highlighted flex size-8 shrink-0 items-center justify-center text-xs font-medium"
             :title="colapsado ? `${me?.fullName} · ${roleLabels}` : undefined"
           >
             {{ initials }}

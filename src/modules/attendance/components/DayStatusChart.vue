@@ -159,8 +159,17 @@ const dia = (iso: string): string => {
         @mouseenter="señalado = b.i"
         @focusin="señalado = b.i"
       >
-        <!-- Zona sensible de altura completa: apuntar a un tramo de dos
-             píxeles sería imposible. -->
+        <!--
+          ZONA SENSIBLE DE ALTURA COMPLETA, Y LA ÚNICA QUE RECIBE EL PUNTERO.
+
+          Todo lo que va debajo lleva `pointer-events-none`, y no es cosmético:
+          en SVG lo que se dibuja DESPUÉS queda encima y se queda con el clic.
+          Los tramos de color se pintan después de esta zona, así que eran ellos
+          —que no escuchan nada— los que recibían el clic, y el día no se abría.
+          Solo funcionaba en las barras de puro descanso, porque ahí no hay
+          tramo que tape. Por lo mismo el resalte del hover solo salía en el
+          hueco vacío de la barra: `:hover` no alcanza a un hermano.
+        -->
         <rect
           :x="b.x"
           y="0"
@@ -181,8 +190,7 @@ const dia = (iso: string): string => {
           :y="ALTO + 1"
           :width="anchoBarra"
           height="3"
-          class="fill-primary"
-          rx="1"
+          class="fill-primary pointer-events-none"
         />
 
         <rect
@@ -192,9 +200,8 @@ const dia = (iso: string): string => {
           :y="t.y"
           :width="anchoBarra"
           :height="Math.max(1, t.alto)"
-          :class="[t.color, 'transition-all duration-300']"
+          :class="[t.color, 'pointer-events-none transition-all duration-300']"
           :opacity="señalado === null || señalado === b.i ? 1 : 0.4"
-          rx="2"
         />
 
         <rect
@@ -203,8 +210,7 @@ const dia = (iso: string): string => {
           :y="ALTO - 3"
           :width="anchoBarra"
           height="3"
-          class="fill-current opacity-25"
-          rx="1"
+          class="fill-current pointer-events-none opacity-25"
         />
       </g>
     </svg>
@@ -238,7 +244,7 @@ const dia = (iso: string): string => {
         @click="alternar(t.clave)"
       >
         <svg width="10" height="10" aria-hidden="true">
-          <rect width="10" height="10" rx="2" :class="t.color" />
+          <rect width="10" height="10" :class="t.color" />
         </svg>
         <span class="text-muted" :class="apagados.has(t.clave) ? 'line-through' : ''">
           {{ t.label }}

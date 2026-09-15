@@ -195,7 +195,7 @@ async function copiar(): Promise<void> {
 
           <pre
             v-else-if="crudoTexto"
-            class="bg-elevated/50 overflow-x-auto rounded p-3 font-mono text-xs"
+            class="bg-elevated/50 overflow-x-auto p-3 font-mono text-xs"
             >{{ json }}</pre>
 
           <template v-else>

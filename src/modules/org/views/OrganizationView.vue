@@ -136,11 +136,7 @@ void refresh()
 
 <template>
   <div class="space-y-6">
-    <PageHeader
-      title="Organización"
-      description="Las razones sociales del grupo y las bases que operan dentro de cada una."
-      :count="firstLoad ? undefined : `${tree.length}`"
-    >
+    <PageHeader>
       <template #actions>
         <USwitch v-model="showInactive" label="Ver inactivas" />
         <UButton v-if="canCreate" icon="i-lucide-plus" label="Nueva razón social" @click="create" />
@@ -174,7 +170,7 @@ void refresh()
       <article
         v-for="node in tree"
         :key="node.entity.id"
-        class="border-default bg-elevated/20 overflow-hidden rounded-xl border"
+        class="border-default bg-elevated/20 overflow-hidden border"
         :class="node.entity.isActive ? '' : 'opacity-70'"
       >
         <header class="border-default flex flex-wrap items-center gap-3 border-b px-5 py-4">
@@ -239,7 +235,7 @@ void refresh()
             <div
               v-for="installation in node.installations"
               :key="installation.id"
-              class="border-default bg-default flex flex-col rounded-lg border p-3"
+              class="border-default bg-default flex flex-col border p-3"
               :class="installation.isActive ? '' : 'opacity-70'"
             >
               <div class="flex items-center gap-2">

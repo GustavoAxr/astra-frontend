@@ -32,9 +32,7 @@ const enCamino = computed(() =>
 )
 
 const visibles = computed(() =>
-  filtro.value === 'todos'
-    ? correos.value
-    : correos.value.filter((c) => c.status === filtro.value),
+  filtro.value === 'todos' ? correos.value : correos.value.filter((c) => c.status === filtro.value),
 )
 
 const pestañas = computed(() => [
@@ -82,14 +80,7 @@ onMounted(cargar)
 
 <template>
   <div class="space-y-6">
-    <header class="flex flex-wrap items-start gap-3">
-      <div class="min-w-0 flex-1">
-        <h1 class="text-highlighted text-xl font-semibold">Correos que manda Astra</h1>
-        <p class="text-muted mt-1 text-sm">
-          Cada alta manda a la persona su número, su clave y a dónde entra. Aquí se ve cuáles
-          salieron y cuáles no.
-        </p>
-      </div>
+    <header class="flex flex-wrap items-center justify-end gap-2">
       <UButton label="Actualizar" icon="i-lucide-refresh-cw" size="sm" @click="cargar" />
     </header>
 
@@ -129,7 +120,7 @@ onMounted(cargar)
     </p>
 
     <div v-else class="space-y-2">
-      <div v-for="c in visibles" :key="c.id" class="border-default rounded-lg border">
+      <div v-for="c in visibles" :key="c.id" class="border-default border">
         <div class="flex flex-wrap items-start gap-3 p-4">
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
@@ -188,8 +179,7 @@ onMounted(cargar)
         <pre
           v-if="abierto === c.id"
           class="border-default bg-elevated/50 text-default overflow-x-auto border-t p-4 text-xs whitespace-pre-wrap"
-          >{{ c.bodyText }}</pre
-        >
+          >{{ c.bodyText }}</pre>
       </div>
     </div>
   </div>

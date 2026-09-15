@@ -34,16 +34,13 @@ const enviando = ref(false)
 const error = ref<string | null>(null)
 const listo = ref<{ hora: string; nombre: string } | null>(null)
 
-const puedeIdentificar = computed(
-  () => clave.value.trim().length >= 1 && !enviando.value,
-)
+const puedeIdentificar = computed(() => clave.value.trim().length >= 1 && !enviando.value)
 
 onMounted(async () => {
   try {
     base.value = await checarSinReloj.mirar(entityId, installationId)
   } catch (e) {
-    errorAlAbrir.value =
-      e instanceof ApiError ? e.message : 'No encuentro esta base'
+    errorAlAbrir.value = e instanceof ApiError ? e.message : 'No encuentro esta base'
   } finally {
     cargando.value = false
   }
@@ -175,7 +172,7 @@ function otraPersona(): void {
 
       <!-- Ya checó. Se queda enseñando la hora hasta que alguien la quite. -->
       <template v-else-if="listo">
-        <div class="border-success/40 bg-success/10 space-y-2 rounded-xl border p-6 text-center">
+        <div class="border-success/40 bg-success/10 space-y-2 border p-6 text-center">
           <UIcon name="i-lucide-circle-check-big" class="text-success size-12" />
           <p class="text-highlighted text-lg font-semibold">Quedó registrada</p>
           <p class="text-default text-sm">{{ listo.nombre }} · {{ listo.hora }}</p>
@@ -191,7 +188,7 @@ function otraPersona(): void {
 
       <!-- Paso 2: ya sé quién es, falta dónde está. -->
       <template v-else-if="permiso">
-        <div class="border-default bg-elevated/50 rounded-xl border p-5 text-center">
+        <div class="border-default bg-elevated/50 border p-5 text-center">
           <p class="text-muted text-xs tracking-wide uppercase">Vas a checar como</p>
           <p class="text-highlighted mt-1 text-lg font-semibold">
             {{ permiso.nombreCorto }}
@@ -209,8 +206,8 @@ function otraPersona(): void {
           @click="checar"
         />
         <p class="text-dimmed text-center text-xs">
-          El teléfono va a pedirte permiso para usar tu ubicación. Sin ella no se puede
-          comprobar que estás en tu centro de trabajo.
+          El teléfono va a pedirte permiso para usar tu ubicación. Sin ella no se puede comprobar
+          que estás en tu centro de trabajo.
         </p>
         <UButton label="No soy yo" size="lg" block @click="otraPersona" />
       </template>

@@ -227,16 +227,11 @@ async function submit(): Promise<void> {
           </UFormField>
 
           <UFormField label="Motivo" required>
-            <USelectMenu
-              v-model="reason"
-              :items="reasonItems"
-              value-key="value"
-              class="w-full"
-            />
+            <USelectMenu v-model="reason" :items="reasonItems" value-key="value" class="w-full" />
           </UFormField>
         </div>
 
-        <div v-if="chosenShift" class="bg-elevated/50 rounded-lg p-3 text-sm">
+        <div v-if="chosenShift" class="bg-elevated/50 p-3 text-sm">
           <p class="text-highlighted font-medium">{{ chosenShift.summary.schedule }}</p>
           <p class="text-muted mt-0.5 text-xs">
             Ciclo de {{ chosenShift.policy.cycleLengthDays }} días ·

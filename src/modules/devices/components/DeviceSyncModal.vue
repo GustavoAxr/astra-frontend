@@ -192,7 +192,7 @@ async function read(): Promise<void> {
           </span>
         </p>
 
-        <div v-if="started && last" class="bg-elevated/50 space-y-1 rounded-lg p-3 text-sm">
+        <div v-if="started && last" class="bg-elevated/50 space-y-1 p-3 text-sm">
           <p class="text-highlighted font-medium">
             {{ last.watermarkLabel ?? 'Sin marca todavía' }}
           </p>

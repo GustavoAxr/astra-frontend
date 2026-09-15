@@ -267,7 +267,7 @@ function cuando(iso: string): string {
 
         <p
           v-if="datos.loaded.value && !filas.length"
-          class="border-default text-muted rounded-lg border border-dashed p-6 text-center text-sm"
+          class="border-default text-muted border border-dashed p-6 text-center text-sm"
         >
           En {{ origen }} no hay festivos propios de la empresa, solo los de ley. No hay nada que
           traer.
@@ -285,7 +285,7 @@ function cuando(iso: string): string {
             <span class="text-muted text-sm">{{ porEscribir }} de {{ filas.length }}</span>
           </div>
 
-          <div class="border-default max-h-96 overflow-y-auto rounded-lg border">
+          <div class="border-default max-h-96 overflow-y-auto border">
             <table class="w-full text-sm">
               <thead class="bg-elevated/50 sticky top-0">
                 <tr class="text-muted text-left text-xs">

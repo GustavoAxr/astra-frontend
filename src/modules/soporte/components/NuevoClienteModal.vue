@@ -123,11 +123,11 @@ async function copiar(): Promise<void> {
     <template #body>
       <!-- Ya está creado: lo único que queda es llevarse la contraseña. -->
       <div v-if="clave" class="space-y-4">
-        <div class="border-success/40 bg-success/10 space-y-1 rounded-xl border p-4">
+        <div class="border-success/40 bg-success/10 space-y-1 border p-4">
           <p class="text-highlighted font-medium">{{ nombre }} quedó dado de alta</p>
           <p class="text-muted text-sm">
-            Con su razón social y su administrador. Entra al cliente desde el selector
-            para seguir configurándolo.
+            Con su razón social y su administrador. Entra al cliente desde el selector para seguir
+            configurándolo.
           </p>
         </div>
 
@@ -178,12 +178,7 @@ async function copiar(): Promise<void> {
         </div>
 
         <UFormField label="Zona horaria" required>
-          <USelectMenu
-            v-model="timezone"
-            :items="timezoneItems"
-            value-key="value"
-            class="w-full"
-          />
+          <USelectMenu v-model="timezone" :items="timezoneItems" value-key="value" class="w-full" />
         </UFormField>
 
         <div class="grid gap-3 sm:grid-cols-2">
@@ -191,7 +186,12 @@ async function copiar(): Promise<void> {
             <UInput v-model="adminFullName" placeholder="Ana Ruiz" class="w-full" />
           </UFormField>
           <UFormField label="Administrador · correo" required>
-            <UInput v-model="adminEmail" type="email" placeholder="admin@diavaz.mx" class="w-full" />
+            <UInput
+              v-model="adminEmail"
+              type="email"
+              placeholder="admin@diavaz.mx"
+              class="w-full"
+            />
           </UFormField>
         </div>
 

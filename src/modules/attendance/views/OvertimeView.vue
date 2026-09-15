@@ -243,7 +243,10 @@ async function firmar(p: Adjustment, decision: 'approve' | 'reject', note?: stri
 
   try {
     await attendanceApi.resolveAdjustment(p.id, decision, note)
-    aviso.hecho(decision === 'approve' ? 'Permiso aprobado' : 'Permiso rechazado', p.employeeName ?? undefined)
+    aviso.hecho(
+      decision === 'approve' ? 'Permiso aprobado' : 'Permiso rechazado',
+      p.employeeName ?? undefined,
+    )
     await permisos.run()
   } catch (error) {
     errorAlFirmar.value = error instanceof Error ? error : new Error(String(error))
@@ -306,11 +309,7 @@ watch([filtro, selectedId, relojId], () => void permisos.run(), { immediate: tru
 
 <template>
   <div class="space-y-4">
-    <PageHeader
-      title="Permisos de tiempo extra"
-      description="Un supervisor los pide y otra persona los firma. Sirven para las horas de más que midió el reloj y para el trabajo hecho fuera de la sede, que no pasó por él. Solo los aprobados cuentan."
-      :count="permisos.loaded.value ? `${filas.length}` : undefined"
-    >
+    <PageHeader>
       <template #actions>
         <!--
           Solo con más de un equipo: un desplegable de una opción ocupa sitio y
@@ -366,7 +365,7 @@ watch([filtro, selectedId, relojId], () => void permisos.run(), { immediate: tru
       <li
         v-for="p in filas"
         :key="p.id"
-        class="border-default bg-elevated/20 rounded-xl border px-4 py-3"
+        class="border-default bg-elevated/20 border px-4 py-3"
         :class="p.status === 'PENDING' ? 'border-warning/40' : ''"
       >
         <div class="flex flex-wrap items-center gap-2">

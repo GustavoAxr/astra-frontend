@@ -133,7 +133,7 @@ async function confirmar(): Promise<void> {
           </UFormField>
 
           <!-- Los códigos, a la vista antes de crear nada. -->
-          <div v-if="previsualizacion.length" class="border-default rounded-lg border p-3">
+          <div v-if="previsualizacion.length" class="border-default border p-3">
             <p class="text-dimmed mb-2 text-xs">Se creará una copia en:</p>
             <div
               v-for="d in previsualizacion"

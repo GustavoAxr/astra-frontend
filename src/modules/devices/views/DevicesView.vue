@@ -188,11 +188,7 @@ watch(installationId, () => void devices.run(), { immediate: true })
 
 <template>
   <section class="space-y-4">
-    <PageHeader
-      title="Relojes"
-      description="Los equipos checadores dados de alta y el estado de su enlace."
-      :count="devices.loaded.value ? `${rows.length}` : undefined"
-    >
+    <PageHeader>
       <template #actions>
         <USelectMenu
           :model-value="installationId"
@@ -287,9 +283,7 @@ watch(installationId, () => void devices.run(), { immediate: true })
           value-key="value"
           :loading="cambiandoAgente === row.original.id"
           :ui="{ base: 'w-40' }"
-          @update:model-value="
-            (v: string) => void asignarAgente(row.original, v === '' ? null : v)
-          "
+          @update:model-value="(v: string) => void asignarAgente(row.original, v === '' ? null : v)"
         />
         <span v-else-if="row.original.edgeAgentId" class="text-sm">
           {{ nombreDelAgente(row.original.edgeAgentId) }}
@@ -345,9 +339,7 @@ watch(installationId, () => void devices.run(), { immediate: true })
       <template #puertaTelefono-cell="{ row }">
         <USwitch
           :model-value="row.original.phonePunchOpensDoor"
-          :disabled="
-            !canEnroll || !row.original.opensDoor || cambiandoPuerta === row.original.id
-          "
+          :disabled="!canEnroll || !row.original.opensDoor || cambiandoPuerta === row.original.id"
           aria-label="Una checada desde el teléfono abre esta puerta"
           @update:model-value="() => alternarPuertaPorTelefono(row.original)"
         />

@@ -38,14 +38,14 @@ onMounted(() => {
     <div v-if="sinEmpresa" class="mx-auto w-full max-w-sm space-y-6 text-center">
       <UIcon name="i-lucide-house" class="text-primary size-10" />
       <h1 class="text-highlighted text-xl font-semibold">Checar a distancia</h1>
-      <div class="border-default bg-elevated/50 space-y-3 rounded-xl border p-5 text-left">
+      <div class="border-default bg-elevated/50 space-y-3 border p-5 text-left">
         <p class="text-default text-sm">
           Este teléfono todavía no está dado de alta en ninguna empresa.
         </p>
         <p class="text-muted text-sm">
-          Pídele a Recursos Humanos el enlace para checar a distancia. Se abre una vez,
-          se da de alta el teléfono con un código por WhatsApp, y a partir de entonces
-          este icono ya te trae directo.
+          Pídele a Recursos Humanos el enlace para checar a distancia. Se abre una vez, se da de
+          alta el teléfono con un código por WhatsApp, y a partir de entonces este icono ya te trae
+          directo.
         </p>
       </div>
     </div>

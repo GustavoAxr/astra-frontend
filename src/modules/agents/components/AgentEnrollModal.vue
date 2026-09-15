@@ -114,7 +114,7 @@ watch(open, (isOpen) => {
           description="Si se pierde, no hay forma de recuperarlo: se revoca este agente y se da de alta otro."
         />
 
-        <div class="bg-elevated rounded-lg p-3">
+        <div class="bg-elevated p-3">
           <p class="font-mono text-sm break-all select-all">{{ enrollment.secret }}</p>
         </div>
 

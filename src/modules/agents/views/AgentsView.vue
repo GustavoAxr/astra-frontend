@@ -28,11 +28,7 @@ const when = (iso: string | null): string => (iso ? formatter.format(new Date(is
 
 <template>
   <section class="space-y-4">
-    <PageHeader
-      title="Agentes de sitio"
-      description="El programa que corre en la instalación y le habla a los relojes."
-      :count="agents.loaded.value ? `${rows.length}` : undefined"
-    >
+    <PageHeader>
       <template #actions>
         <AgentEnrollModal
           v-if="canCreate"

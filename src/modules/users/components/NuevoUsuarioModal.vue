@@ -193,7 +193,7 @@ async function copiarClave(): Promise<void> {
             placeholder="Buscar en la plantilla por nombre o número"
             class="w-full"
           />
-          <div class="border-default max-h-72 overflow-y-auto rounded-lg border">
+          <div class="border-default max-h-72 overflow-y-auto border">
             <button
               v-for="persona in visibles"
               :key="persona.id"
@@ -232,7 +232,7 @@ async function copiarClave(): Promise<void> {
         <template v-else-if="paso === 'que'">
           <div
             v-if="elegido"
-            class="border-default bg-elevated/50 flex items-center gap-3 rounded-lg border p-3"
+            class="border-default bg-elevated/50 flex items-center gap-3 border p-3"
           >
             <UIcon name="i-lucide-user-round" class="text-muted size-5" />
             <div class="min-w-0">
@@ -290,7 +290,7 @@ async function copiarClave(): Promise<void> {
             :description="`Con el correo ${email}. Se le va a pedir cambiar la contraseña la primera vez.`"
           />
 
-          <div class="border-warning/50 bg-warning/5 space-y-2 rounded-lg border p-4">
+          <div class="border-warning/50 bg-warning/5 space-y-2 border p-4">
             <p class="text-muted text-xs font-medium tracking-wide uppercase">
               Contraseña provisional
             </p>

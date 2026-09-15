@@ -132,20 +132,14 @@ async function abrirAlta(porCorreo = false): Promise<void> {
        * que no existe. Ya pasó una vez en esta casa con el despachador.
        */
       if (alta.correoEncolado) {
-        aviso.hecho(
-          'Enlace enviado',
-          `A ${alta.correoA}. Vale media hora y un solo uso.`,
-        )
+        aviso.hecho('Enlace enviado', `A ${alta.correoA}. Vale media hora y un solo uso.`)
       } else {
         /*
          * Se dice que NO salió, nunca «ya se lo mandamos». El alta se creó
          * igual —el enlace está en pantalla— y dar por enviado lo que no salió
          * deja a alguien esperando un correo que no existe.
          */
-        aviso.aviso(
-          'El correo no salió',
-          'El alta sí quedó: cópiale el enlace o enséñale el QR.',
-        )
+        aviso.aviso('El correo no salió', 'El alta sí quedó: cópiale el enlace o enséñale el QR.')
       }
     }
 
@@ -222,7 +216,7 @@ async function revocar(): Promise<void> {
     <!-- Ligado y confirmado: contesta. -->
     <template v-if="vinculo && vinculo.verifiedAt">
       <span
-        class="border-default bg-elevated/50 inline-flex items-center gap-1.5 rounded-full border py-0.5 pr-1 pl-2.5 text-xs"
+        class="border-default bg-elevated/50 inline-flex items-center gap-1.5 border py-0.5 pr-1 pl-2.5 text-xs"
         :class="activo ? '' : 'opacity-60'"
       >
         <UIcon name="i-lucide-send" class="size-3" />
@@ -254,7 +248,7 @@ async function revocar(): Promise<void> {
     <!-- Alta abierta y sin tocar: el enlace existe pero nadie lo ha usado. -->
     <template v-else-if="vinculo">
       <span
-        class="border-warning/40 bg-warning/10 inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-xs"
+        class="border-warning/40 bg-warning/10 inline-flex items-center gap-2 border px-2.5 py-0.5 text-xs"
       >
         <UIcon name="i-lucide-link" class="size-3" />
         <span class="text-muted">Enlace sin usar</span>
@@ -294,9 +288,7 @@ async function revocar(): Promise<void> {
         ofrece — antes solo decía «genera otro» sin dónde.
       -->
       <template v-else>
-        <span class="text-dimmed text-xs">
-          El enlace de antes ya no se puede volver a ver.
-        </span>
+        <span class="text-dimmed text-xs"> El enlace de antes ya no se puede volver a ver. </span>
         <UButton
           label="Mandar otro por correo"
           icon="i-lucide-refresh-cw"
@@ -313,12 +305,7 @@ async function revocar(): Promise<void> {
         />
       </template>
 
-      <UButton
-        label="Cancelar"
-        size="xs"
-        :disabled="trabajando"
-        @click="revocar"
-      />
+      <UButton label="Cancelar" size="xs" :disabled="trabajando" @click="revocar" />
 
       <!--
         EL QR EN SU PROPIA LÍNEA. Es para que alguien apunte el teléfono a esta
@@ -326,7 +313,7 @@ async function revocar(): Promise<void> {
         ilegible justo para lo único que sirve.
       -->
       <div v-if="verQr && enlace" class="basis-full pt-2">
-        <canvas ref="lienzo" class="rounded bg-white p-2" />
+        <canvas ref="lienzo" class="bg-white p-2" />
         <p class="text-dimmed mt-1 text-xs">
           Apunta la cámara desde el teléfono donde tengas Telegram.
         </p>

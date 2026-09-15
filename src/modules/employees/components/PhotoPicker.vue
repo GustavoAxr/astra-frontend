@@ -106,7 +106,7 @@ async function elegir(evento: Event): Promise<void> {
 <template>
   <div class="flex items-start gap-4">
     <div
-      class="bg-elevated/50 ring-default flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-lg ring-1"
+      class="bg-elevated/50 ring-default flex size-24 shrink-0 items-center justify-center overflow-hidden ring-1"
     >
       <img v-if="modelo" :src="modelo" alt="" class="size-full object-cover" />
       <span v-else-if="iniciales" class="text-dimmed text-xl font-medium">{{ iniciales }}</span>

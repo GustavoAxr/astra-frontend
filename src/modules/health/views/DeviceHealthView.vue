@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue'
 import { useAsync } from '@/shared/composables/useAsync'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
-import PageHeader from '@/shared/ui/PageHeader.vue'
 import { useAuthStore } from '@/modules/auth/store'
 import { healthApi } from '../api'
 import PasarListaModal from '../components/PasarListaModal.vue'
@@ -48,12 +47,6 @@ function failureLook(failures: number): { color: 'success' | 'warning' | 'error'
 
 <template>
   <section class="space-y-4">
-    <PageHeader
-      title="Salud de relojes"
-      description="Hasta dónde se leyó cada equipo. Una marca de agua que deja de avanzar es un reloj que sigue encendido pero ya no entrega checadas."
-      :count="state.loaded.value ? `${rows.length}` : undefined"
-    />
-
     <ApiErrorAlert :error="state.error.value" />
 
     <UTable

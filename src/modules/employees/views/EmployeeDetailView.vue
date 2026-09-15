@@ -352,9 +352,7 @@ const enElReloj = computed(() => person.value?.enrollments?.[0] ?? null)
  * Es la diferencia entre insistir con un cartel que nadie puede quitar y decir
  * «esto ya se mandó y el reloj lo aplicó a las 12:49».
  */
-const ordenes = useAsync((signal) =>
-  padronApi.commands(enElReloj.value?.deviceId ?? '', signal),
-)
+const ordenes = useAsync((signal) => padronApi.commands(enElReloj.value?.deviceId ?? '', signal))
 
 /** La última orden que se le mandó a ESTA persona, sea del estado que sea. */
 const ultimaOrden = computed(() => {
@@ -618,9 +616,7 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
               ? 'i-lucide-refresh-cw'
               : 'i-lucide-alarm-clock'
       "
-      :color="
-        avisoDelReloj === 'enCola' ? 'info' : avisoDelReloj === 'falló' ? 'error' : 'warning'
-      "
+      :color="avisoDelReloj === 'enCola' ? 'info' : avisoDelReloj === 'falló' ? 'error' : 'warning'"
       :title="
         avisoDelReloj === 'enCola'
           ? 'La orden está en cola'
@@ -811,7 +807,7 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
               aria-hidden="true"
             />
             <span
-              class="mt-1.5 size-[15px] shrink-0 rounded-full ring-4"
+              class="mt-1.5 size-[15px] shrink-0 ring-4"
               :class="[COLOR_DE_EVENTO[e.eventType] ?? 'bg-muted', 'ring-default']"
               aria-hidden="true"
             />
@@ -879,7 +875,7 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
           <li
             v-for="x in incidencias"
             :key="x.id"
-            class="border-default bg-elevated/20 rounded-lg border px-3 py-2"
+            class="border-default bg-elevated/20 border px-3 py-2"
             :class="x.estado === 'en-curso' ? 'border-info/40' : ''"
           >
             <div class="flex flex-wrap items-center gap-2">
@@ -1032,7 +1028,7 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
         sin saber sobre cuántos días es un número que no se puede discutir.
       -->
       <dl v-if="totales" class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div class="border-default bg-elevated/20 rounded-xl border p-4">
+        <div class="border-default bg-elevated/20 border p-4">
           <dt class="text-dimmed text-xs">Asistencia</dt>
           <dd class="mt-1 text-2xl font-medium" :class="tono(totales.attendanceRate)">
             {{ pct(totales.attendanceRate) }}
@@ -1041,7 +1037,7 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
             se presentó {{ totales.attendedDays }} de {{ totales.workDays }} días laborables
           </dd>
         </div>
-        <div class="border-default bg-elevated/20 rounded-xl border p-4">
+        <div class="border-default bg-elevated/20 border p-4">
           <dt class="text-dimmed text-xs">Puntualidad</dt>
           <dd class="mt-1 text-2xl font-medium" :class="tono(totales.punctualityRate)">
             {{ pct(totales.punctualityRate) }}
@@ -1051,7 +1047,7 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
             {{ totales.lateDays }} con retardo
           </dd>
         </div>
-        <div class="border-default bg-elevated/20 rounded-xl border p-4">
+        <div class="border-default bg-elevated/20 border p-4">
           <dt class="text-dimmed text-xs">Horas cumplidas</dt>
           <dd class="mt-1 text-2xl font-medium" :class="tono(totales.hoursRate)">
             {{ pct(totales.hoursRate) }}

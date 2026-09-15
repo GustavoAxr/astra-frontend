@@ -4,10 +4,8 @@ import { useRoute } from 'vue-router'
 import { useAsync } from '@/shared/composables/useAsync'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
-import PageHeader from '@/shared/ui/PageHeader.vue'
 import { useAviso } from '@/shared/ui/aviso'
 import { useAuthStore } from '@/modules/auth/store'
-import { devicesApi } from '@/modules/devices/api'
 import { padronApi } from '../api'
 import { diaLegible, gravedad, motivoColor, motivoLabel, sexoLegible } from '../motivo'
 import type { Divergencia, SyncResult } from '../types'
@@ -20,10 +18,6 @@ const auth = useAuthStore()
 
 /** Encolar es de RRHH y del administrador. Ver, cualquiera. Regla 6: oculta, no protege. */
 const canPush = computed(() => auth.can('assignEmployee'))
-
-const devices = useAsync((signal) => devicesApi.list(undefined, signal))
-void devices.run()
-const device = computed(() => (devices.data.value ?? []).find((d) => d.id === deviceId) ?? null)
 
 const difs = useAsync((signal) => padronApi.state(deviceId, signal))
 const ordenes = useAsync((signal) => padronApi.commands(deviceId, signal))
@@ -194,16 +188,6 @@ const ESTADOS: Record<
 
 <template>
   <section class="space-y-4">
-    <PageHeader
-      title="Padrón del reloj"
-      :description="
-        device
-          ? `Deja el equipo ${device.serialNumber} como Astra dice que debe estar.`
-          : 'Deja el equipo como Astra dice que debe estar.'
-      "
-      :count="difs.loaded.value ? `${rows.length}` : undefined"
-    />
-
     <!--
       Esto NO sustituye a la conciliación. Ella VINCULA el número del reloj con
       un empleado; esto corrige el nombre de quien ya está vinculado. Son dos

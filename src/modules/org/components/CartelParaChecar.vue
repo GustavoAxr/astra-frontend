@@ -39,9 +39,7 @@ const lienzo = ref<HTMLCanvasElement | null>(null)
  */
 const CLAVE = 'astra.contingencia.direccion'
 
-const direccion = ref(
-  localStorage.getItem(CLAVE) ?? window.location.origin,
-)
+const direccion = ref(localStorage.getItem(CLAVE) ?? window.location.origin)
 const editando = ref(false)
 
 /** Sin barra final ni espacios: se concatena una ruta justo detrás. */
@@ -70,9 +68,7 @@ const seVaAlPropioTelefono = computed(
  * AQUÍ, antes de imprimir y pegar el papel, y no cuando hay una fila de gente
  * delante de un QR que no funciona.
  */
-const sinCandado = computed(
-  () => base.value.startsWith('http://') && !seVaAlPropioTelefono.value,
-)
+const sinCandado = computed(() => base.value.startsWith('http://') && !seVaAlPropioTelefono.value)
 
 const enlace = computed(
   () => `${base.value}/checar/${props.installation.legalEntityId}/${props.installation.id}`,
@@ -114,13 +110,13 @@ async function copiar(): Promise<void> {
 <template>
   <div class="space-y-3">
     <div
-      class="cartel mx-auto flex w-full max-w-xs flex-col items-center gap-3 rounded-xl bg-white p-5 text-center"
+      class="cartel mx-auto flex w-full max-w-xs flex-col items-center gap-3 bg-white p-5 text-center"
     >
       <p class="text-lg font-bold text-black">Checa aquí</p>
       <p class="text-xs text-neutral-600">
         {{ installation.name }}
       </p>
-      <canvas ref="lienzo" class="rounded" />
+      <canvas ref="lienzo" />
       <p class="text-xs break-all text-neutral-500">{{ enlace }}</p>
       <p class="text-xs text-neutral-600">Escanea y teclea tu número de empleado</p>
     </div>
@@ -169,12 +165,7 @@ async function copiar(): Promise<void> {
         size="xs"
         @click="copiar"
       />
-      <UButton
-        label="Imprimir"
-        icon="i-lucide-printer"
-        size="xs"
-        @click="imprimir"
-      />
+      <UButton label="Imprimir" icon="i-lucide-printer" size="xs" @click="imprimir" />
     </div>
   </div>
 </template>
