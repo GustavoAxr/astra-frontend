@@ -34,7 +34,7 @@ const aviso = useAviso()
 
 const tipo = ref<TipoDeCorreccion>('ADD_PUNCH')
 const hora = ref('')
-const checadaElegida = ref('')
+const checadasElegidas = ref<string[]>([])
 const estado = ref('PERMISSION')
 const motivo = ref('')
 const submitting = ref(false)
@@ -61,12 +61,49 @@ const checadas = useAsync((signal) =>
 )
 
 const hhmm = new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false })
+/**
+ * Las checadas del día, de la primera a la última.
+ *
+ * EN ORDEN Y CON LA HORA DELANTE, que es lo único que se mira: el número de
+ * serie del equipo es el mismo en todas y no distingue nada. Antes iban como
+ * venían de la consulta —de la más reciente a la más vieja— y eso obligaba a
+ * leer la lista al revés para reconstruir el día.
+ */
+const checadasDelDia = computed(() =>
+  [...(checadas.data.value?.data ?? [])].sort((a, b) => a.punchTime.localeCompare(b.punchTime)),
+)
+
 const opcionesDeChecada = computed(() =>
-  (checadas.data.value?.data ?? []).map((p) => ({
-    label: `${hhmm.format(new Date(p.punchTime))} · ${p.serialNumber ?? 'sin equipo'}`,
+  checadasDelDia.value.map((p) => ({
+    label: hhmm.format(new Date(p.punchTime)),
     value: p.id,
   })),
 )
+
+/**
+ * CÓMO QUEDARÍA EL DÍA, dicho antes de proponer nada.
+ *
+ * Es lo que quita la duda de raíz. La pregunta que se hace quien mira esta
+ * lista es «¿entonces el día termina a las 17:24?», y ninguna etiqueta la
+ * contesta tan bien como enseñar el resultado. Sin esto, marcar la checada
+ * equivocada —la buena en vez de las malas— no se descubre hasta que alguien
+ * firma y el día sale peor que antes.
+ */
+const comoQuedaria = computed(() => {
+  const quedan = checadasDelDia.value.filter((p) => !checadasElegidas.value.includes(p.id))
+  if (checadasElegidas.value.length === 0) return null
+  if (quedan.length === 0) return 'El día se quedaría SIN NINGUNA checada.'
+
+  const primera = quedan[0]
+  const ultima = quedan[quedan.length - 1]
+  if (quedan.length === 1) {
+    return `El día se quedaría con una sola checada, a las ${hhmm.format(new Date(primera!.punchTime))}.`
+  }
+  return (
+    `El día quedaría de ${hhmm.format(new Date(primera!.punchTime))} ` +
+    `a ${hhmm.format(new Date(ultima!.punchTime))}, con ${quedan.length} checadas.`
+  )
+})
 
 /**
  * QUÉ CORRECCIÓN SE OFRECE PRIMERO, según lo que le pasa al día.
@@ -83,14 +120,14 @@ function tipoQueProcede(d: DerivedDay): TipoDeCorreccion {
 
 const TIPOS: { label: string; value: TipoDeCorreccion }[] = [
   { label: 'Poner la checada que falta', value: 'ADD_PUNCH' },
-  { label: 'Que una checada no cuente', value: 'IGNORE_PUNCH' },
+  { label: 'Que una o varias checadas no cuenten', value: 'IGNORE_PUNCH' },
   { label: 'Decir qué fue ese día', value: 'OVERRIDE_STATUS' },
 ]
 
 const valid = computed(() => {
   if (motivo.value.trim().length < 5) return false
   if (tipo.value === 'ADD_PUNCH') return /^([01]\d|2[0-3]):[0-5]\d$/.test(hora.value)
-  if (tipo.value === 'IGNORE_PUNCH') return checadaElegida.value !== ''
+  if (tipo.value === 'IGNORE_PUNCH') return checadasElegidas.value.length > 0
   return estado.value !== ''
 })
 
@@ -101,7 +138,7 @@ watch(
     error.value = null
     tipo.value = tipoQueProcede(props.dia)
     hora.value = ''
-    checadaElegida.value = ''
+    checadasElegidas.value = []
     estado.value = 'PERMISSION'
     motivo.value = ''
     void checadas.run()
@@ -115,24 +152,39 @@ async function submit(): Promise<void> {
   error.value = null
 
   try {
-    await attendanceApi.requestAdjustment({
-      employeeId: props.employeeId,
-      workDate: props.dia.workDate,
-      adjustmentType: tipo.value,
-      /*
-       * Se manda SOLO el campo del tipo elegido. `forbidNonWhitelisted` está
-       * activo y un campo de más devuelve 400 — pero además mandar la hora de
-       * una corrección que no la usa dejaría escrito en la base un dato que
-       * nadie puso y que nadie va a leer.
-       */
-      ...(tipo.value === 'ADD_PUNCH' ? { proposedTime: hora.value } : {}),
-      ...(tipo.value === 'IGNORE_PUNCH' ? { targetPunchId: checadaElegida.value } : {}),
-      ...(tipo.value === 'OVERRIDE_STATUS' ? { proposedStatus: estado.value } : {}),
-      reason: motivo.value.trim(),
-    })
+    /*
+     * UNA CORRECCIÓN POR CHECADA, y no una que las cubra todas.
+     *
+     * La base señala UNA checada por fila —`target_punch_id`— y eso es lo
+     * correcto: cada una se firma o se rechaza por su cuenta, y si la dirección
+     * está de acuerdo con quitar la de las 21:51 pero no la de las 21:38, puede
+     * decirlo. Una fila que las cubriera todas obligaría a firmar en bloque.
+     *
+     * Lo que sí se hace aquí es no obligar a RRHH a repetir el formulario: se
+     * eligen juntas y salen juntas, con el mismo motivo.
+     */
+    const aQuitar = tipo.value === 'IGNORE_PUNCH' ? checadasElegidas.value : [null]
+
+    for (const punchId of aQuitar) {
+      await attendanceApi.requestAdjustment({
+        employeeId: props.employeeId,
+        workDate: props.dia.workDate,
+        adjustmentType: tipo.value,
+        /*
+         * Se manda SOLO el campo del tipo elegido. `forbidNonWhitelisted` está
+         * activo y un campo de más devuelve 400 — pero además mandar la hora de
+         * una corrección que no la usa dejaría escrito en la base un dato que
+         * nadie puso y que nadie va a leer.
+         */
+        ...(tipo.value === 'ADD_PUNCH' ? { proposedTime: hora.value } : {}),
+        ...(punchId !== null ? { targetPunchId: punchId } : {}),
+        ...(tipo.value === 'OVERRIDE_STATUS' ? { proposedStatus: estado.value } : {}),
+        reason: motivo.value.trim(),
+      })
+    }
 
     aviso.hecho(
-      'Corrección propuesta',
+      aQuitar.length > 1 ? `${aQuitar.length} correcciones propuestas` : 'Corrección propuesta',
       'Queda pendiente hasta que la dirección la firme. El día no cambia todavía.',
     )
     open.value = false
@@ -197,19 +249,33 @@ function cuando(iso: string): string {
 
         <UFormField
           v-else-if="tipo === 'IGNORE_PUNCH'"
-          label="Cuál deja de contar"
+          label="Cuáles dejan de contar"
           required
-          help="No se borra: sigue en Marcajes y sigue siendo lo que se enseña en una auditoría. Solo deja de sumar."
+          help="Marca las que SOBRAN, no la buena. Puedes elegir varias. No se borran: siguen en Marcajes y siguen siendo lo que se enseña en una auditoría; solo dejan de sumar."
         >
           <USelectMenu
-            v-model="checadaElegida"
+            v-model="checadasElegidas"
             :items="opcionesDeChecada"
             value-key="value"
+            multiple
             :loading="checadas.pending.value"
-            placeholder="Elige la checada"
+            placeholder="Elige las que sobran"
             class="w-full"
           />
         </UFormField>
+
+        <!--
+          CÓMO QUEDARÍA EL DÍA. Es lo que quita la duda de raíz: la pregunta de
+          quien mira la lista es «¿entonces el día termina a las 17:24?», y
+          ninguna etiqueta la contesta tan bien como enseñar el resultado.
+        -->
+        <p
+          v-if="tipo === 'IGNORE_PUNCH' && comoQuedaria"
+          class="text-sm"
+          :class="checadasElegidas.length === checadasDelDia.length ? 'text-warning' : 'text-info'"
+        >
+          {{ comoQuedaria }}
+        </p>
 
         <UFormField
           v-else
