@@ -20,8 +20,14 @@ import type { EmployeeDetail } from '../types'
  *      que da de alta el aparato.
  *   3. Tiene que dar de alta el teléfono, una vez, desde el enlace.
  *
- * Esta tarjeta las enseña en orden y dice cuál falta. La alternativa —un
- * «no puede checar» a secas— deja a RRHH probando cosas: ya pasó con el
+ * LA PRIMERA NO SE TRATA AQUÍ: esta tarjeta solo se pinta si la adscripción ya
+ * dice «a distancia» —quien la pinta es el expediente—. Para el caso contrario
+ * no había nada que ofrecer, y un párrafo explicando por qué la tarjeta está
+ * vacía ocupaba tanto como la tarjeta llena; ahora eso se lee en el globo del
+ * distintivo, junto a las adscripciones.
+ *
+ * Las otras dos sí: se enseñan en orden y se dice cuál falta. La alternativa
+ * —un «no puede checar» a secas— deja a RRHH probando cosas: ya pasó con el
  * acceso al asistente.
  *
  * ══ Y EL ENLACE ES DE LA EMPRESA, NO DE LA PERSONA ══
@@ -36,7 +42,6 @@ const aviso = useAviso()
 const telefonos = useAsync((signal) => remotoApi.telefonos(props.persona.id, signal))
 void telefonos.run()
 
-const esRemota = computed(() => props.persona.current?.workMode === 'REMOTE')
 const tieneWhatsapp = computed(
   () => props.persona.whatsappNumber !== null && props.persona.whatsappOptIn,
 )
@@ -159,34 +164,13 @@ const soloDia = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
     <template #header>
       <div class="flex flex-wrap items-center gap-2">
         <h2 class="text-highlighted font-semibold">Checar desde el teléfono</h2>
-        <UBadge
-          :label="esRemota ? 'A distancia' : 'En sitio'"
-          :color="esRemota ? 'success' : 'neutral'"
-          size="sm"
-        />
-        <span v-if="esRemota" class="text-muted ml-auto text-sm">
+        <span class="text-muted ml-auto text-sm">
           {{ vigentes.length }} {{ vigentes.length === 1 ? 'teléfono' : 'teléfonos' }}
         </span>
       </div>
     </template>
 
-    <!--
-      NO ES REMOTA: se dice qué hacer, no solo que no puede. El interruptor está
-      en otra pantalla y sin esta línea hay que adivinar en cuál.
-    -->
-    <div v-if="!esRemota" class="text-muted space-y-2 text-sm">
-      <p>
-        Esta persona checa en el reloj de su instalación. Para que pueda hacerlo desde su teléfono
-        —desde casa o donde esté— cámbiale la adscripción a
-        <strong>«A distancia»</strong> con el botón <strong>Cambiar</strong> de arriba.
-      </p>
-      <p class="text-dimmed">
-        Checar a distancia no usa geocerca: quien trabaja desde casa no está dentro de ninguna. Lo
-        que respalda cada checada es el acuse que le llega a su correo.
-      </p>
-    </div>
-
-    <div v-else class="space-y-4">
+    <div class="space-y-4">
       <!--
         LAS DOS COSAS QUE LE FALTAN PARA PODER DARSE DE ALTA, en orden y con el
         estado a la vista. Si el WhatsApp no está confirmado, el código no sale

@@ -203,6 +203,17 @@ const fullName = computed(() =>
     : '',
 )
 
+/**
+ * DÓNDE TRABAJA, que es lo que habilita checar desde el teléfono.
+ *
+ * Va junto a las adscripciones porque ES la adscripción: el interruptor está en
+ * «Cambiar», a un palmo del distintivo. Antes ocupaba una tarjeta entera para
+ * decir «esta persona checa en el reloj» —cuatro renglones para el caso normal,
+ * que es casi todo el mundo—. Ahora se lee en una palabra y la explicación
+ * aparece al pasar el ratón, para quien la necesite.
+ */
+const esRemota = computed(() => person.value?.current?.workMode === 'REMOTE')
+
 const currentShift = computed(() => {
   const policyId = person.value?.currentAssignment?.shiftPolicyId
   const policy = (shifts.data.value ?? []).find((s) => s.id === policyId)
@@ -733,6 +744,40 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
         <template #header>
           <div class="flex items-center gap-2">
             <h2 class="font-medium">Adscripciones · {{ person.assignments.length }}</h2>
+            <!--
+              DÓNDE TRABAJA, en una palabra y con la explicación escondida.
+
+              El distintivo es un botón para que también se llegue con el
+              teclado: un globo que solo abre al pasar el ratón no existe para
+              quien no usa ratón.
+            -->
+            <UTooltip :delay-duration="150">
+              <UBadge
+                as="button"
+                type="button"
+                :label="esRemota ? 'A distancia' : 'En sitio'"
+                :color="esRemota ? 'success' : 'neutral'"
+                size="sm"
+                class="cursor-help"
+              />
+              <template #content>
+                <div class="max-w-xs space-y-1.5 text-xs">
+                  <p v-if="esRemota">
+                    Checa desde su teléfono, desde casa o donde esté. Abajo se dan de alta los
+                    aparatos con los que puede hacerlo.
+                  </p>
+                  <p v-else>
+                    Checa en el reloj de su instalación. Para que pueda hacerlo desde su teléfono
+                    —desde casa o donde esté— cámbiale la adscripción a «A distancia» con el botón
+                    <strong>Cambiar</strong>.
+                  </p>
+                  <p class="text-muted">
+                    Checar a distancia no usa geocerca: quien trabaja desde casa no está dentro de
+                    ninguna. Lo que respalda cada checada es el acuse que le llega a su correo.
+                  </p>
+                </div>
+              </template>
+            </UTooltip>
             <UButton
               v-if="canWrite"
               icon="i-lucide-replace"
@@ -777,8 +822,12 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
         Justo DEBAJO de las adscripciones, y no en otra pestaña: lo que habilita
         checar desde el teléfono es la adscripción, así que el estado y su causa
         se leen seguidos.
+
+        SOLO SI CHECA A DISTANCIA. Para quien checa en el reloj esta tarjeta no
+        tenía nada que ofrecer: era un párrafo explicando por qué está vacía. Eso
+        vive ahora en el globo del distintivo de arriba.
       -->
-      <TelefonosRemotos :persona="person" :puede-revocar="canWrite" />
+      <TelefonosRemotos v-if="esRemota" :persona="person" :puede-revocar="canWrite" />
 
       <!-- Vida laboral -->
       <UCard>
