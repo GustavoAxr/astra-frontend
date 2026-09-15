@@ -124,6 +124,18 @@ export const remotoApi = {
    * convertiría esto en una forma de mandar el alta de cualquiera a la
    * dirección que uno quisiera.
    */
-  invitarPorCorreo: (employeeId: string) =>
-    http.post<{ enviadoA: string }>('/remote/devices/invite', { employeeId }),
+  invitarPorCorreo: (employeeId: string, email?: string) =>
+    http.post<{ enviadoA: string }>('/remote/devices/invite', {
+      employeeId,
+      // Solo si hay: mandarlo vacío sería decir «a ninguna parte».
+      ...(email ? { email } : {}),
+    }),
+
+  /**
+   * Otros noventa días para un teléfono que sigue en uso.
+   *
+   * La cuenta arranca HOY, no en la fecha que vencía: renovar el día antes y
+   * renovar tres días después dan lo mismo.
+   */
+  renovar: (id: string) => http.post<{ venceEl: string }>(`/remote/devices/${id}/renew`, {}),
 }

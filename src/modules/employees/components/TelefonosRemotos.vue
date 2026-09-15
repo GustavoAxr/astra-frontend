@@ -51,6 +51,43 @@ const revocando = ref<string | null>(null)
 /** El modal que explica qué va a pasar antes de mandar el correo. */
 const invitando = ref(false)
 const mandando = ref(false)
+const renovando = ref<string | null>(null)
+
+/**
+ * A dónde mandar el enlace, si no es el correo del expediente.
+ *
+ * Vacío = al suyo. Existe por el caso que puso el cliente: «no tengo el correo
+ * de la empresa en el teléfono, mándamelo a este otro». Sin esto esa persona se
+ * queda sin poder checar, o RRHH le cambia el correo del EXPEDIENTE para
+ * resolver un envío — que es peor: mueve un dato permanente por una razón de un
+ * día. Queda registrado a dónde fue.
+ */
+const correoAlterno = ref('')
+
+/**
+ * Un teléfono que vence dentro de dos semanas ya se puede renovar.
+ *
+ * El aviso de la una de la mañana lo anuncia con una semana; aquí se ofrece con
+ * dos, para que quien entra al expediente por otra cosa pueda resolverlo de
+ * paso en vez de esperar el correo.
+ */
+const DIAS_PARA_OFRECER_RENOVAR = 14
+function porVencer(iso: string): boolean {
+  return (new Date(iso).getTime() - Date.now()) / 86_400_000 <= DIAS_PARA_OFRECER_RENOVAR
+}
+
+async function renovar(id: string): Promise<void> {
+  renovando.value = id
+  try {
+    const r = await remotoApi.renovar(id)
+    aviso.hecho('Teléfono renovado', `Ahora vence el ${soloDia.format(new Date(r.venceEl))}.`)
+    await telefonos.run()
+  } catch (e) {
+    aviso.fallo(e, 'renovar el teléfono')
+  } finally {
+    renovando.value = null
+  }
+}
 
 /**
  * LOS TRES PASOS, TAL CUAL LOS VA A LEER LA OTRA PERSONA.
@@ -71,12 +108,16 @@ async function mandarInvitacion(): Promise<void> {
   if (mandando.value) return
   mandando.value = true
   try {
-    const r = await remotoApi.invitarPorCorreo(props.persona.id)
+    const r = await remotoApi.invitarPorCorreo(
+      props.persona.id,
+      correoAlterno.value.trim() || undefined,
+    )
     aviso.hecho(
       `Enlace enviado a ${r.enviadoA}`,
       'Caduca en 48 horas y sirve una sola vez. Si se le pasa, vuelve a mandarlo.',
     )
     invitando.value = false
+    correoAlterno.value = ''
   } catch (e) {
     aviso.fallo(e, 'mandar el enlace')
   } finally {
@@ -227,18 +268,34 @@ const soloDia = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
               <span v-if="t.label" class="text-dimmed">· {{ t.label }}</span>
             </td>
             <td class="text-muted py-1.5">{{ cuando(t.lastUsedAt) }}</td>
-            <td class="text-muted py-1.5">{{ soloDia.format(new Date(t.expiresAt)) }}</td>
+            <td class="py-1.5" :class="porVencer(t.expiresAt) ? 'text-warning' : 'text-muted'">
+              {{ soloDia.format(new Date(t.expiresAt)) }}
+            </td>
             <td class="py-1.5 text-right">
               <UBadge v-if="t.revokedAt" label="Revocado" color="neutral" size="sm" />
-              <UButton
-                v-else-if="puedeRevocar"
-                label="Revocar"
-                icon="i-lucide-shield-x"
-                color="error"
-                size="xs"
-                :loading="revocando === t.id"
-                @click="revocar(t.id)"
-              />
+              <template v-else-if="puedeRevocar">
+                <!--
+                  RENOVAR SOLO CUANDO SE ACERCA. Un botón que está siempre se
+                  pulsa por costumbre y convierte los noventa días en
+                  permanentes, que es lo contrario de tener vigencia.
+                -->
+                <UButton
+                  v-if="porVencer(t.expiresAt)"
+                  label="Renovar"
+                  icon="i-lucide-refresh-cw"
+                  size="xs"
+                  :loading="renovando === t.id"
+                  @click="renovar(t.id)"
+                />
+                <UButton
+                  label="Revocar"
+                  icon="i-lucide-shield-x"
+                  color="error"
+                  size="xs"
+                  :loading="revocando === t.id"
+                  @click="revocar(t.id)"
+                />
+              </template>
             </td>
           </tr>
         </tbody>
@@ -282,8 +339,26 @@ const soloDia = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
             </template>
           </UAlert>
 
-          <p v-if="!persona.email" class="text-error text-sm">
-            No tiene correo en su expediente, y el enlace va por ahí. Captúralo antes con «Editar».
+          <!--
+            EL CORREO ALTERNATIVO, para «no tengo el de la empresa en el
+            teléfono». NO cambia su expediente: vale para este envío y nada
+            más. Se dice, porque si no alguien va a creer que sí lo cambió.
+          -->
+          <UFormField
+            label="Mandarlo a otro correo"
+            help="Opcional. Vacío = al correo de su expediente. No cambia su expediente: vale solo para este envío, y queda registrado a dónde fue."
+          >
+            <UInput
+              v-model="correoAlterno"
+              type="email"
+              :placeholder="persona.email ?? 'fermin.jimenez@gmail.com'"
+              class="w-full"
+            />
+          </UFormField>
+
+          <p v-if="!persona.email && !correoAlterno.trim()" class="text-error text-sm">
+            No tiene correo en su expediente. Escribe arriba a dónde mandarlo, o captúraselo con
+            «Editar».
           </p>
 
           <div class="flex justify-end gap-2 pt-2">
@@ -292,7 +367,7 @@ const soloDia = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
               label="Mandar el enlace"
               icon="i-lucide-send"
               :loading="mandando"
-              :disabled="!persona.email"
+              :disabled="!persona.email && !correoAlterno.trim()"
               @click="mandarInvitacion"
             />
           </div>
