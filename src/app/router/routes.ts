@@ -186,7 +186,7 @@ export const routes: RouteRecordRaw[] = [
       {
         path: 'tiempo-extra',
         name: 'overtime',
-        meta: { title: 'Permisos de tiempo extra' },
+        meta: { title: 'Permisos y correcciones' },
         component: () => import('@/modules/attendance/views/OvertimeView.vue'),
       },
       {

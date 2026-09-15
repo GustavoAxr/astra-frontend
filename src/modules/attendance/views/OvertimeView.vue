@@ -15,7 +15,14 @@ import { useAuthStore } from '@/modules/auth/store'
 import { employeesApi } from '@/modules/employees/api'
 import { attendanceApi } from '../api'
 import DetectedOvertimeInbox from '../components/DetectedOvertimeInbox.vue'
-import { ADJUSTMENT_STATUS, ADJUSTMENT_TYPE, PAPEL_DE_FIRMA, type Adjustment } from '../types'
+import {
+  ADJUSTMENT_STATUS,
+  ADJUSTMENT_TYPE,
+  CORRECCIONES,
+  PAPEL_DE_FIRMA,
+  attendanceStatusLook,
+  type Adjustment,
+} from '../types'
 import { firmasQueFaltan, puedeFirmar } from '../overtime-approval'
 
 const aviso = useAviso()
@@ -119,6 +126,14 @@ type TipoDePermiso = 'AUTHORIZE_OVERTIME' | 'REMOTE_WORK'
  * las respalde; con las dos firmas ese control lo hace la aprobación, no el rol
  * de quien redacta. El jefe de área es justo quien sabe que su gente trabajó
  * desde casa; lo que no puede es autorizarlo.
+ */
+/*
+ * AQUÍ SOLO SE PIDEN PERMISOS, NO CORRECCIONES.
+ *
+ * Las tres correcciones —poner una checada, dejar una fuera, decir qué fue el
+ * día— se proponen desde el EXPEDIENTE, con el día delante. Ofrecerlas aquí
+ * sería pedirle a alguien que corrija una jornada que no está viendo, y eso es
+ * exactamente como se corrige el día equivocado. Firmarlas sí es aquí.
  */
 const TIPOS = [
   { label: 'Tiempo extra en sitio', value: 'AUTHORIZE_OVERTIME' },
@@ -296,6 +311,35 @@ function dia(iso: string): string {
 const sello = new Intl.DateTimeFormat('es-MX', { dateStyle: 'short', timeStyle: 'short' })
 const cuando = (iso: string | null): string => (iso ? sello.format(new Date(iso)) : '—')
 
+/**
+ * Las correcciones se pintan aparte de los permisos: no son lo mismo y quien
+ * firma tiene que distinguirlas de un vistazo.
+ */
+function colorDelTipo(tipo: string): 'info' | 'warning' | 'neutral' {
+  if (tipo === 'REMOTE_WORK') return 'info'
+  return (CORRECCIONES as readonly string[]).includes(tipo) ? 'warning' : 'neutral'
+}
+
+const horaDeLaCorreccion = new Intl.DateTimeFormat('es-MX', {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+})
+
+/** Qué toca esta corrección del día, en una línea. Vacío si no corrige nada. */
+function queCorrige(p: Adjustment): string {
+  if (p.adjustmentType === 'ADD_PUNCH' && p.proposedTime) {
+    return `Pone una checada a las ${horaDeLaCorreccion.format(new Date(p.proposedTime))}.`
+  }
+  if (p.adjustmentType === 'IGNORE_PUNCH') {
+    return 'Una checada de ese día deja de contar. No se borra: sigue en Marcajes.'
+  }
+  if (p.adjustmentType === 'OVERRIDE_STATUS' && p.proposedStatus) {
+    return `Ese día pasa a contar como «${attendanceStatusLook(p.proposedStatus).label}».`
+  }
+  return ''
+}
+
 function hhmm(min: number | null): string {
   if (min === null) return 'Lo que salga del día'
   const h = Math.floor(min / 60)
@@ -382,7 +426,7 @@ watch([filtro, selectedId, relojId], () => void permisos.run(), { immediate: tru
           <UBadge
             :label="ADJUSTMENT_TYPE[p.adjustmentType]?.label ?? p.adjustmentType"
             :icon="ADJUSTMENT_TYPE[p.adjustmentType]?.icon"
-            :color="p.adjustmentType === 'REMOTE_WORK' ? 'info' : 'neutral'"
+            :color="colorDelTipo(p.adjustmentType)"
             size="sm"
           />
           <span class="text-dimmed font-mono text-xs">{{ p.employeeCode }}</span>
@@ -407,6 +451,17 @@ watch([filtro, selectedId, relojId], () => void permisos.run(), { immediate: tru
 
         <p v-if="p.requestedStart && p.requestedEnd" class="text-muted mt-1 text-sm">
           De {{ p.requestedStart.slice(0, 5) }} a {{ p.requestedEnd.slice(0, 5) }}
+        </p>
+
+        <!--
+          QUÉ CAMBIA ESTA CORRECCIÓN, dicho antes de firmarla.
+          Un permiso se firma sabiendo cuántas horas son; una corrección hay que
+          firmarla sabiendo QUÉ toca del día. Sin esta línea, quien aprueba ve
+          «Checada que faltaba» y una fecha, y estaría firmando una hora que no
+          vio.
+        -->
+        <p v-if="queCorrige(p)" class="text-info mt-1 text-sm">
+          {{ queCorrige(p) }}
         </p>
 
         <p class="text-muted mt-1.5 text-sm">{{ p.reason }}</p>

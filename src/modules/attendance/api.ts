@@ -112,11 +112,23 @@ export const attendanceApi = {
     employeeId: string
     workDate: string
     /** `REMOTE_WORK` exige minutos: no hay checadas de donde deducirlos. */
-    adjustmentType: 'AUTHORIZE_OVERTIME' | 'REMOTE_WORK'
+    adjustmentType:
+      'AUTHORIZE_OVERTIME' | 'REMOTE_WORK' | 'ADD_PUNCH' | 'IGNORE_PUNCH' | 'OVERRIDE_STATUS'
     proposedMinutes?: number
     /** «de 18:00 a 22:00». Cuando van las dos, los minutos los calcula el servidor. */
     requestedStart?: string
     requestedEnd?: string
+    /**
+     * `ADD_PUNCH`: la hora de la checada que falta, `HH:MM`, EN LA ZONA DE SU
+     * INSTALACIÓN. Se manda la hora local y no un instante porque es lo que
+     * RRHH tiene delante —«se fue a las cinco»—; convertirla es del servidor,
+     * que sí sabe en qué zona vive esa persona.
+     */
+    proposedTime?: string
+    /** `IGNORE_PUNCH`: la checada que deja de contar. Sigue en la evidencia. */
+    targetPunchId?: string
+    /** `OVERRIDE_STATUS`: qué fue ese día de verdad. */
+    proposedStatus?: string
     reason: string
   }) =>
     http.post<Adjustment>('/attendance-adjustments', {
@@ -126,6 +138,9 @@ export const attendanceApi = {
       ...(input.proposedMinutes === undefined ? {} : { proposedMinutes: input.proposedMinutes }),
       ...(input.requestedStart === undefined ? {} : { requestedStart: input.requestedStart }),
       ...(input.requestedEnd === undefined ? {} : { requestedEnd: input.requestedEnd }),
+      ...(input.proposedTime === undefined ? {} : { proposedTime: input.proposedTime }),
+      ...(input.targetPunchId === undefined ? {} : { targetPunchId: input.targetPunchId }),
+      ...(input.proposedStatus === undefined ? {} : { proposedStatus: input.proposedStatus }),
       reason: input.reason,
     }),
 

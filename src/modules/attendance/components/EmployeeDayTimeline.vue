@@ -16,7 +16,16 @@ import type { DerivedDay } from '../types'
  * última checada. Cada renglón lleva su fecha y su total, así que se puede leer
  * como una tabla aunque nadie mire los colores.
  */
-const props = defineProps<{ days: DerivedDay[] }>()
+const props = defineProps<{
+  days: DerivedDay[]
+  /**
+   * Cuando se pasa, cada día ofrece corregirse. Sin esto la línea de tiempo
+   * sigue siendo lo que era: una lectura, y se usa igual donde no haya nada que
+   * corregir.
+   */
+  corregible?: boolean
+}>()
+const emit = defineEmits<{ corregir: [dia: DerivedDay] }>()
 
 const COLOR: Record<string, string> = {
   ON_TIME: 'bg-success',
@@ -186,7 +195,33 @@ function hhmm(m: number): string {
           </span>
         </template>
         <span v-else class="text-dimmed">{{ ETIQUETA[f.dia.status] ?? f.dia.status }}</span>
+
+        <!--
+          QUE ESTE DÍA NO SALIÓ SOLO DEL RELOJ.
+          Va pegado al día y no en una columna aparte: quien lo mira para
+          firmarlo tiene que verlo sin buscarlo. El texto entero está en el
+          globo, que puede ser largo.
+        -->
+        <UIcon
+          v-if="f.dia.correcciones?.length"
+          name="i-lucide-pen-line"
+          class="text-info ml-1 size-3 align-middle"
+          :title="f.dia.correcciones.join(' · ')"
+        />
       </span>
+
+      <!--
+        SOLO CUANDO SE PIDE. El botón ocupa sitio en todos los renglones, así
+        que solo aparece donde de verdad se puede corregir — que es RRHH.
+      -->
+      <UButton
+        v-if="corregible"
+        icon="i-lucide-wrench"
+        size="xs"
+        square
+        :aria-label="`Corregir el día ${f.dia.workDate}`"
+        @click="emit('corregir', f.dia)"
+      />
     </div>
 
     <p class="text-dimmed pt-1 text-xs">

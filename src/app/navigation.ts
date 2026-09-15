@@ -94,7 +94,7 @@ export const NAVIGATION: readonly NavEntry[] = [
         icon: 'i-lucide-calendar-check',
         roles: SIN_GERENCIA,
       },
-      { name: 'overtime', label: 'Tiempo extra', icon: 'i-lucide-timer' },
+      { name: 'overtime', label: 'Permisos', icon: 'i-lucide-timer' },
       { name: 'punches', label: 'Marcajes', icon: 'i-lucide-fingerprint', roles: SIN_GERENCIA },
     ],
   },

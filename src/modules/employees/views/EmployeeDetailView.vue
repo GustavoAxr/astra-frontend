@@ -12,6 +12,8 @@ import { attendanceApi } from '@/modules/attendance/api'
 import { padronApi } from '@/modules/padron/api'
 import { enPlano } from '@/shared/text'
 import EmployeeDayTimeline from '@/modules/attendance/components/EmployeeDayTimeline.vue'
+import CorregirDiaModal from '@/modules/attendance/components/CorregirDiaModal.vue'
+import type { DerivedDay } from '@/modules/attendance/types'
 import { attendanceStatusLook } from '@/modules/attendance/types'
 import { useAviso } from '@/shared/ui/aviso'
 import { employeesApi } from '../api'
@@ -48,6 +50,10 @@ const canWrite = computed(() => auth.can('assignEmployee'))
  * Espejo de los `@Roles` del backend; oculta, no protege.
  */
 const canPurge = computed(() => auth.can('purgeEmployee'))
+/** Oculta lo que no aplica; NO protege. El portero está en el servidor. */
+const puedeCorregir = computed(() => auth.can('correctAttendance'))
+/** El día que RRHH está corrigiendo. `null` = no hay ninguno abierto. */
+const corrigiendo = ref<DerivedDay | null>(null)
 /** Escribir en un equipo es de RRHH y del administrador. Regla 6: oculta, no protege. */
 const canPush = computed(() => auth.can('assignEmployee'))
 
@@ -1059,8 +1065,26 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
       </dl>
 
       <div v-if="jornadas.length" class="border-default mb-4 border-b pb-4">
-        <EmployeeDayTimeline :days="[...jornadas].reverse()" />
+        <EmployeeDayTimeline
+          :days="[...jornadas].reverse()"
+          :corregible="puedeCorregir"
+          @corregir="(d) => (corrigiendo = d)"
+        />
       </div>
+
+      <CorregirDiaModal
+        v-if="corrigiendo"
+        :open="true"
+        :employee-id="id"
+        :employee-name="fullName"
+        :dia="corrigiendo"
+        @update:open="
+          (value: boolean) => {
+            if (!value) corrigiendo = null
+          }
+        "
+        @saved="attendance.run()"
+      />
 
       <!--
         El resumen antes que el detalle: la pregunta que trae a alguien aquí es

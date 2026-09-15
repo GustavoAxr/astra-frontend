@@ -173,6 +173,14 @@ export interface DerivedDay {
   exceptionCode: string | null
   exceptionName: string | null
   exceptionIsPaid: boolean
+  /**
+   * LO QUE UNA PERSONA CORRIGIÓ EN ESTE DÍA, ya firmado.
+   *
+   * Vacío es lo normal: el día salió del reloj y de nadie más. Con algo dentro,
+   * este día NO es solo evidencia, y quien lo lea tiene que saberlo antes de
+   * firmarlo.
+   */
+  correcciones?: string[]
   exceptionCountsAsWorked: boolean
   exceptionDocumentRef: string | null
   /** El festivo que cae ese día, se haya trabajado o no. */
@@ -343,6 +351,14 @@ export interface Adjustment {
    */
   requestedStart: string | null
   requestedEnd: string | null
+  /**
+   * QUÉ DICE LA CORRECCIÓN, para quien la firma. Nulos en un permiso de horas
+   * extra, que no corrige nada.
+   */
+  proposedTime: string | null
+  proposedType: string | null
+  proposedStatus: string | null
+  targetPunchId: string | null
   /** Nulo = no lo pidió nadie: lo detectó el reloj. */
   requestedBy: string | null
   requestedByName: string | null
@@ -374,14 +390,45 @@ export const PAPEL_DE_FIRMA: Record<string, string> = {
 }
 
 /**
- * Qué clase de permiso es. Se ven distintos porque significan cosas distintas:
- * uno autoriza horas QUE EL RELOJ YA MIDIÓ; el otro añade horas que no tienen
- * checada ninguna. La segunda pesa más y por eso se pinta aparte.
+ * Qué clase de ajuste es. Son dos familias y no se pintan igual porque no
+ * significan lo mismo:
+ *
+ *   · Los dos PERMISOS autorizan tiempo: uno el que el reloj ya midió, otro el
+ *     que no pasó por él. Los pide quien manda en un área.
+ *   · Las tres CORRECCIONES cambian lo que dice que pasó ese día. Solo las pide
+ *     RRHH y solo las firma la dirección, porque tocan la evidencia.
  */
 export const ADJUSTMENT_TYPE: Record<string, { label: string; icon: string }> = {
   AUTHORIZE_OVERTIME: { label: 'Extra en sitio', icon: 'i-lucide-clock' },
   REMOTE_WORK: { label: 'Fuera de sede', icon: 'i-lucide-house' },
+  ADD_PUNCH: { label: 'Checada que faltaba', icon: 'i-lucide-clock-plus' },
+  IGNORE_PUNCH: { label: 'Checada que no cuenta', icon: 'i-lucide-clock-alert' },
+  OVERRIDE_STATUS: { label: 'Día revisado', icon: 'i-lucide-file-pen-line' },
 }
+
+/**
+ * Las que tocan la evidencia del día. Se usan para saber cuándo pintar el aviso
+ * de que ese día no salió solo del reloj, y para ocultar lo que no aplica.
+ */
+export const CORRECCIONES = ['ADD_PUNCH', 'IGNORE_PUNCH', 'OVERRIDE_STATUS'] as const
+export type TipoDeCorreccion = (typeof CORRECCIONES)[number]
+
+/**
+ * Qué puede decir RRHH que fue un día.
+ *
+ * Es una lista corta a propósito: son los estados que una PERSONA puede saber
+ * mirando el caso. «A tiempo» o «retardo» no están porque eso lo mide el reloj
+ * contra el turno, y forzarlo sería escribir una hora que nadie registró.
+ */
+export const ESTADOS_QUE_SE_PUEDEN_FORZAR: { label: string; value: string }[] = [
+  { label: 'Permiso', value: 'PERMISSION' },
+  { label: 'Vacaciones', value: 'VACATION' },
+  { label: 'Incapacidad', value: 'INCAPACITY' },
+  { label: 'Fuera de sede', value: 'OFFSITE' },
+  { label: 'Suspensión', value: 'SUSPENDED' },
+  { label: 'Falta', value: 'ABSENT' },
+  { label: 'Descanso', value: 'REST' },
+]
 
 export const ADJUSTMENT_STATUS: Record<
   string,

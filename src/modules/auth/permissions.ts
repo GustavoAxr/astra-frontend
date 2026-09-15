@@ -86,6 +86,16 @@ export const ACTION_ROLES = {
    * no para una persona.
    */
   manageHoliday: ['RRHH', 'ADMIN_EMPRESA', 'SOPORTE'],
+  /*
+   * CORREGIR UN DÍA NO ES PEDIR UN PERMISO, y por eso no es de la gerencia.
+   *
+   * Un jefe de área puede pedir horas extra para su gente —sabe que
+   * trabajaron— pero poner una checada que no existió, o decidir que una no
+   * cuenta, cambia la EVIDENCIA de la jornada. Eso es de quien lleva la nómina.
+   * `ADMIN_EMPRESA` tampoco está: es quien FIRMA la corrección, y el servidor
+   * rechaza que quien la pide la firme.
+   */
+  correctAttendance: ['RRHH', 'SOPORTE'],
   assignEmployee: ['RRHH', 'ADMIN_EMPRESA', 'SOPORTE'],
   deleteEmployee: ['RRHH', 'ADMIN_EMPRESA', 'SOPORTE'],
   /*
