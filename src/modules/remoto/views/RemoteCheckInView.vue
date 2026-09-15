@@ -196,10 +196,26 @@ async function pedirCodigo(): Promise<void> {
 async function altaDesdeElEnlace(): Promise<void> {
   const crudo = route.query.alta
   const valor = Array.isArray(crudo) ? crudo[0] : crudo
-  if (typeof valor !== 'string' || !valor.includes('~')) return
+  if (valor === undefined) return
 
-  const [nonce, codigo] = valor.split('~')
-  if (!nonce || !codigo) return
+  /*
+   * UN ENLACE A MEDIAS SE DICE, NO SE IGNORA.
+   *
+   * Antes esto era un `return` callado: si la dirección llegaba cortada —un
+   * cliente de correo que parte el renglón, una copia a mano que se dejó la
+   * cola— la pantalla se pintaba como si nadie hubiera traído nada. La persona
+   * ve una pantalla que «no hizo nada» y no tiene forma de saber que el
+   * problema fue el enlace. Que llegue un `alta` es la prueba de que venía del
+   * correo; si no se puede partir en dos, se dice.
+   */
+  const [nonce, codigo] = String(valor).split('~')
+  if (!nonce || !codigo) {
+    enlaceGastado.value =
+      'El enlace llegó incompleto: se cortó por el camino. Copia la dirección ENTERA del ' +
+      'correo —hasta el último carácter— y pégala en tu navegador.'
+    void router.replace({ name: 'remote-check-in', params: { entityId } })
+    return
+  }
 
   enviando.value = true
   try {
