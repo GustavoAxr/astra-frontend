@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '@/shared/api/errors'
 import { remotoApi } from '../api'
 import {
@@ -17,6 +17,7 @@ import {
   sePuedeUsarLlave,
 } from '../llave'
 import { colaDisponible, encolar, pendientes, sacar } from '../cola-de-checadas'
+import GuiaDeInstalacion from '../components/GuiaDeInstalacion.vue'
 
 /**
  * CHECAR DESDE CASA.
@@ -38,11 +39,16 @@ import { colaDisponible, encolar, pendientes, sacar } from '../cola-de-checadas'
  * para enseñar algo sobre lo que nadie puede actuar.
  */
 const route = useRoute()
+const router = useRouter()
 const entityId = String(route.params.entityId ?? '')
 
 type Paso = 'checar' | 'numero' | 'codigo'
 
 const paso = ref<Paso>('numero')
+/** Acaba de darse de alta con el enlace: es cuando se le enseña a instalarlo. */
+const reciénDadoDeAlta = ref(false)
+/** El enlace del correo ya no valía. No es un fallo: hay que pedir otro. */
+const enlaceGastado = ref<string | null>(null)
 const enviando = ref(false)
 const error = ref<string | null>(null)
 
@@ -88,6 +94,20 @@ onMounted(async () => {
     token.value = guardado.token
     conLlave.value = guardado.conLlave === true
     paso.value = 'checar'
+  } else {
+    /*
+     * EL ENLACE DEL CORREO TRAE EL ALTA HECHA.
+     *
+     * `?alta=<nonce>~<codigo>`: las mismas dos piezas que antes se conseguían
+     * tecleando un número y esperando un WhatsApp, solo que ya resueltas por
+     * quien mandó el correo. Aquí no se pide nada — se da de alta y se pasa a
+     * checar.
+     *
+     * Se mira DESPUÉS de lo guardado y no antes: si este teléfono ya estaba
+     * dado de alta, un enlace viejo reenviado no debe volver a gastarse ni
+     * sustituir la credencial que ya funciona.
+     */
+    await altaDesdeElEnlace()
   }
 
   puedeLlave.value = await sePuedeUsarLlave()
@@ -162,6 +182,44 @@ async function pedirCodigo(): Promise<void> {
     error.value = e instanceof ApiError ? e.message : 'No pude mandarte el código'
   } finally {
     enviando.value = false
+  }
+}
+
+/**
+ * Da de alta el teléfono con lo que venía en el enlace del correo.
+ *
+ * Un enlace gastado o caducado NO se pinta como fallo de la aplicación: es lo
+ * que le pasa a quien lo abre el jueves o a quien ya lo usó, y lo que necesita
+ * es saber que tiene que pedir otro, no un mensaje rojo de error.
+ */
+async function altaDesdeElEnlace(): Promise<void> {
+  const crudo = route.query.alta
+  const valor = Array.isArray(crudo) ? crudo[0] : crudo
+  if (typeof valor !== 'string' || !valor.includes('~')) return
+
+  const [nonce, codigo] = valor.split('~')
+  if (!nonce || !codigo) return
+
+  enviando.value = true
+  try {
+    const alta = await remotoApi.darDeAltaTelefono(entityId, { nonce, codigo })
+    token.value = alta.token
+    conLlave.value = false
+    guardarTelefono(entityId, { token: alta.token, venceEl: alta.venceEl })
+    paso.value = 'checar'
+    // Se enseña la guía justo aquí: el teléfono acaba de quedar listo y es el
+    // único momento en que añadirlo a la pantalla de inicio significa algo.
+    reciénDadoDeAlta.value = true
+  } catch (e) {
+    enlaceGastado.value = e instanceof ApiError ? e.message : 'Ese enlace ya no sirve'
+  } finally {
+    enviando.value = false
+    /*
+     * SE LIMPIA LA URL, haya salido bien o mal. Un enlace de alta en la barra
+     * de direcciones se comparte sin querer al mandar «mira, entra aquí», y
+     * además vuelve a intentarse en cada recarga.
+     */
+    void router.replace({ name: 'remote-check-in', params: { entityId } })
   }
 }
 
@@ -437,6 +495,13 @@ function olvidarEsteTelefono(): void {
       <template v-else-if="paso === 'checar'">
         <UAlert v-if="error" color="error" icon="i-lucide-circle-alert" :description="error" />
 
+        <!--
+          JUSTO DESPUÉS DEL ALTA, y solo entonces: es el único momento en que
+          añadirlo a la pantalla de inicio significa algo. Puesto siempre,
+          estorbaría todos los días a quien ya lo instaló.
+        -->
+        <GuiaDeInstalacion v-if="reciénDadoDeAlta" />
+
         <UButton
           :label="conLlave ? 'Checar con mi huella' : 'Checar ahora'"
           :icon="conLlave ? 'i-lucide-fingerprint' : 'i-lucide-map-pin'"
@@ -549,6 +614,20 @@ function olvidarEsteTelefono(): void {
 
       <!-- Alta, paso 1: quién eres. -->
       <template v-else>
+        <!--
+          EL ENLACE DEL CORREO YA NO SERVÍA, y eso NO es un fallo: le pasa a
+          quien lo abre el jueves o a quien ya lo usó. Se dice qué hacer —pedir
+          otro— y se le deja el camino de siempre debajo, que sigue existiendo.
+        -->
+        <UAlert
+          v-if="enlaceGastado"
+          icon="i-lucide-link-2-off"
+          color="warning"
+          title="Ese enlace ya no sirve"
+          :description="`${enlaceGastado} Pídele otro a Recursos Humanos, o da de alta tu teléfono aquí abajo.`"
+          class="mb-4"
+        />
+
         <form class="space-y-4" @submit.prevent="pedirCodigo">
           <UFormField
             label="Tu número de empleado"

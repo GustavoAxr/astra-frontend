@@ -53,11 +53,7 @@ export interface TelefonoRemoto {
 
 export const remotoApi = {
   pedirCodigo: (entityId: string, employeeCode: string) =>
-    http.post<CodigoPedido>(
-      `/remote/${entityId}/code`,
-      { employeeCode },
-      { skipRefresh: true },
-    ),
+    http.post<CodigoPedido>(`/remote/${entityId}/code`, { employeeCode }, { skipRefresh: true }),
 
   darDeAltaTelefono: (
     entityId: string,
@@ -96,11 +92,7 @@ export const remotoApi = {
       { skipRefresh: true },
     ),
 
-  activarLlave: (
-    entityId: string,
-    token: string,
-    respuesta: RegistrationResponseJSON,
-  ) =>
+  activarLlave: (entityId: string, token: string, respuesta: RegistrationResponseJSON) =>
     http.post<{ listo: true }>(
       `/remote/${entityId}/passkey`,
       { token, respuesta },
@@ -123,4 +115,15 @@ export const remotoApi = {
     }),
 
   revocar: (id: string) => http.delete<{ revocado: boolean }>(`/remote/devices/${id}`),
+
+  /**
+   * Mandarle por correo el enlace con el que habilita su teléfono.
+   *
+   * SOLO EL ID viaja. Ni la empresa ni el correo: los dos salen del expediente
+   * de esa persona en el servidor. Dejar que el correo viajara en el cuerpo
+   * convertiría esto en una forma de mandar el alta de cualquiera a la
+   * dirección que uno quisiera.
+   */
+  invitarPorCorreo: (employeeId: string) =>
+    http.post<{ enviadoA: string }>('/remote/devices/invite', { employeeId }),
 }

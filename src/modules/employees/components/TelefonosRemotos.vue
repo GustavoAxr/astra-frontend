@@ -48,6 +48,42 @@ const enlace = computed(() => `${window.location.origin}/remoto/${props.persona.
 
 const revocando = ref<string | null>(null)
 
+/** El modal que explica qué va a pasar antes de mandar el correo. */
+const invitando = ref(false)
+const mandando = ref(false)
+
+/**
+ * LOS TRES PASOS, TAL CUAL LOS VA A LEER LA OTRA PERSONA.
+ *
+ * Se enseñan aquí ANTES de mandar el correo, y no es adorno: quien lo manda
+ * tiene que poder explicárselo por teléfono sin abrir el buzón ajeno —«te va a
+ * llegar un enlace, ábrelo en el celular»—. Un botón que manda un correo cuyo
+ * contenido nadie de este lado conoce deja a RRHH sin poder ayudar cuando esa
+ * persona pregunte.
+ */
+const PASOS = [
+  'Abre el enlace EN EL TELÉFONO con el que va a checar. En ese queda dado de alta, y solo en ese.',
+  'Confirma con su huella o su cara cuando el teléfono se lo pida. Es lo que impide que alguien cheque por él.',
+  'Lo añade a su pantalla de inicio cuando se lo indiquemos: así entra de un toque y no busca el correo cada día.',
+]
+
+async function mandarInvitacion(): Promise<void> {
+  if (mandando.value) return
+  mandando.value = true
+  try {
+    const r = await remotoApi.invitarPorCorreo(props.persona.id)
+    aviso.hecho(
+      `Enlace enviado a ${r.enviadoA}`,
+      'Caduca en 48 horas y sirve una sola vez. Si se le pasa, vuelve a mandarlo.',
+    )
+    invitando.value = false
+  } catch (e) {
+    aviso.fallo(e, 'mandar el enlace')
+  } finally {
+    mandando.value = false
+  }
+}
+
 async function revocar(id: string): Promise<void> {
   revocando.value = id
   try {
@@ -115,6 +151,23 @@ const soloDia = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
         estado a la vista. Si el WhatsApp no está confirmado, el código no sale
         del servidor y la persona se queda dándole al botón sin entender nada.
       -->
+      <!--
+        EL CAMINO CORTO, ARRIBA. Mandar el correo es lo que RRHH viene a hacer
+        aquí; el enlace común de abajo es el repuesto para quien no tiene correo
+        o lo perdió. Con el repuesto primero, nadie usaba el camino bueno.
+      -->
+      <div class="flex flex-wrap items-center gap-2">
+        <UButton
+          label="Habilitar chequeo remoto"
+          icon="i-lucide-mail"
+          :disabled="!puedeRevocar"
+          @click="invitando = true"
+        />
+        <span class="text-muted text-sm">
+          Le manda un correo con su enlace. Caduca en 48 horas y sirve una vez.
+        </span>
+      </div>
+
       <div class="border-default flex flex-wrap items-center gap-x-6 gap-y-1 border p-3 text-sm">
         <span class="text-muted">
           Su número:
@@ -200,5 +253,51 @@ const soloDia = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
         constando con su origen.
       </p>
     </div>
+
+    <UModal v-model:open="invitando" title="Habilitar chequeo remoto">
+      <template #body>
+        <div class="space-y-4">
+          <p class="text-muted text-sm">
+            Le vamos a mandar a <strong>{{ persona.firstName }}</strong> un correo con un enlace
+            propio. Esto es lo que va a leer:
+          </p>
+
+          <ol class="text-default border-default space-y-2 border p-4 text-sm">
+            <li v-for="(paso, i) in PASOS" :key="i" class="flex gap-2">
+              <span class="text-dimmed font-mono">{{ i + 1 }}.</span>
+              <span>{{ paso }}</span>
+            </li>
+          </ol>
+
+          <!--
+            LO QUE MÁS SE MALENTIENDE, DICHO ANTES DE MANDARLO. Abrir el enlace
+            en la computadora lo gasta sin dar de alta nada, y entonces hay que
+            mandar otro. Quien pulsa este botón tiene que saberlo para poder
+            avisarle.
+          -->
+          <UAlert icon="i-lucide-smartphone" color="warning">
+            <template #description>
+              El enlace <strong>caduca en 48 horas y sirve una sola vez</strong>. Si lo abre en la
+              computadora se gasta sin dar de alta el teléfono, y habrá que mandarle otro.
+            </template>
+          </UAlert>
+
+          <p v-if="!persona.email" class="text-error text-sm">
+            No tiene correo en su expediente, y el enlace va por ahí. Captúralo antes con «Editar».
+          </p>
+
+          <div class="flex justify-end gap-2 pt-2">
+            <UButton label="Cancelar" :disabled="mandando" @click="invitando = false" />
+            <UButton
+              label="Mandar el enlace"
+              icon="i-lucide-send"
+              :loading="mandando"
+              :disabled="!persona.email"
+              @click="mandarInvitacion"
+            />
+          </div>
+        </div>
+      </template>
+    </UModal>
   </UCard>
 </template>
