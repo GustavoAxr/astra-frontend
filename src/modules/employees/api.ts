@@ -304,6 +304,10 @@ function toAssignmentDto(form: AssignmentForm): Record<string, string> {
     cycleStartDate: form.cycleStartDate,
     validFrom: form.validFrom,
     reason: form.reason,
+    // Va SIEMPRE, también cuando es `ONSITE`: el servidor lo da por omisión,
+    // pero mandarlo explícito deja escrito en la adscripción lo que se eligió
+    // en vez de lo que quedó por descuido.
+    workMode: form.workMode,
   }
 
   // Sin departamento es un caso válido, no un dato que falte: hay clientes que

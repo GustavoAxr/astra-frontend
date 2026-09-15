@@ -15,6 +15,9 @@ import {
   type EmployeeDetail,
   type Position,
   type ShiftPolicy,
+  WORK_MODES,
+  WORK_MODE_LABEL,
+  type WorkMode,
 } from '../types'
 
 const props = defineProps<{
@@ -45,6 +48,11 @@ const departmentId = ref(NINGUNO)
 const positionId = ref(NINGUNO)
 const validFrom = ref(todayLocal())
 const reason = ref<AssignmentReason>('SHIFT_CHANGE')
+/**
+ * Dónde trabaja. Arranca en `ONSITE` y se conserva lo que ya tuviera: cambiarle
+ * el turno a alguien no puede devolverlo a la oficina sin que nadie lo pida.
+ */
+const workMode = ref<WorkMode>('ONSITE')
 const submitting = ref(false)
 const error = ref<Error | null>(null)
 
@@ -98,6 +106,8 @@ const reasonItems = ASSIGNMENT_REASONS
   .filter((r) => r !== 'HIRED')
   .map((r) => ({ label: ASSIGNMENT_REASON_LABEL[r], value: r }))
 
+const workModeItems = WORK_MODES.map((m) => ({ label: WORK_MODE_LABEL[m], value: m }))
+
 const chosenShift = computed(() => {
   const policy = props.shifts.find((s) => s.id === shiftPolicyId.value)
   return policy ? { policy, summary: summarizeShift(policy) } : null
@@ -118,6 +128,7 @@ watch(
     positionId.value = conNinguno(actual.value?.positionId)
     validFrom.value = todayLocal()
     reason.value = 'SHIFT_CHANGE'
+    workMode.value = props.employee.current?.workMode ?? 'ONSITE'
     error.value = null
   },
   { immediate: true },
@@ -137,6 +148,7 @@ async function submit(): Promise<void> {
       validFrom: validFrom.value,
       cycleStartDate: validFrom.value,
       reason: reason.value,
+      workMode: workMode.value,
     })
     // La fecha va en el aviso porque una adscripción NO entra hoy por fuerza:
     // se puede fechar adelante, y eso es justo lo que se olvida al guardarla.
@@ -224,6 +236,23 @@ async function submit(): Promise<void> {
 
           <UFormField label="Vigente desde" required>
             <UInput v-model="validFrom" type="date" class="w-full" />
+          </UFormField>
+
+          <!--
+            DÓNDE TRABAJA, junto al motivo porque casi siempre es el motivo:
+            se pasa a remoto POR un cambio de adscripción, no aparte.
+          -->
+          <UFormField
+            label="Dónde trabaja"
+            required
+            help="A distancia es lo ÚNICO que habilita checar desde su teléfono, y lo hace sin geocerca: quien trabaja desde casa no está dentro de ninguna."
+          >
+            <USelectMenu
+              v-model="workMode"
+              :items="workModeItems"
+              value-key="value"
+              class="w-full"
+            />
           </UFormField>
 
           <UFormField label="Motivo" required>

@@ -426,6 +426,9 @@ async function submit(): Promise<void> {
         validFrom: validFrom.value,
         cycleStartDate: validFrom.value,
         reason: reason.value,
+        // En sitio al darla de alta. Quien trabaje a distancia se cambia desde
+        // «Cambiar» en su expediente, que es donde se ve su adscripción entera.
+        workMode: 'ONSITE',
       })
     } catch (cause) {
       const detalle = cause instanceof Error ? cause.message : String(cause)

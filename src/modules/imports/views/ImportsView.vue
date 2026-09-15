@@ -134,14 +134,6 @@ async function conArchivo<T>(
   }
 }
 
-/**
- * Las descargas van SIEMPRE por aquí.
- *
- * Llamar a la API directamente desde el `@click` deja una promesa suelta: si
- * falla, el navegador se lo traga y la pantalla no hace nada. Eso fue
- * exactamente lo que pasó con la plantilla de catálogos —el botón parecía
- * muerto y el error estaba a la vista de nadie—.
- */
 async function descargar(fn: () => Promise<void>): Promise<void> {
   error.value = null
   try {
@@ -234,8 +226,17 @@ const porFila = (errores: ErrorDeFila[]) =>
 
     <template v-else>
       <div class="flex justify-end">
-        <UFormField label="Razón social" help="Todo lo que se cargue entra en esta empresa." class="w-full max-w-md">
-          <USelectMenu v-model="legalEntityId" :items="opcionesDeEmpresa" value-key="value" class="w-full" />
+        <UFormField
+          label="Razón social"
+          help="Todo lo que se cargue entra en esta empresa."
+          class="w-full max-w-md"
+        >
+          <USelectMenu
+            v-model="legalEntityId"
+            :items="opcionesDeEmpresa"
+            value-key="value"
+            class="w-full"
+          />
         </UFormField>
       </div>
 
@@ -250,28 +251,58 @@ const porFila = (errores: ErrorDeFila[]) =>
         </div>
 
         <div class="flex flex-wrap items-end gap-3">
-          <UButton label="Descargar plantilla de catálogos" icon="i-lucide-download" size="sm"
-            @click="descargar(() => importsApi.plantillaDeCatalogos())" />
+          <UButton
+            label="Descargar plantilla de catálogos"
+            icon="i-lucide-download"
+            size="sm"
+            @click="descargar(() => importsApi.plantillaDeCatalogos())"
+          />
           <UFormField label="¿Qué hoja subes?">
-            <USelectMenu v-model="catalogoElegido" :items="[
-              { label: 'Departamentos', value: 'departamentos' },
-              { label: 'Puestos', value: 'puestos' },
-            ]" value-key="value" class="w-52" />
+            <USelectMenu
+              v-model="catalogoElegido"
+              :items="[
+                { label: 'Departamentos', value: 'departamentos' },
+                { label: 'Puestos', value: 'puestos' },
+              ]"
+              value-key="value"
+              class="w-52"
+            />
           </UFormField>
-          <input type="file" accept=".xlsx"
+          <input
+            type="file"
+            accept=".xlsx"
             class="text-muted file:border-default file:bg-elevated file:text-default text-sm file:mr-3 file:border file:px-3 file:py-1.5 file:text-sm"
-            @change="elegir($event, 'catalogo')" />
-          <UButton label="Cargar catálogo" icon="i-lucide-upload" size="sm" :disabled="!archivoCatalogo || trabajando"
-            :loading="trabajando" @click="cargarCatalogo" />
+            @change="elegir($event, 'catalogo')"
+          />
+          <UButton
+            label="Cargar catálogo"
+            icon="i-lucide-upload"
+            size="sm"
+            :disabled="!archivoCatalogo || trabajando"
+            :loading="trabajando"
+            @click="cargarCatalogo"
+          />
         </div>
 
-        <UAlert v-if="resultadoCatalogo" :color="resultadoCatalogo.errores.length > 0 ? 'warning' : 'success'" :icon="resultadoCatalogo.errores.length > 0 ? 'i-lucide-triangle-alert' : 'i-lucide-check'
-          " :title="`${resultadoCatalogo.altas} dados de alta`" :description="resultadoCatalogo.repetidas > 0
+        <UAlert
+          v-if="resultadoCatalogo"
+          :color="resultadoCatalogo.errores.length > 0 ? 'warning' : 'success'"
+          :icon="
+            resultadoCatalogo.errores.length > 0 ? 'i-lucide-triangle-alert' : 'i-lucide-check'
+          "
+          :title="`${resultadoCatalogo.altas} dados de alta`"
+          :description="
+            resultadoCatalogo.repetidas > 0
               ? `${resultadoCatalogo.repetidas} ya existían y se saltaron.`
               : undefined
-            " />
+          "
+        />
         <ul v-if="resultadoCatalogo?.errores.length" class="space-y-1">
-          <li v-for="(e, i) in porFila(resultadoCatalogo.errores)" :key="i" class="text-error text-xs">
+          <li
+            v-for="(e, i) in porFila(resultadoCatalogo.errores)"
+            :key="i"
+            class="text-error text-xs"
+          >
             Fila {{ e.fila }} · {{ e.columna }}: {{ e.detalle }}
           </li>
         </ul>
@@ -293,43 +324,70 @@ const porFila = (errores: ErrorDeFila[]) =>
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
-          <UButton label="Descargar plantilla de turnos" icon="i-lucide-download" size="sm"
-            @click="descargar(() => importsApi.plantillaDeTurnos())" />
-          <input type="file" accept=".xlsx"
+          <UButton
+            label="Descargar plantilla de turnos"
+            icon="i-lucide-download"
+            size="sm"
+            @click="descargar(() => importsApi.plantillaDeTurnos())"
+          />
+          <input
+            type="file"
+            accept=".xlsx"
             class="text-muted file:border-default file:bg-elevated file:text-default text-sm file:mr-3 file:border file:px-3 file:py-1.5 file:text-sm"
-            @change="elegir($event, 'turnos')" />
-          <UButton label="Revisar sin crear" icon="i-lucide-scan-eye" size="sm" :disabled="!archivoTurnos || trabajando"
-            :loading="trabajando" @click="revisarTurnos" />
+            @change="elegir($event, 'turnos')"
+          />
+          <UButton
+            label="Revisar sin crear"
+            icon="i-lucide-scan-eye"
+            size="sm"
+            :disabled="!archivoTurnos || trabajando"
+            :loading="trabajando"
+            @click="revisarTurnos"
+          />
         </div>
 
         <template v-if="revisionTurnos">
-          <UAlert v-if="hayErroresTurnos" color="error" icon="i-lucide-circle-x"
+          <UAlert
+            v-if="hayErroresTurnos"
+            color="error"
+            icon="i-lucide-circle-x"
             :title="`${revisionTurnos.errores.length} ${revisionTurnos.errores.length === 1 ? 'cosa' : 'cosas'} que corregir`"
-            description="No se crea ningún turno hasta que el archivo esté limpio." />
-          <UAlert v-else-if="revisionTurnos.listos > 0" color="success" icon="i-lucide-circle-check-big"
+            description="No se crea ningún turno hasta que el archivo esté limpio."
+          />
+          <UAlert
+            v-else-if="revisionTurnos.listos > 0"
+            color="success"
+            icon="i-lucide-circle-check-big"
             :title="`${revisionTurnos.listos} ${revisionTurnos.listos === 1 ? 'turno listo' : 'turnos listos'}`"
-            description="Todavía no se ha creado nada." />
-          <UAlert v-else color="neutral" icon="i-lucide-file-question" title="El archivo no trae ningún turno"
-            description="¿Borraste las filas de ejemplo de las DOS hojas y escribiste debajo?" />
+            description="Todavía no se ha creado nada."
+          />
+          <UAlert
+            v-else
+            color="neutral"
+            icon="i-lucide-file-question"
+            title="El archivo no trae ningún turno"
+            description="¿Borraste las filas de ejemplo de las DOS hojas y escribiste debajo?"
+          />
 
           <div v-if="hayErroresTurnos" class="border-default max-h-80 overflow-y-auto border">
-            <div v-for="(e, i) in porFila(revisionTurnos.errores)" :key="i"
-              class="border-default flex gap-3 border-t px-3 py-2 text-sm first:border-t-0">
+            <div
+              v-for="(e, i) in porFila(revisionTurnos.errores)"
+              :key="i"
+              class="border-default flex gap-3 border-t px-3 py-2 text-sm first:border-t-0"
+            >
               <span class="text-dimmed w-20 shrink-0 font-mono text-xs">Fila {{ e.fila }}</span>
               <span class="text-highlighted w-44 shrink-0 truncate text-xs">{{ e.columna }}</span>
               <span class="text-default text-xs">{{ e.detalle }}</span>
             </div>
           </div>
 
-          <!--
-            Se enseñan los DÍAS y los DESCANSOS de cada turno, no solo el nombre:
-            es lo que delata de un vistazo el error más común de esta plantilla
-            —un turno semanal al que le faltan días, o al que se le olvidó marcar
-            el domingo como descanso—.
-          -->
           <div v-else-if="revisionTurnos.muestra.length > 0" class="space-y-1">
             <p class="text-muted text-xs tracking-wide uppercase">Lo que se va a crear</p>
-            <div v-for="t in revisionTurnos.muestra" :key="t.clave" class="text-default flex flex-wrap gap-3 text-xs">
+            <div
+              v-for="t in revisionTurnos.muestra"
+              :key="t.clave"
+              class="text-default flex flex-wrap gap-3 text-xs"
+            >
               <span class="text-dimmed w-12 font-mono">{{ t.clave }}</span>
               <span class="font-medium">{{ t.nombre }}</span>
               <span class="text-muted">{{ t.dias }} días</span>
@@ -337,18 +395,26 @@ const porFila = (errores: ErrorDeFila[]) =>
             </div>
           </div>
 
-          <UButton label="Crear los turnos" icon="i-lucide-calendar-plus"
-            :disabled="!sePuedenCargarTurnos || trabajando" :loading="trabajando" @click="cargarTurnos" />
+          <UButton
+            label="Crear los turnos"
+            icon="i-lucide-calendar-plus"
+            :disabled="!sePuedenCargarTurnos || trabajando"
+            :loading="trabajando"
+            @click="cargarTurnos"
+          />
         </template>
 
         <ul v-if="resultadoTurnos?.errores.length" class="space-y-1">
-          <li v-for="(e, i) in porFila(resultadoTurnos.errores)" :key="i" class="text-error text-xs">
+          <li
+            v-for="(e, i) in porFila(resultadoTurnos.errores)"
+            :key="i"
+            class="text-error text-xs"
+          >
             Fila {{ e.fila }} · {{ e.detalle }}
           </li>
         </ul>
       </section>
 
-      <!-- 3. Personal. Bloqueado mientras falte un catálogo. -->
       <section class="border-default space-y-4 border p-5">
         <div>
           <h2 class="text-highlighted text-base font-semibold">3 · Personal</h2>
@@ -357,13 +423,12 @@ const porFila = (errores: ErrorDeFila[]) =>
           </p>
         </div>
 
-        <!--
-          NO ES UN «FALTAN CATÁLOGOS» A SECAS: dice cuál falta y dónde se llena.
-          Quien descarga la plantilla normalmente no sabe que un puesto se da de
-          alta en otra pantalla.
-        -->
-        <UAlert v-if="!sePuedeDescargar" color="warning" icon="i-lucide-list-x"
-          title="Todavía no se puede descargar la plantilla">
+        <UAlert
+          v-if="!sePuedeDescargar"
+          color="warning"
+          icon="i-lucide-list-x"
+          title="Todavía no se puede descargar la plantilla"
+        >
           <template #description>
             <p>Sus desplegables saldrían vacíos, y llenarla a mano garantiza el error.</p>
             <ul class="mt-2 space-y-1">
@@ -376,29 +441,58 @@ const porFila = (errores: ErrorDeFila[]) =>
         </UAlert>
 
         <div class="flex flex-wrap items-center gap-3">
-          <UButton label="Descargar plantilla de personal" icon="i-lucide-download" size="sm"
+          <UButton
+            label="Descargar plantilla de personal"
+            icon="i-lucide-download"
+            size="sm"
             :disabled="!sePuedeDescargar || revisandoRequisitos"
-            @click="descargar(() => importsApi.plantillaDePersonal(legalEntityId))" />
-          <input type="file" accept=".xlsx"
+            @click="descargar(() => importsApi.plantillaDePersonal(legalEntityId))"
+          />
+          <input
+            type="file"
+            accept=".xlsx"
             class="text-muted file:border-default file:bg-elevated file:text-default text-sm file:mr-3 file:border file:px-3 file:py-1.5 file:text-sm"
-            @change="elegir($event, 'personal')" />
-          <UButton label="Revisar sin cargar" icon="i-lucide-scan-eye" size="sm"
-            :disabled="!archivoPersonal || trabajando" :loading="trabajando" @click="revisar" />
+            @change="elegir($event, 'personal')"
+          />
+          <UButton
+            label="Revisar sin cargar"
+            icon="i-lucide-scan-eye"
+            size="sm"
+            :disabled="!archivoPersonal || trabajando"
+            :loading="trabajando"
+            @click="revisar"
+          />
         </div>
 
         <template v-if="revision">
-          <UAlert v-if="hayErrores" color="error" icon="i-lucide-circle-x"
+          <UAlert
+            v-if="hayErrores"
+            color="error"
+            icon="i-lucide-circle-x"
             :title="`${revision.errores.length} ${revision.errores.length === 1 ? 'cosa' : 'cosas'} que corregir`"
-            description="No se da de alta a nadie hasta que el archivo esté limpio: así se puede volver a subir corregido sin duplicar a quien ya entró." />
-          <UAlert v-else-if="revision.listas > 0" color="success" icon="i-lucide-circle-check-big"
+            description="No se da de alta a nadie hasta que el archivo esté limpio: así se puede volver a subir corregido sin duplicar a quien ya entró."
+          />
+          <UAlert
+            v-else-if="revision.listas > 0"
+            color="success"
+            icon="i-lucide-circle-check-big"
             :title="`${revision.listas} ${revision.listas === 1 ? 'persona lista' : 'personas listas'} para darse de alta`"
-            description="Todavía no se ha escrito nada." />
-          <UAlert v-else color="neutral" icon="i-lucide-file-question" title="El archivo no trae ninguna fila"
-            description="¿Borraste la fila de ejemplo y escribiste debajo?" />
+            description="Todavía no se ha escrito nada."
+          />
+          <UAlert
+            v-else
+            color="neutral"
+            icon="i-lucide-file-question"
+            title="El archivo no trae ninguna fila"
+            description="¿Borraste la fila de ejemplo y escribiste debajo?"
+          />
 
           <div v-if="hayErrores" class="border-default max-h-80 overflow-y-auto border">
-            <div v-for="(e, i) in porFila(revision.errores)" :key="i"
-              class="border-default flex gap-3 border-t px-3 py-2 text-sm first:border-t-0">
+            <div
+              v-for="(e, i) in porFila(revision.errores)"
+              :key="i"
+              class="border-default flex gap-3 border-t px-3 py-2 text-sm first:border-t-0"
+            >
               <span class="text-dimmed w-20 shrink-0 font-mono text-xs">Fila {{ e.fila }}</span>
               <span class="text-highlighted w-40 shrink-0 truncate text-xs">{{ e.columna }}</span>
               <span class="text-default text-xs">{{ e.detalle }}</span>
@@ -407,7 +501,11 @@ const porFila = (errores: ErrorDeFila[]) =>
 
           <div v-else-if="revision.muestra.length > 0" class="space-y-1">
             <p class="text-muted text-xs tracking-wide uppercase">Los primeros</p>
-            <div v-for="p in revision.muestra" :key="p.fila" class="text-default flex flex-wrap gap-3 text-xs">
+            <div
+              v-for="p in revision.muestra"
+              :key="p.fila"
+              class="text-default flex flex-wrap gap-3 text-xs"
+            >
               <span class="text-dimmed w-16 font-mono">Fila {{ p.fila }}</span>
               <span class="font-medium">{{ p.nombre }}</span>
               <span class="text-muted">{{ p.correo }}</span>
@@ -415,16 +513,26 @@ const porFila = (errores: ErrorDeFila[]) =>
             </div>
           </div>
 
-          <UButton label="Dar de alta a todos" icon="i-lucide-user-round-plus" :disabled="!sePuedeCargar || trabajando"
-            :loading="trabajando" @click="cargar" />
+          <UButton
+            label="Dar de alta a todos"
+            icon="i-lucide-user-round-plus"
+            :disabled="!sePuedeCargar || trabajando"
+            :loading="trabajando"
+            @click="cargar"
+          />
         </template>
 
-        <UAlert v-if="resultado" :color="resultado.errores.length > 0 ? 'warning' : 'success'"
+        <UAlert
+          v-if="resultado"
+          :color="resultado.errores.length > 0 ? 'warning' : 'success'"
           :icon="resultado.errores.length > 0 ? 'i-lucide-triangle-alert' : 'i-lucide-check'"
-          :title="`${resultado.altas} dados de alta`" :description="resultado.errores.length > 0
+          :title="`${resultado.altas} dados de alta`"
+          :description="
+            resultado.errores.length > 0
               ? 'Algunas filas no pasaron. Corrígelas y vuelve a subir SOLO esas.'
               : 'A cada uno se le mandó su correo con su número y a dónde entra.'
-            " />
+          "
+        />
         <ul v-if="resultado?.errores.length" class="space-y-1">
           <li v-for="(e, i) in porFila(resultado.errores)" :key="i" class="text-error text-xs">
             Fila {{ e.fila }} · {{ e.detalle }}

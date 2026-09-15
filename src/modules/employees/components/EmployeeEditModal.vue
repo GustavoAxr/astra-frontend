@@ -22,6 +22,7 @@ const FIELDS = [
   'nss',
   'birthDate',
   'whatsappNumber',
+  'whatsappOptIn',
   'email',
 ] as const
 
@@ -35,6 +36,7 @@ const birthDate = ref('')
 const aviso = useAviso()
 
 const whatsappNumber = ref('')
+const whatsappOptIn = ref(false)
 const email = ref('')
 
 /**
@@ -120,6 +122,7 @@ watch(
     nss.value = e.nss ?? ''
     birthDate.value = e.birthDate ?? ''
     whatsappNumber.value = e.whatsappNumber ?? ''
+    whatsappOptIn.value = props.employee.whatsappOptIn
     email.value = e.email ?? ''
     sexo.value = e.sex ?? NINGUNO
     error.value = null
@@ -158,6 +161,14 @@ async function submit(): Promise<void> {
   diff('whatsappNumber', whatsappNumber.value, e.whatsappNumber)
   diff('email', email.value.trim(), e.email)
   diff('sex', sinNinguno(sexo.value), e.sex)
+
+  /*
+   * EL CONSENTIMIENTO VA APARTE DE `diff`, y no es pereza: `diff` está hecho
+   * para textos y descarta lo vacío para no borrar un dato sin querer. Aquí
+   * `false` es un valor, no un vacío — es RETIRAR la autorización— y con `diff`
+   * no habría forma de quitarla nunca.
+   */
+  if (whatsappOptIn.value !== e.whatsappOptIn) changes.whatsappOptIn = whatsappOptIn.value
 
   const hayCampos = Object.keys(changes).length > 0
 
@@ -299,6 +310,19 @@ async function submit(): Promise<void> {
             </template>
           </UFormField>
         </div>
+
+        <!--
+          EL CONSENTIMIENTO ES DE LA PERSONA, y aquí solo se anota.
+          Va junto al número porque sin él ese número no sirve para nada: Astra
+          no le escribe a un teléfono que su dueño no autorizó. Y es lo que
+          habilita el código para dar de alta su aparato y checar a distancia.
+        -->
+        <UFormField
+          label="Autorizó que se le escriba por WhatsApp"
+          help="Lo dice la persona; aquí solo queda anotado. Sin esto no se le manda nada a ese número, ni el código para dar de alta su teléfono."
+        >
+          <USwitch v-model="whatsappOptIn" label="Sí, lo autorizó" />
+        </UFormField>
 
         <!--
           La clave no se edita: es la llave con la que el reloj identifica a la

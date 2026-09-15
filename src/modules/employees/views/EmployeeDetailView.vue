@@ -13,6 +13,7 @@ import { padronApi } from '@/modules/padron/api'
 import { enPlano } from '@/shared/text'
 import EmployeeDayTimeline from '@/modules/attendance/components/EmployeeDayTimeline.vue'
 import CorregirDiaModal from '@/modules/attendance/components/CorregirDiaModal.vue'
+import TelefonosRemotos from '../components/TelefonosRemotos.vue'
 import type { DerivedDay } from '@/modules/attendance/types'
 import { attendanceStatusLook } from '@/modules/attendance/types'
 import { useAviso } from '@/shared/ui/aviso'
@@ -771,6 +772,13 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
           </li>
         </ul>
       </UCard>
+
+      <!--
+        Justo DEBAJO de las adscripciones, y no en otra pestaña: lo que habilita
+        checar desde el teléfono es la adscripción, así que el estado y su causa
+        se leen seguidos.
+      -->
+      <TelefonosRemotos :persona="person" :puede-revocar="canWrite" />
 
       <!-- Vida laboral -->
       <UCard>

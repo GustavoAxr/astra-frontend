@@ -36,6 +36,12 @@ export interface Employee {
     departmentName: string | null
     positionId: string | null
     positionName: string | null
+    /**
+     * `REMOTE` es lo ÚNICO que habilita checar desde el teléfono sin estar en la
+     * base. Vive en la adscripción: alguien puede ser de oficina un semestre y
+     * remoto el siguiente.
+     */
+    workMode: WorkMode
   } | null
 }
 
@@ -221,6 +227,27 @@ export interface AssignmentForm {
   validFrom: string
   cycleStartDate: string
   reason: AssignmentReason
+  /**
+   * DÓNDE TRABAJA, y es LO ÚNICO que habilita checar desde el teléfono sin
+   * estar en la base.
+   *
+   * `ONSITE` es lo normal: se checa en el reloj de su instalación. `REMOTE`
+   * abre el alta de un teléfono y deja checar desde cualquier sitio — sin
+   * geocerca, porque quien trabaja desde casa no está dentro de ninguna.
+   *
+   * Vive en la ADSCRIPCIÓN y no en el expediente a propósito: alguien puede ser
+   * de oficina un semestre y remoto el siguiente, y la asistencia de cada mes
+   * tiene que poder reconstruirse con la regla que estaba vigente entonces.
+   */
+  workMode: WorkMode
+}
+
+export const WORK_MODES = ['ONSITE', 'REMOTE'] as const
+export type WorkMode = (typeof WORK_MODES)[number]
+
+export const WORK_MODE_LABEL: Record<WorkMode, string> = {
+  ONSITE: 'En sitio · checa en el reloj',
+  REMOTE: 'A distancia · checa desde su teléfono',
 }
 
 /**
@@ -332,6 +359,14 @@ export interface UpdateEmployeeForm {
   birthDate?: string
   sex?: string
   whatsappNumber?: string
+  /**
+   * Si la persona AUTORIZÓ que se le escriba por WhatsApp.
+   *
+   * Sin esto Astra no le manda nada a ese número aunque lo tenga: es su
+   * teléfono, no el nuestro. Lo declara ella y RRHH lo anota, y es lo que
+   * habilita el código con el que da de alta su teléfono para checar.
+   */
+  whatsappOptIn?: boolean
   email?: string
   isActive?: boolean
 }

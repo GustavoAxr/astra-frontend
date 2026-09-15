@@ -181,6 +181,10 @@ async function run(): Promise<void> {
         validFrom: validFrom.value,
         cycleStartDate: validFrom.value,
         reason: 'HIRED',
+        // EN SITIO, y aquí no se pregunta: esta gente se está dando de alta
+        // DESDE EL PADRÓN DE UN RELOJ FÍSICO, así que ya checa en él. Quien
+        // además trabaje desde casa se cambia después, uno por uno.
+        workMode: 'ONSITE',
       })
 
       mappings.push({ externalUserId: row.externalUserId, employeeId: persona.id })
