@@ -184,6 +184,21 @@ const faltaEnCurp = computed(() => {
 const auth = useAuthStore()
 const puedeEnrolar = computed(() => auth.can('assignEmployee'))
 
+/**
+ * FUERA DE LA OFICINA, desde el alta y no después.
+ *
+ * Es la adscripción la que dice dónde trabaja alguien, y dejarla siempre en
+ * «en sitio» obligaba a dar de alta a quien trabaja desde casa y acto seguido
+ * ir a su expediente a cambiársela. Dos pasos para un dato que se sabe desde
+ * el primer momento.
+ *
+ * NO QUITA NADA DEL FORMULARIO, y es a propósito: base, turno y puesto los
+ * necesita igual —el turno es lo que mide su jornada, la base es de quién
+ * depende—, y si un día pisa la nave tiene que tener ya su número en el reloj.
+ * Por eso esto convive con la casilla del reloj en vez de apagarla.
+ */
+const fueraDeLaOficina = ref(false)
+
 const enElReloj = ref(false)
 const deviceId = ref('')
 const clockUser = ref('admin')
@@ -333,6 +348,7 @@ watch(open, (isOpen) => {
   rfcTocado.value = false
   sexo.value = NINGUNO
   entidad.value = NINGUNO
+  fueraDeLaOficina.value = false
   enElReloj.value = false
   deviceId.value = ''
   clockPass.value = ''
@@ -427,9 +443,7 @@ async function submit(): Promise<void> {
         validFrom: validFrom.value,
         cycleStartDate: validFrom.value,
         reason: reason.value,
-        // En sitio al darla de alta. Quien trabaje a distancia se cambia desde
-        // «Cambiar» en su expediente, que es donde se ve su adscripción entera.
-        workMode: 'ONSITE',
+        workMode: fueraDeLaOficina.value ? 'REMOTE' : 'ONSITE',
       })
     } catch (cause) {
       const detalle = cause instanceof Error ? cause.message : String(cause)
@@ -756,6 +770,25 @@ async function submit(): Promise<void> {
               <USelectMenu v-model="reason" :items="reasonItems" value-key="value" class="w-full" />
             </UFormField>
           </div>
+
+          <!--
+            DÓNDE TRABAJA. Va aquí y no junto al reloj porque es parte de la
+            adscripción: es el mismo dato que luego se cambia desde «Cambiar».
+
+            Apagado por omisión: en sitio es el caso de casi todo el mundo, y
+            una casilla marcada de fábrica se acepta sin leerla.
+          -->
+          <UCheckbox v-model="fueraDeLaOficina" label="Trabaja fuera de la oficina (home office)" />
+          <p class="text-dimmed text-xs">
+            <template v-if="fueraDeLaOficina">
+              Su base, su turno y su puesto siguen valiendo: el turno es lo que mide su jornada, y
+              si un día pisa la nave ya tendrá su número en el reloj. Lo único que cambia es que
+              podrá checar desde su equipo — el enlace se le manda después, desde su expediente.
+            </template>
+            <template v-else>
+              Márcalo si checa desde casa. Se puede cambiar después con «Cambiar» en su expediente.
+            </template>
+          </p>
 
           <!--
             El horario elegido, en palabras. Es la respuesta directa a «¿cómo sé

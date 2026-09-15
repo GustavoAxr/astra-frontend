@@ -247,7 +247,7 @@ export type WorkMode = (typeof WORK_MODES)[number]
 
 export const WORK_MODE_LABEL: Record<WorkMode, string> = {
   ONSITE: 'En sitio · checa en el reloj',
-  REMOTE: 'A distancia · checa desde su teléfono',
+  REMOTE: 'A distancia · checa desde su equipo',
 }
 
 /**
