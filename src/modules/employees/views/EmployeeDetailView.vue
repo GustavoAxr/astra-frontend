@@ -24,6 +24,7 @@ import EmployeeEditModal from '../components/EmployeeEditModal.vue'
 import DeleteEmployeeModal from '../components/DeleteEmployeeModal.vue'
 import EmployeeStatusModal from '../components/EmployeeStatusModal.vue'
 import AssignmentModal from '../components/AssignmentModal.vue'
+import EnrolarEnRelojModal from '../components/EnrolarEnRelojModal.vue'
 import {
   ASSIGNMENT_REASON_LABEL,
   EMPLOYMENT_EVENTS,
@@ -61,6 +62,16 @@ const canPush = computed(() => auth.can('assignEmployee'))
 
 const borrarOpen = ref(false)
 const estadoOpen = ref(false)
+/**
+ * SIN NÚMERO EN NINGÚN RELOJ, que es distinto de «el reloj tiene datos viejos».
+ *
+ * Hasta ahora el único sitio del que alguien salía hacia el reloj era la
+ * casilla del formulario de alta, de un solo intento. Si ese paso fallaba, la
+ * persona quedaba en Astra sin acceso a la puerta y sin forma de arreglarlo:
+ * el padrón empuja a quien YA está vinculado, no vincula a quien no lo está.
+ * El propio mensaje de error remitía aquí, y aquí no había nada.
+ */
+const enrolarOpen = ref(false)
 /** Abrir el modal directo en el paso del reloj, sin repetir la baja. */
 const soloElReloj = ref(false)
 
@@ -715,6 +726,13 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
       @pushed="void ordenes.run()"
     />
 
+    <EnrolarEnRelojModal
+      v-if="person"
+      v-model:open="enrolarOpen"
+      :persona="person"
+      @enrolado="void reload()"
+    />
+
     <DeleteEmployeeModal
       v-if="borrarOpen && person"
       v-model:open="borrarOpen"
@@ -836,6 +854,36 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
         vive ahora en el globo del distintivo de arriba.
       -->
       <TelefonosRemotos v-if="esRemota" :persona="person" :puede-revocar="canWrite" />
+
+      <!--
+        SIN RELOJ. Solo cuando de verdad no tiene número en ninguno: quien ya
+        está enrolado tiene arriba su propio aviso, con la bitácora de órdenes.
+        A quien trabaja a distancia se le ofrece igual —puede pisar la nave
+        cualquier día, y entonces la puerta es la puerta—, pero sin urgencia.
+      -->
+      <UCard v-if="canPush && !enElReloj">
+        <template #header>
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="font-medium">El reloj</h2>
+            <UBadge label="Sin número" color="warning" size="sm" />
+          </div>
+        </template>
+        <div class="space-y-3">
+          <p class="text-muted text-sm">
+            No está dado de alta en ningún reloj, así que hoy no puede pasar por la puerta ni checar
+            en la nave.
+            <template v-if="esRemota">
+              Trabaja a distancia, así que puede que no haga falta — pero el día que pise la nave,
+              sí.
+            </template>
+          </p>
+          <UButton
+            label="Darlo de alta en el reloj"
+            icon="i-lucide-id-card"
+            @click="enrolarOpen = true"
+          />
+        </div>
+      </UCard>
 
       <!-- Vida laboral -->
       <UCard>
