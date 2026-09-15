@@ -11,6 +11,7 @@ import { orgApi } from '@/modules/org/api'
 import { attendanceApi } from '@/modules/attendance/api'
 import { padronApi } from '@/modules/padron/api'
 import { enPlano } from '@/shared/text'
+import { WHATSAPP_ACTIVO } from '@/shared/config/funciones'
 import EmployeeDayTimeline from '@/modules/attendance/components/EmployeeDayTimeline.vue'
 import CorregirDiaModal from '@/modules/attendance/components/CorregirDiaModal.vue'
 import TelefonosRemotos from '../components/TelefonosRemotos.vue'
@@ -732,10 +733,17 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
           <dd class="font-mono">{{ person.curp ?? '—' }}</dd>
           <dt class="text-muted">Nacimiento</dt>
           <dd>{{ person.birthDate ?? '—' }}</dd>
-          <dt class="text-muted">WhatsApp</dt>
-          <dd class="font-mono">{{ person.whatsappNumber ?? '—' }}</dd>
-          <dt class="text-muted">Consintió avisos</dt>
-          <dd>{{ person.whatsappOptIn ? 'Sí' : 'No' }}</dd>
+          <!--
+            Los dos renglones de WhatsApp se esconden con el resto: un dato que
+            no se puede capturar en ninguna pantalla solo puede decir «—», y un
+            «—» permanente no informa, preocupa.
+          -->
+          <template v-if="WHATSAPP_ACTIVO">
+            <dt class="text-muted">WhatsApp</dt>
+            <dd class="font-mono">{{ person.whatsappNumber ?? '—' }}</dd>
+            <dt class="text-muted">Consintió avisos</dt>
+            <dd>{{ person.whatsappOptIn ? 'Sí' : 'No' }}</dd>
+          </template>
         </dl>
       </UCard>
 

@@ -6,6 +6,7 @@ import { employeesApi } from '../api'
 import PhotoPicker from './PhotoPicker.vue'
 import { E164, aE164 } from '../telefono'
 import { NINGUNO, sinNinguno } from '@/shared/ui/select-none'
+import { WHATSAPP_ACTIVO } from '@/shared/config/funciones'
 import type { EmployeeDetail, UpdateEmployeeForm } from '../types'
 
 const props = defineProps<{ employee: EmployeeDetail }>()
@@ -296,7 +297,8 @@ async function submit(): Promise<void> {
           >
             <UInput v-model="email" type="email" placeholder="nombre@empresa.mx" class="w-full" />
           </UFormField>
-          <UFormField label="WhatsApp">
+          <!-- Escondido con el resto de WhatsApp; ver `WHATSAPP_ACTIVO`. -->
+          <UFormField v-if="WHATSAPP_ACTIVO" label="WhatsApp">
             <UInput v-model="whatsappNumber" placeholder="938 111 0001" class="w-full font-mono" />
             <template #help>
               <!-- Igual que en el alta: se convierte a E.164 y se enseña. -->
@@ -318,6 +320,7 @@ async function submit(): Promise<void> {
           habilita el código para dar de alta su aparato y checar a distancia.
         -->
         <UFormField
+          v-if="WHATSAPP_ACTIVO"
           label="Autorizó que se le escriba por WhatsApp"
           help="Lo dice la persona; aquí solo queda anotado. Sin esto no se le manda nada a ese número, ni el código para dar de alta su teléfono."
         >

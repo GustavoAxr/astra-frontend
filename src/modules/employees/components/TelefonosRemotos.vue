@@ -4,6 +4,7 @@ import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
 import { useAsync } from '@/shared/composables/useAsync'
 import { useAviso } from '@/shared/ui/aviso'
 import { remotoApi } from '@/modules/remoto/api'
+import { WHATSAPP_ACTIVO } from '@/shared/config/funciones'
 import type { EmployeeDetail } from '../types'
 
 /**
@@ -17,7 +18,9 @@ import type { EmployeeDetail } from '../types'
  *   1. Su adscripción tiene que decir «a distancia». Es LO ÚNICO que lo
  *      habilita, y sin ello la página pública le contesta que no puede.
  *   2. Tiene que tener un WhatsApp CONFIRMADO: ahí le llega el código con el
- *      que da de alta el aparato.
+ *      que da de alta el aparato. HOY NO —WhatsApp está apagado, ver
+ *      `WHATSAPP_ACTIVO`— y por eso este camino no se pinta: el código viaja
+ *      dentro del enlace que se manda por correo.
  *   3. Tiene que dar de alta el teléfono, una vez, desde el enlace.
  *
  * LA PRIMERA NO SE TRATA AQUÍ: esta tarjeta solo se pinta si la adscripción ya
@@ -198,16 +201,27 @@ const soloDia = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
           Su número:
           <span class="text-default font-mono">{{ persona.employeeCode }}</span>
         </span>
-        <span :class="tieneWhatsapp ? 'text-muted' : 'text-warning'">
-          WhatsApp confirmado:
-          <strong>{{ tieneWhatsapp ? 'sí' : 'no' }}</strong>
-        </span>
-        <span v-if="!tieneWhatsapp" class="text-warning text-xs">
-          Sin un WhatsApp confirmado en su expediente no se le puede mandar el código.
-        </span>
+        <template v-if="WHATSAPP_ACTIVO">
+          <span :class="tieneWhatsapp ? 'text-muted' : 'text-warning'">
+            WhatsApp confirmado:
+            <strong>{{ tieneWhatsapp ? 'sí' : 'no' }}</strong>
+          </span>
+          <span v-if="!tieneWhatsapp" class="text-warning text-xs">
+            Sin un WhatsApp confirmado en su expediente no se le puede mandar el código.
+          </span>
+        </template>
       </div>
 
-      <div class="space-y-1">
+      <!--
+        EL ENLACE COMÚN SOLO SIRVE CON WHATSAPP, y por eso se esconde con él.
+
+        Es la puerta de «teclea tu número de empleado y te mando un código»: sin
+        WhatsApp ese código no sale del servidor, así que pasárselo a alguien
+        sería mandarlo a una pantalla que no puede terminar. El camino que sí
+        funciona es el botón de arriba, que manda un enlace con el código ya
+        dentro.
+      -->
+      <div v-if="WHATSAPP_ACTIVO" class="space-y-1">
         <p class="text-muted text-sm">
           Pásale este enlace. Es <strong>el mismo para toda la empresa</strong>: lo que lo
           identifica a él es su número de empleado y el código que le llega por WhatsApp.

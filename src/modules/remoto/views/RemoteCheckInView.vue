@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '@/shared/api/errors'
+import { WHATSAPP_ACTIVO } from '@/shared/config/funciones'
 import { remotoApi } from '../api'
 import {
   guardarTelefono,
@@ -617,18 +618,54 @@ function olvidarEsteTelefono(): void {
         <!--
           EL ENLACE DEL CORREO YA NO SERVÍA, y eso NO es un fallo: le pasa a
           quien lo abre el jueves o a quien ya lo usó. Se dice qué hacer —pedir
-          otro— y se le deja el camino de siempre debajo, que sigue existiendo.
+          otro—. El «camino de siempre» de debajo es el del código por
+          WhatsApp: mientras esté apagado, pedir otro enlace es lo único.
         -->
         <UAlert
           v-if="enlaceGastado"
           icon="i-lucide-link-2-off"
           color="warning"
           title="Ese enlace ya no sirve"
-          :description="`${enlaceGastado} Pídele otro a Recursos Humanos, o da de alta tu teléfono aquí abajo.`"
+          :description="
+            WHATSAPP_ACTIVO
+              ? `${enlaceGastado} Pídele otro a Recursos Humanos, o da de alta tu teléfono aquí abajo.`
+              : `${enlaceGastado} Pídele otro a Recursos Humanos: te lo manda al correo en un momento.`
+          "
           class="mb-4"
         />
 
-        <form class="space-y-4" @submit.prevent="pedirCodigo">
+        <!--
+          SIN WHATSAPP NO HAY CAMINO CORTO, Y SE DICE.
+
+          El formulario de abajo pide un código que sale por WhatsApp; con
+          WhatsApp apagado el servidor no lo manda, así que teclear aquí el
+          número de empleado solo llevaría a esperar un mensaje que no llega.
+          Se enseña en su lugar el único camino que funciona hoy: pedirle a
+          RRHH el enlace, que llega por correo con el alta ya resuelta dentro.
+
+          No se pinta si acaba de fallarle un enlace: el aviso de arriba ya le
+          dice lo mismo, y decirlo dos veces seguidas suena a que no le hemos
+          entendido.
+        -->
+        <div
+          v-if="!WHATSAPP_ACTIVO && !enlaceGastado"
+          class="border-default bg-elevated/50 space-y-3 border p-5"
+        >
+          <p class="text-highlighted text-sm font-semibold">
+            <UIcon name="i-lucide-mail" class="size-4 align-[-3px]" />
+            Pídele a Recursos Humanos tu enlace
+          </p>
+          <p class="text-muted text-sm">
+            Te llega por correo y ya trae todo dentro: lo abres EN ESTE TELÉFONO, confirmas con tu
+            huella o tu cara, y a partir de ahí checas de un toque.
+          </p>
+          <p class="text-dimmed text-xs">
+            El enlace dura 48 horas y sirve una sola vez. Si se te pasó, pide otro — no gastas nada
+            por pedirlo.
+          </p>
+        </div>
+
+        <form v-if="WHATSAPP_ACTIVO" class="space-y-4" @submit.prevent="pedirCodigo">
           <UFormField
             label="Tu número de empleado"
             help="El mismo que usas en el reloj. También vale tu clave de Astra."

@@ -19,6 +19,7 @@ import {
   rfcSinHomoclave,
 } from '../identidad'
 import { NINGUNO, sinNinguno } from '@/shared/ui/select-none'
+import { WHATSAPP_ACTIVO } from '@/shared/config/funciones'
 import type { LegalEntity } from '@/modules/org/types'
 import { employeesApi } from '../api'
 import { summarizeShift } from '../shift-summary'
@@ -656,7 +657,12 @@ async function submit(): Promise<void> {
               <UInput v-model="email" type="email" placeholder="nombre@empresa.mx" class="w-full" />
             </UFormField>
 
-            <UFormField label="WhatsApp" hint="Para avisos y contingencia">
+            <!--
+              WhatsApp apagado: el campo se esconde entero. El `ref` se queda
+              vacío y `toCreateDto` no manda los campos vacíos, así que el alta
+              sale igual de válida que antes.
+            -->
+            <UFormField v-if="WHATSAPP_ACTIVO" label="WhatsApp" hint="Para avisos y contingencia">
               <UInput
                 v-model="whatsappNumber"
                 placeholder="938 111 0001"

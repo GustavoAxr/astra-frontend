@@ -288,7 +288,7 @@ watch(installationId, () => void devices.run(), { immediate: true })
         <span v-else-if="row.original.edgeAgentId" class="text-sm">
           {{ nombreDelAgente(row.original.edgeAgentId) }}
         </span>
-        <UBadge v-else label="Sin agente" color="warning" variant="subtle" />
+        <UBadge v-else label="Sin agente" color="warning" />
       </template>
 
       <template #equipo-cell="{ row }">

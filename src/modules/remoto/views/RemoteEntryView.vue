@@ -43,9 +43,8 @@ onMounted(() => {
           Este teléfono todavía no está dado de alta en ninguna empresa.
         </p>
         <p class="text-muted text-sm">
-          Pídele a Recursos Humanos el enlace para checar a distancia. Se abre una vez, se da de
-          alta el teléfono con un código por WhatsApp, y a partir de entonces este icono ya te trae
-          directo.
+          Pídele a Recursos Humanos el enlace para checar a distancia. Te lo mandan al correo, lo
+          abres una vez en este teléfono, y a partir de entonces este icono ya te trae directo.
         </p>
       </div>
     </div>

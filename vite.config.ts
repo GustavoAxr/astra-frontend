@@ -311,6 +311,18 @@ export default defineConfig({
         alert: { defaultVariants: { variant: 'subtle' } },
 
         /*
+         * UBadge tampoco tiene ghost, y su omisión es `solid`: el color entero
+         * de fondo con el texto en `text-inverted`. En claro se lee; EN OSCURO
+         * NO —verde sobre verde, ilegible—, porque el fondo sube a emerald-400
+         * y el «inverted» de ese tema no le hace bastante contraste.
+         *
+         * `subtle` es además la variante que manda la regla del proyecto para
+         * los componentes sin ghost: fondo al 10 %, texto del color entero y un
+         * aro finísimo. Se lee en los dos temas y deja de gritar.
+         */
+        badge: { defaultVariants: { variant: 'subtle' } },
+
+        /*
          * ESCALA DE CAPAS
          *
          * Nuxt UI no declara z-index en NINGUNA de sus capas flotantes: todas
