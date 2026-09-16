@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed } from 'vue'
+import { avisoDeInstalacion, instalada, instalar } from '../instalacion'
 
 /**
  * «AÑÁDELO A TU PANTALLA DE INICIO», dicho con el gesto de SU teléfono.
@@ -25,19 +26,19 @@ import { computed, onMounted, ref } from 'vue'
  *
  * ══ SI EL NAVEGADOR OFRECE HACERLO, SE PULSA Y YA ══
  *
- * Android dispara `beforeinstallprompt`. Cuando llega, se guarda y se ofrece un
- * botón que instala de verdad, sin instrucciones. Las instrucciones son el
- * repuesto para cuando ese aviso no existe, que es siempre en iPhone.
+ * Android y los Chrome de escritorio disparan `beforeinstallprompt`. Cuando
+ * llega, se ofrece un botón que instala de verdad, sin instrucciones. Las
+ * instrucciones son el repuesto para cuando ese aviso no existe, que es siempre
+ * en iPhone.
+ *
+ * ESE AVISO NO SE ESCUCHA AQUÍ, y esa es la corrección: el navegador lo dispara
+ * UNA vez y temprano, y este componente se monta mucho después —solo cuando ya
+ * se está en la pantalla de checar—. Cuando llegaba, no había nadie oyendo, así
+ * que el botón no aparecía nunca. Ahora lo recoge `instalacion.ts` al arrancar
+ * la aplicación y aquí solo se lee.
  */
 
-/** El aviso que Android manda cuando la aplicación se puede instalar. */
-interface AvisoDeInstalacion extends Event {
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-}
-
-const aviso = ref<AvisoDeInstalacion | null>(null)
-const instalada = ref(false)
+const aviso = avisoDeInstalacion
 
 /**
  * Si esto NO es un teléfono ni una tableta.
@@ -63,42 +64,6 @@ const esApple = computed(() => {
   const iPadNuevo = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1
   return /iPhone|iPad|iPod/.test(ua) || iPadNuevo
 })
-
-onMounted(() => {
-  /*
-   * YA INSTALADA: no se le dice nada a quien ya lo hizo. `standalone` es lo que
-   * declara el manifiesto; `navigator.standalone` es el de Safari, que no
-   * implementa esa consulta de medios.
-   */
-  const comoApp =
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
-  instalada.value = comoApp
-
-  window.addEventListener('beforeinstallprompt', (e) => {
-    // Sin esto, Chrome enseña su propia barra abajo y compite con este bloque.
-    e.preventDefault()
-    aviso.value = e as AvisoDeInstalacion
-  })
-
-  window.addEventListener('appinstalled', () => {
-    instalada.value = true
-    aviso.value = null
-  })
-})
-
-async function instalar(): Promise<void> {
-  const a = aviso.value
-  if (a === null) return
-  await a.prompt()
-  const { outcome } = await a.userChoice
-  /*
-   * El aviso SE GASTA al usarlo: el navegador no lo vuelve a dar en esta
-   * visita, así que guardarlo sería dejar un botón que ya no hace nada.
-   */
-  aviso.value = null
-  if (outcome === 'accepted') instalada.value = true
-}
 </script>
 
 <template>

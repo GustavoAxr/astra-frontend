@@ -47,7 +47,10 @@ type Paso = 'checar' | 'numero' | 'codigo'
 
 const paso = ref<Paso>('numero')
 /** Acaba de darse de alta con el enlace: es cuando se le enseña a instalarlo. */
-const reciénDadoDeAlta = ref(false)
+/** Los tres estados de pedir la desvinculación: ni pedida, pidiéndola, pedida. */
+const pidiendoDesvinculacion = ref(false)
+const desvinculacionPedida = ref(false)
+const motivoDesvinculacion = ref('')
 /** El enlace del correo ya no valía. No es un fallo: hay que pedir otro. */
 const enlaceGastado = ref<string | null>(null)
 const enviando = ref(false)
@@ -224,9 +227,6 @@ async function altaDesdeElEnlace(): Promise<void> {
     conLlave.value = false
     guardarTelefono(entityId, { token: alta.token, venceEl: alta.venceEl })
     paso.value = 'checar'
-    // Se enseña la guía justo aquí: el teléfono acaba de quedar listo y es el
-    // único momento en que añadirlo a la pantalla de inicio significa algo.
-    reciénDadoDeAlta.value = true
   } catch (e) {
     enlaceGastado.value = e instanceof ApiError ? e.message : 'Ese enlace ya no sirve'
   } finally {
@@ -426,6 +426,26 @@ async function guardarParaDespues(): Promise<void> {
   }
 }
 
+async function pedirDesvinculacion(): Promise<void> {
+  if (token.value === null || enviando.value) return
+  enviando.value = true
+  error.value = null
+  try {
+    await remotoApi.pedirDesvinculacion(
+      entityId,
+      token.value,
+      motivoDesvinculacion.value.trim() || undefined,
+    )
+    desvinculacionPedida.value = true
+    pidiendoDesvinculacion.value = false
+    motivoDesvinculacion.value = ''
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'No pude mandar la petición'
+  } finally {
+    enviando.value = false
+  }
+}
+
 function otraVez(): void {
   listo.value = null
   error.value = null
@@ -517,11 +537,21 @@ function olvidarEsteTelefono(): void {
           añadirlo a la pantalla de inicio significa algo. Puesto siempre,
           estorbaría todos los días a quien ya lo instaló.
         -->
-        <GuiaDeInstalacion v-if="reciénDadoDeAlta" />
+        <!--
+          AÑADIRLO A LA PANTALLA DE INICIO, MIENTRAS NO ESTÉ AÑADIDO.
+
+          Se pintaba SOLO en el instante siguiente al alta, y bastaba con
+          recargar la página para no volver a verlo nunca. Quien abrió el enlace
+          entre otras cosas y siguió a lo suyo se quedaba sin saber que esto se
+          instala — y al día siguiente vuelve a buscar el correo. El propio
+          componente ya se calla cuando la aplicación está instalada, que es la
+          condición que de verdad importa.
+        -->
+        <GuiaDeInstalacion />
 
         <UButton
           :label="conLlave ? 'Checar con mi huella' : 'Checar ahora'"
-          :icon="conLlave ? 'i-lucide-fingerprint' : 'i-lucide-map-pin'"
+          :icon="conLlave ? 'i-lucide-fingerprint' : 'i-lucide-clock'"
           size="xl"
           block
           :loading="enviando"
@@ -574,7 +604,78 @@ function olvidarEsteTelefono(): void {
             @click="activarHuella"
           />
         </div>
-        <UButton label="Este no es mi equipo" size="lg" block @click="olvidarEsteTelefono" />
+        <!--
+          PEDIR LA DESVINCULACIÓN, NO HACERLA.
+
+          Aquí había un «este no es mi equipo» que borraba la credencial de
+          este navegador y nada más. Sonaba inofensivo y era lo contrario: el
+          aparato seguía dado de alta en el servidor —ocupando el único hueco
+          que tiene cada persona— pero ya sin la credencial con la que checar.
+          Quien lo pulsaba se quedaba sin poder fichar Y sin poder darse de
+          alta en otro sitio, y nadie se enteraba.
+
+          Desvincular es revocar una credencial de jornada laboral: lo decide
+          RRHH. Lo que sí puede hacer quien perdió el aparato es avisar.
+        -->
+        <template v-if="desvinculacionPedida">
+          <div class="border-default bg-elevated/50 space-y-2 border p-4 text-center">
+            <UIcon name="i-lucide-mail-check" class="text-success size-6" />
+            <p class="text-highlighted text-sm font-semibold">Recursos Humanos ya lo sabe</p>
+            <p class="text-muted text-xs">
+              En cuanto lo revoquen te mandarán un enlace nuevo para dar de alta el equipo que
+              quieras. Mientras tanto <strong>puedes seguir checando desde este</strong>.
+            </p>
+          </div>
+        </template>
+        <template v-else-if="pidiendoDesvinculacion">
+          <div class="border-default space-y-3 border p-4">
+            <p class="text-highlighted text-sm font-semibold">Pedir que desvinculen este equipo</p>
+            <p class="text-muted text-xs">
+              Le llega a Recursos Humanos. No lo desvincula ahora mismo: hasta que lo revoquen, este
+              equipo sigue checando — así nadie se queda sin poder fichar por haber pulsado un
+              botón.
+            </p>
+            <UFormField label="¿Qué pasó?" help="Opcional, pero ayuda a saber si corre prisa.">
+              <UInput
+                v-model="motivoDesvinculacion"
+                placeholder="Se me perdió el teléfono"
+                maxlength="300"
+                size="lg"
+                class="w-full"
+              />
+            </UFormField>
+            <UAlert v-if="error" color="error" icon="i-lucide-circle-alert" :description="error" />
+            <div class="grid grid-cols-2 gap-2">
+              <UButton
+                label="Mejor no"
+                size="lg"
+                block
+                :disabled="enviando"
+                @click="pidiendoDesvinculacion = false"
+              />
+              <UButton
+                label="Mandar"
+                icon="i-lucide-send"
+                size="lg"
+                block
+                :loading="enviando"
+                @click="pedirDesvinculacion"
+              />
+            </div>
+          </div>
+        </template>
+        <UButton
+          v-else
+          label="Este equipo ya no es mío"
+          size="lg"
+          block
+          @click="
+            () => {
+              error = null
+              pidiendoDesvinculacion = true
+            }
+          "
+        />
       </template>
 
       <!-- Alta, paso 2: el código que llegó por WhatsApp. -->

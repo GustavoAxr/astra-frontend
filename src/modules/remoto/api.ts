@@ -85,6 +85,24 @@ export const remotoApi = {
    * token, a qué expediente pertenece ese dueño. Hacen falta las dos.
    */
 
+  /**
+   * PIDE QUE RRHH DESVINCULE ESTE EQUIPO. No lo desvincula.
+   *
+   * Aquí había un «este no es mi equipo» que borraba la credencial del
+   * navegador y nada más. Parecía inofensivo y era lo contrario: el aparato
+   * seguía dado de alta en el servidor, ocupando el único hueco que tiene cada
+   * persona, pero sin la credencial con la que checar. Quien lo pulsaba se
+   * quedaba sin poder fichar Y sin poder darse de alta en otro sitio.
+   *
+   * El equipo sigue checando hasta que RRHH lo revoque.
+   */
+  pedirDesvinculacion: (entityId: string, token: string, motivo?: string) =>
+    http.post<{ avisados: number }>(
+      `/remote/${entityId}/device/unlink-request`,
+      motivo ? { token, motivo } : { token },
+      { skipRefresh: true },
+    ),
+
   opcionesDeLlave: (entityId: string, token: string) =>
     http.post<PublicKeyCredentialCreationOptionsJSON>(
       `/remote/${entityId}/passkey/options`,
