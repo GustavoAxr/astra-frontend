@@ -270,6 +270,13 @@ export interface SummaryEmployee {
   employeeId: string
   employeeCode: string
   employeeName: string
+  /**
+   * NO SE PINTAN EN LA TABLA: viajan para poder buscar por ellos al elegir a
+   * quién dejar fuera de un reporte. Quien excluye no siempre se acuerda del
+   * nombre —«el reporte sin los de mantenimiento»—.
+   */
+  departmentName: string | null
+  positionName: string | null
   workedMinutes: number
   scheduledMinutes: number
   lateDays: number

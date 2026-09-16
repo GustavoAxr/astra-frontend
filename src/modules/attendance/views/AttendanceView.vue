@@ -22,6 +22,7 @@ import { attendanceApi } from '../api'
 import type { AttendanceDayList } from '../types'
 import DayStatusChart from '../components/DayStatusChart.vue'
 import ReportExportMenu from '@/modules/reports/components/ReportExportMenu.vue'
+import ExcluirDelReporte from '@/modules/reports/components/ExcluirDelReporte.vue'
 
 const { selectedId } = storeToRefs(useLegalEntityFilter())
 
@@ -380,6 +381,33 @@ const datos = computed(() => resumen.data.value)
 const dias = computed(() => datos.value?.byDay ?? [])
 
 /**
+ * QUIÉN SALDRÍA EN EL ARCHIVO, que es de donde se elige a quién dejar fuera.
+ *
+ * Sale del resumen del PERIODO y no de la tabla de un día: el reporte es del
+ * periodo entero, y ofrecer a quien aparece hoy dejaría fuera de la lista a
+ * quien solo trabajó la primera semana — que es justo a quien más se quiere
+ * poder excluir.
+ */
+const personasDelPeriodo = computed(() => datos.value?.byEmployee ?? [])
+
+/**
+ * A quién NO meter en el archivo. Vive aquí y no en la dirección de la página
+ * porque no es un filtro de la vista: es una decisión de una exportación, y
+ * compartir una URL con gente excluida dentro sería compartir un reporte
+ * recortado sin decirlo.
+ */
+const excluidos = ref<string[]>([])
+
+/*
+ * Cambiar de razón social cambia de gente, y unos ids excluidos de la empresa
+ * anterior no significan nada en la nueva. Se limpian en vez de quedarse
+ * apuntados en silencio.
+ */
+watch(selectedId, () => {
+  excluidos.value = []
+})
+
+/**
  * Ordenada por retardos, que es la pregunta que trae a alguien aquí. Quien no
  * tiene ninguno queda al final, no fuera: seguir viendo a toda la plantilla
  * evita creer que la lista son «los problemáticos» y nadie más existe.
@@ -499,10 +527,22 @@ watch([diaAbierto, selectedId, relojId], () => void detalleDia.run(), { immediat
           {{ dia(datos.from) }} → {{ dia(datos.to) }}
         </span>
         <!--
+          LA EXCLUSIÓN ES UN PARÁMETRO DEL ARCHIVO, no un filtro de la pantalla.
+
+          Va aquí, pegada al botón de exportar, porque es lo único que hace: la
+          tabla de abajo no cambia. Es a propósito —el buscador de arriba filtra
+          lo que se mira; esto decide lo que se escribe en un documento— y por
+          eso el archivo imprime cuántas personas se dejaron fuera.
+        -->
+        <ExcluirDelReporte v-model="excluidos" :personas="personasDelPeriodo" />
+        <!--
           Exporta EL PERIODO Y EL ALCANCE, no lo que la tabla tenga filtrado en
           pantalla. El archivo se pide por parámetros y se puede volver a
           generar igual; si dependiera del buscador de arriba, dos personas
           exportando el mismo mes obtendrían archivos distintos.
+
+          La exclusión sí viaja, y por lo mismo: es un parámetro, se elige a
+          propósito, y queda escrito en el propio archivo.
         -->
         <ReportExportMenu
           path="/reports/attendance"
@@ -512,6 +552,7 @@ watch([diaAbierto, selectedId, relojId], () => void detalleDia.run(), { immediat
             legalEntityId: selectedId ?? undefined,
             deviceId: relojElegido,
             periodo: etiquetaDelPeriodo,
+            excluir: excluidos.length ? excluidos.join(',') : undefined,
           }"
           con-detalle
           ruta-del-desglose="/reports/breakdown"
