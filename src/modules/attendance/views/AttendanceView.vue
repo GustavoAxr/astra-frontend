@@ -185,6 +185,7 @@ const ORDEN: Record<string, number> = {
   LATE: 2,
   ON_TIME: 3,
   REST: 4,
+  AVAILABLE: 4,
   NO_SCHEDULE: 5,
 }
 
@@ -316,6 +317,13 @@ const CHIPS: {
   },
   { estado: 'INCOMPLETE', texto: 'incompletos', clase: 'text-info', total: (t) => t.incomplete },
   { estado: 'REST', texto: 'de descanso', clase: 'text-muted', total: (t) => t.rest },
+  /*
+   * DISPONIBLE va aparte de «de descanso», y esa es la razón de existir de
+   * todo esto: en un descanso lo trabajado es tiempo extra por autorizar, y
+   * aquí son las horas que esa persona viene a cumplir. Contarlos juntos era
+   * lo que llenaba la bandeja de autorizaciones con las horas de los becarios.
+   */
+  { estado: 'AVAILABLE', texto: 'disponibles', clase: 'text-info', total: (t) => t.available },
   { estado: 'HOLIDAY', texto: 'en festivo', clase: 'text-info', total: (t) => t.holiday },
   { estado: 'OFFSITE', texto: 'fuera de sede', clase: 'text-success', total: (t) => t.offsite },
   { estado: 'NO_SCHEDULE', texto: 'sin turno', clase: 'text-muted', total: (t) => t.noSchedule },
@@ -355,6 +363,7 @@ const ESTADO: Record<
   ABSENT: { label: 'Falta', color: 'error' },
   INCOMPLETE: { label: 'Incompleto', color: 'info' },
   REST: { label: 'Descanso', color: 'neutral' },
+  AVAILABLE: { label: 'Disponible', color: 'info' },
   NO_SCHEDULE: { label: 'Sin turno', color: 'neutral' },
   // Los que trae la migración 019. Un día cubierto por una incidencia NUNCA
   // es falta, y aquí se pinta con su nombre en vez de con un rojo que acusa.

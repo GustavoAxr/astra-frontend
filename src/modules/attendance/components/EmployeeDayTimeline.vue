@@ -32,6 +32,12 @@ const COLOR: Record<string, string> = {
   LATE: 'bg-warning',
   ABSENT: 'bg-error',
   INCOMPLETE: 'bg-info',
+  /*
+   * DISPONIBLE tiene barra, al revés que el descanso: hubo jornada y hay algo
+   * que mirar. Que no fuera obligatorio venir no la hace menos real — son las
+   * horas que esa persona viene a cumplir.
+   */
+  AVAILABLE: 'bg-info',
 }
 
 const ETIQUETA: Record<string, string> = {
@@ -40,6 +46,7 @@ const ETIQUETA: Record<string, string> = {
   ABSENT: 'Falta',
   INCOMPLETE: 'Incompleto',
   REST: 'Descanso',
+  AVAILABLE: 'Disponible',
   NO_SCHEDULE: 'Sin turno',
 }
 

@@ -82,7 +82,7 @@ export interface Page<T> {
 /** Estados que declara el CHECK de `computed_attendance`. */
 const STATUS: Record<
   string,
-  { label: string; color: 'success' | 'warning' | 'error' | 'neutral' }
+  { label: string; color: 'success' | 'warning' | 'error' | 'info' | 'neutral' }
 > = {
   ON_TIME: { label: 'A tiempo', color: 'success' },
   LATE: { label: 'Retardo', color: 'warning' },
@@ -94,6 +94,15 @@ const STATUS: Record<
    */
   NO_DATA: { label: 'Sin datos del reloj', color: 'warning' },
   REST: { label: 'Descanso', color: 'neutral' },
+  /*
+   * DISPONIBLE, que no es descanso. Es el día de un turno sin horario
+   * —becarios, servicio social, estadías— en el que se podía venir sin estar
+   * obligado. Lo que se trabaja ahí son horas por cumplir, no tiempo extra.
+   *
+   * Va en `info` y no en `neutral`: el gris del descanso diría «aquí no pasa
+   * nada», y aquí sí pasa — esas horas cuentan.
+   */
+  AVAILABLE: { label: 'Disponible', color: 'info' },
   HOLIDAY: { label: 'Festivo', color: 'neutral' },
   VACATION: { label: 'Vacaciones', color: 'neutral' },
   INCAPACITY: { label: 'Incapacidad', color: 'neutral' },
@@ -246,6 +255,8 @@ export interface SummaryDay {
   noData: number
   incomplete: number
   rest: number
+  /** Días disponibles de un turno sin horario. No son descanso. */
+  available: number
   /**
    * Sin adscripción vigente ese día. Se cuenta aparte y hay que enseñarlo: si
    * se callara, una gráfica con cuarenta y dos personas mostraría tres y
@@ -327,6 +338,8 @@ export interface AttendanceDayList {
     noData: number
     incomplete: number
     rest: number
+    /** Días disponibles de un turno sin horario. No son descanso. */
+    available: number
     noSchedule: number
     holiday: number
     incidence: number

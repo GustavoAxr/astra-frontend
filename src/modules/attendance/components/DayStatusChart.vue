@@ -60,6 +60,18 @@ const TRAMOS: Tramo[] = [
     color: 'fill-success opacity-50',
     valor: (d) => d.offsite,
   },
+  /*
+   * DISPONIBLE, y no junto a «sin turno». Es un día de un turno sin horario en
+   * el que se podía venir sin estar obligado: no es una ausencia ni un hueco
+   * de configuración. Va en el mismo azul de las incidencias y más apagado,
+   * porque es información de contexto y no algo que haya que resolver.
+   */
+  {
+    clave: 'available',
+    label: 'Disponible',
+    color: 'fill-info opacity-20',
+    valor: (d) => d.available,
+  },
   {
     clave: 'noSchedule',
     label: 'Sin turno',
