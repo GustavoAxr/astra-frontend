@@ -345,6 +345,12 @@ export interface Adjustment {
   employeeId: string
   employeeCode: string | null
   employeeName: string | null
+  /**
+   * El puesto que tenía ESE DÍA. No se pinta en la lista: está para poder
+   * buscar por él. Quien firma no se acuerda de números de empleado, pero sí
+   * de que «los de mantenimiento se quedaron el sábado».
+   */
+  positionName: string | null
   workDate: string
   adjustmentType: string
   /** Tope autorizado en minutos. Nulo = lo que haya salido ese día. */

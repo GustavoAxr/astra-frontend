@@ -6,7 +6,7 @@ import { useLegalEntityFilter } from '@/modules/org/store'
 import { devicesApi } from '@/modules/devices/api'
 import { NINGUNO, sinNinguno } from '@/shared/ui/select-none'
 import { todayLocal } from '@/shared/date'
-import { nombreCompleto } from '@/shared/text'
+import { enPlano, nombreCompleto } from '@/shared/text'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
 import { useAviso } from '@/shared/ui/aviso'
 import EmptyState from '@/shared/ui/EmptyState.vue'
@@ -99,7 +99,38 @@ const permisos = useAsync((signal) =>
   ),
 )
 
-const filas = computed(() => permisos.data.value ?? [])
+/**
+ * EL BUSCADOR, POR CUALQUIER COSA QUE IDENTIFIQUE UNA SOLICITUD.
+ *
+ * Con veinte se encuentran con la vista; con ciento cuarenta, no. Y quien firma
+ * no busca siempre por lo mismo: unos tienen el número de empleado delante,
+ * otros media palabra del apellido, otros se acuerdan de que «los de
+ * mantenimiento se quedaron el sábado» —de ahí que el puesto viaje aunque no se
+ * pinte— y otros del motivo que se escribió.
+ *
+ * FILTRA LO QUE YA ESTÁ EN PANTALLA. El desplegable de estado ya acotó contra
+ * el servidor; lo que queda es encontrar una fila dentro de eso, y eso responde
+ * mientras se teclea en vez de una petición por letra.
+ */
+const busqueda = ref('')
+
+const filas = computed(() => {
+  const q = enPlano(busqueda.value)
+  const todas = permisos.data.value ?? []
+  if (!q) return todas
+  return todas.filter((p) =>
+    enPlano(
+      [
+        p.employeeCode ?? '',
+        p.employeeName ?? '',
+        p.positionName ?? '',
+        p.reason,
+        p.requestedByName ?? '',
+        ADJUSTMENT_TYPE[p.adjustmentType]?.label ?? p.adjustmentType,
+      ].join(' '),
+    ).includes(q),
+  )
+})
 const pendientes = computed(() => filas.value.filter((p) => p.status === 'PENDING').length)
 
 // ── Pedir uno ────────────────────────────────────────────────────────────
@@ -368,6 +399,12 @@ watch([filtro, selectedId, relojId], () => void permisos.run(), { immediate: tru
           icon="i-lucide-alarm-clock"
           class="w-52"
         />
+        <UInput
+          v-model="busqueda"
+          placeholder="Nombre, clave, puesto o motivo"
+          icon="i-lucide-search"
+          class="w-64"
+        />
         <USelectMenu v-model="filtro" :items="FILTROS" value-key="value" class="w-40" />
         <UButton
           v-if="puedePedir"
@@ -405,7 +442,13 @@ watch([filtro, selectedId, relojId], () => void permisos.run(), { immediate: tru
     <EmptyState
       v-else-if="filas.length === 0"
       icon="i-lucide-file-check"
-      :title="filtro === 'PENDING' ? 'No hay nada que firmar' : 'No hay ajustes que mostrar'"
+      :title="
+        busqueda.trim()
+          ? 'Nada coincide con esa búsqueda'
+          : filtro === 'PENDING'
+            ? 'No hay nada que firmar'
+            : 'No hay ajustes que mostrar'
+      "
       :description="
         filtro === 'PENDING'
           ? 'Cuando alguien pida autorización para trabajar fuera de jornada, aparecerá aquí.'

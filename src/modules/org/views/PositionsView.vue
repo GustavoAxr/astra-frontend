@@ -7,6 +7,7 @@ import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
 import DeleteResourceDialog from '@/shared/ui/DeleteResourceDialog.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 import PageHeader from '@/shared/ui/PageHeader.vue'
+import { enPlano } from '@/shared/text'
 import { useAviso } from '@/shared/ui/aviso'
 import { useAuthStore } from '@/modules/auth/store'
 import { orgApi } from '../api'
@@ -30,13 +31,33 @@ const entities = useAsync((signal) => orgApi.legalEntities(false, signal))
  * ordenados por código a secas, y así los de tres empresas salen intercalados:
  * `DEP-ADM-01`, `DEP-BIO-01`, `DEP-ADM-02`… que no hay forma de leer.
  */
-const rows = computed(() =>
+const ordenados = computed(() =>
   [...(list.data.value ?? [])].sort(
     (a, b) =>
       entityName(a.legalEntityId).localeCompare(entityName(b.legalEntityId), 'es') ||
       a.code.localeCompare(b.code, 'es'),
   ),
 )
+
+/**
+ * EL BUSCADOR, POR CUALQUIER COSA QUE IDENTIFIQUE UNA FILA.
+ *
+ * Con veinte puestos se encuentran con la vista; con ciento cuarenta, no. Y
+ * quien busca no siempre sabe por dónde: unos se acuerdan del código, otros de
+ * media palabra del nombre, otros de algo que está en la descripción. Se busca
+ * en todo lo que la fila enseña en vez de obligar a elegir un campo.
+ */
+const busqueda = ref('')
+
+const rows = computed(() => {
+  const q = enPlano(busqueda.value)
+  if (!q) return ordenados.value
+  return ordenados.value.filter((p) =>
+    enPlano(`${p.code} ${p.name} ${p.description ?? ''} ${entityName(p.legalEntityId)}`).includes(
+      q,
+    ),
+  )
+})
 const entityName = (id: string): string =>
   (entities.data.value ?? []).find((e) => e.id === id)?.businessName ?? '—'
 
@@ -116,6 +137,12 @@ void entities.run()
   <div class="space-y-4">
     <PageHeader>
       <template #actions>
+        <UInput
+          v-model="busqueda"
+          placeholder="Código, nombre, descripción…"
+          icon="i-lucide-search"
+          class="w-64"
+        />
         <UButton v-if="canWrite" icon="i-lucide-plus" label="Nuevo puesto" @click="abrirAlta" />
       </template>
     </PageHeader>
@@ -144,7 +171,7 @@ void entities.run()
       ]"
       :loading="list.pending.value"
       :class="list.loaded.value && list.pending.value ? 'opacity-60 transition-opacity' : ''"
-      empty="No hay puestos."
+      :empty="busqueda.trim() ? 'Ningún puesto coincide con esa búsqueda.' : 'No hay puestos.'"
     >
       <template #code-cell="{ row }">
         <span class="font-mono text-xs">{{ row.original.code }}</span>

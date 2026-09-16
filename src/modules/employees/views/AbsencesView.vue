@@ -11,6 +11,7 @@ import { useAviso } from '@/shared/ui/aviso'
 import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 import PageHeader from '@/shared/ui/PageHeader.vue'
+import { enPlano } from '@/shared/text'
 import { useAuthStore } from '@/modules/auth/store'
 import { employeesApi } from '../api'
 import type { EmployeeException } from '../types'
@@ -45,9 +46,32 @@ const types = useAsync((signal) => employeesApi.exceptionTypes(signal))
 // por un buscador contra el servidor.
 const staff = useAsync((signal) => employeesApi.list({ limit: 100 }, signal))
 
-const rows = computed(() =>
+const ordenadas = computed(() =>
   [...(list.data.value ?? [])].sort((a, b) => b.startDate.localeCompare(a.startDate)),
 )
+
+/**
+ * EL BUSCADOR, POR CUALQUIER COSA QUE IDENTIFIQUE UNA FILA.
+ *
+ * Con veinte personas se encuentran con la vista; con ciento cuarenta, no. Y
+ * quien busca no siempre sabe por dónde: unos tienen el número de empleado
+ * delante, otros media palabra del apellido, otros lo que buscan es «quién
+ * está de vacaciones» y teclean el motivo. Se busca en todo lo que la fila
+ * enseña en vez de obligar a elegir un campo.
+ *
+ * FILTRA LO QUE YA ESTÁ EN PANTALLA, no vuelve a preguntar al servidor: las
+ * fechas de arriba ya acotaron el rango y lo que queda es encontrar una fila
+ * dentro de él. Así responde mientras se teclea, sin una petición por letra.
+ */
+const busqueda = ref('')
+
+const rows = computed(() => {
+  const q = enPlano(busqueda.value)
+  if (!q) return ordenadas.value
+  return ordenadas.value.filter((a) =>
+    enPlano(`${a.employeeCode ?? ''} ${a.employeeName ?? ''} ${a.exceptionName ?? ''}`).includes(q),
+  )
+})
 
 const typeItems = computed(() =>
   (types.data.value ?? []).map((t) => ({ label: t.name, value: t.id })),
@@ -154,6 +178,12 @@ void staff.run()
           class="w-40"
           @update:model-value="(v: string) => apply({ to: v })"
         />
+        <UInput
+          v-model="busqueda"
+          placeholder="Nombre, clave o motivo"
+          icon="i-lucide-search"
+          class="w-56"
+        />
         <UButton v-if="canWrite" icon="i-lucide-plus" label="Registrar" @click="creating = true" />
       </template>
     </PageHeader>
@@ -180,7 +210,11 @@ void staff.run()
       ]"
       :loading="list.pending.value"
       :class="list.loaded.value && list.pending.value ? 'opacity-60 transition-opacity' : ''"
-      empty="No hay ausencias en este rango."
+      :empty="
+        busqueda.trim()
+          ? 'Nadie coincide con esa búsqueda en este rango.'
+          : 'No hay ausencias en este rango.'
+      "
     >
       <template #persona-cell="{ row }">
         <span class="font-mono text-xs">{{ row.original.employeeCode }}</span>

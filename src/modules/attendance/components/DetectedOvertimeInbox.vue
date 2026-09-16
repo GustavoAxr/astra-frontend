@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAsync } from '@/shared/composables/useAsync'
 import { todayLocal } from '@/shared/date'
+import { enPlano } from '@/shared/text'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
 import { useAviso } from '@/shared/ui/aviso'
 import { useLegalEntityFilter } from '@/modules/org/store'
@@ -46,7 +47,29 @@ const pendientes = useAsync((signal) =>
   ),
 )
 
-const personas = computed(() => pendientes.data.value?.people ?? [])
+/**
+ * EL BUSCADOR DE LA BANDEJA.
+ *
+ * Esta es la lista que de verdad crece: son todas las personas con horas de más
+ * sin resolver, no las que alguien pidió a mano. Con veinte se encuentran con
+ * la vista; con ciento cuarenta, hay que poder buscar.
+ *
+ * Se busca por lo que la fila enseña —clave, nombre, razón social, base— y el
+ * TOTAL DE ARRIBA NO CAMBIA: son las horas del periodo entero y tienen que
+ * seguir siéndolo. Un total que se moviera al teclear dejaría de ser un total.
+ */
+const busqueda = ref('')
+
+const personas = computed(() => {
+  const q = enPlano(busqueda.value)
+  const todas = pendientes.data.value?.people ?? []
+  if (!q) return todas
+  return todas.filter((p) =>
+    enPlano(
+      `${p.employeeCode} ${p.employeeName} ${p.legalEntityName ?? ''} ${p.installationName ?? ''}`,
+    ).includes(q),
+  )
+})
 const totales = computed(() => pendientes.data.value?.totals)
 
 /** Quién está desplegado. Se abre sola si hay una sola persona. */
@@ -200,6 +223,12 @@ defineExpose({ recargar: () => void pendientes.run() })
           {{ totales.days === 1 ? 'día' : 'días' }}
         </span>
         <div class="ml-auto flex items-center gap-2">
+          <UInput
+            v-model="busqueda"
+            placeholder="Nombre, clave o base"
+            icon="i-lucide-search"
+            class="w-56"
+          />
           <UInput v-model="desde" type="date" class="w-36" />
           <UInput v-model="hasta" type="date" class="w-36" />
         </div>
@@ -212,6 +241,10 @@ defineExpose({ recargar: () => void pendientes.run() })
     <div v-if="pendientes.pending.value && !pendientes.loaded.value" class="text-muted text-sm">
       Calculando…
     </div>
+
+    <p v-else-if="personas.length === 0 && busqueda.trim()" class="text-muted text-sm">
+      Nadie con horas pendientes coincide con esa búsqueda.
+    </p>
 
     <p v-else-if="personas.length === 0" class="text-muted text-sm">
       Nadie tiene horas de más pendientes de resolver en este periodo.
