@@ -226,7 +226,7 @@ defineExpose({ recargar: () => void pendientes.run() })
         <li
           v-for="p in personas"
           :key="p.employeeId"
-          class="border-default bg-elevated/20 overflow-hidden border"
+          class="border-default bg-(--astra-superficie) overflow-hidden border"
         >
           <div class="flex flex-wrap items-center gap-2 px-4 py-3">
             <UButton

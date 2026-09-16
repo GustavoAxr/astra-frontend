@@ -535,28 +535,28 @@ watch([diaAbierto, selectedId, relojId], () => void detalleDia.run(), { immediat
     <template v-else-if="datos">
       <!-- Lo primero, las cuatro cifras que se preguntan. -->
       <dl class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div class="border-default bg-elevated/20 border p-4">
+        <div class="border-default bg-(--astra-superficie) border p-4">
           <dt class="text-dimmed text-xs">Trabajado</dt>
           <dd class="text-highlighted mt-1 text-xl font-medium">
             {{ hhmm(datos.totals.workedMinutes) }}
           </dd>
           <dd class="text-dimmed text-xs">de {{ hhmm(datos.totals.scheduledMinutes) }}</dd>
         </div>
-        <div class="border-default bg-elevated/20 border p-4">
+        <div class="border-default bg-(--astra-superficie) border p-4">
           <dt class="text-dimmed text-xs">Retardos</dt>
           <dd class="mt-1 text-xl font-medium" :class="datos.totals.lateDays ? 'text-warning' : ''">
             {{ datos.totals.lateDays }}
           </dd>
           <dd class="text-dimmed text-xs">{{ hhmm(datos.totals.lateMinutes) }} acumulados</dd>
         </div>
-        <div class="border-default bg-elevated/20 border p-4">
+        <div class="border-default bg-(--astra-superficie) border p-4">
           <dt class="text-dimmed text-xs">Faltas</dt>
           <dd class="mt-1 text-xl font-medium" :class="datos.totals.absentDays ? 'text-error' : ''">
             {{ datos.totals.absentDays }}
           </dd>
           <dd class="text-dimmed text-xs">{{ datos.totals.onTimeDays }} días puntuales</dd>
         </div>
-        <div class="border-default bg-elevated/20 border p-4">
+        <div class="border-default bg-(--astra-superficie) border p-4">
           <dt class="text-dimmed text-xs">Tiempo extra</dt>
           <dd class="text-highlighted mt-1 text-xl font-medium">
             {{ hhmm(datos.totals.overtimeMinutes) }}

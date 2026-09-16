@@ -170,7 +170,7 @@ void refresh()
       <article
         v-for="node in tree"
         :key="node.entity.id"
-        class="border-default bg-elevated/20 overflow-hidden border"
+        class="border-default bg-(--astra-superficie) overflow-hidden border"
         :class="node.entity.isActive ? '' : 'opacity-70'"
       >
         <header class="border-default flex flex-wrap items-center gap-3 border-b px-5 py-4">

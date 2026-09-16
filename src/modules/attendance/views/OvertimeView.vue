@@ -417,7 +417,7 @@ watch([filtro, selectedId, relojId], () => void permisos.run(), { immediate: tru
       <li
         v-for="p in filas"
         :key="p.id"
-        class="border-default bg-elevated/20 border px-4 py-3"
+        class="border-default bg-(--astra-superficie) border px-4 py-3"
         :class="p.status === 'PENDING' ? 'border-warning/40' : ''"
       >
         <div class="flex flex-wrap items-center gap-2">

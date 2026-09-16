@@ -994,7 +994,7 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
           <li
             v-for="x in incidencias"
             :key="x.id"
-            class="border-default bg-elevated/20 border px-3 py-2"
+            class="border-default bg-(--astra-superficie) border px-3 py-2"
             :class="x.estado === 'en-curso' ? 'border-info/40' : ''"
           >
             <div class="flex flex-wrap items-center gap-2">
@@ -1147,7 +1147,7 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
         sin saber sobre cuántos días es un número que no se puede discutir.
       -->
       <dl v-if="totales" class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div class="border-default bg-elevated/20 border p-4">
+        <div class="border-default bg-(--astra-superficie) border p-4">
           <dt class="text-dimmed text-xs">Asistencia</dt>
           <dd class="mt-1 text-2xl font-medium" :class="tono(totales.attendanceRate)">
             {{ pct(totales.attendanceRate) }}
@@ -1156,7 +1156,7 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
             se presentó {{ totales.attendedDays }} de {{ totales.workDays }} días laborables
           </dd>
         </div>
-        <div class="border-default bg-elevated/20 border p-4">
+        <div class="border-default bg-(--astra-superficie) border p-4">
           <dt class="text-dimmed text-xs">Puntualidad</dt>
           <dd class="mt-1 text-2xl font-medium" :class="tono(totales.punctualityRate)">
             {{ pct(totales.punctualityRate) }}
@@ -1166,7 +1166,7 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
             {{ totales.lateDays }} con retardo
           </dd>
         </div>
-        <div class="border-default bg-elevated/20 border p-4">
+        <div class="border-default bg-(--astra-superficie) border p-4">
           <dt class="text-dimmed text-xs">Horas cumplidas</dt>
           <dd class="mt-1 text-2xl font-medium" :class="tono(totales.hoursRate)">
             {{ pct(totales.hoursRate) }}
