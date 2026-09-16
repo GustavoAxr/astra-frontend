@@ -58,6 +58,31 @@ const paso = ref<Paso>('numero')
  */
 const activandoHuellaAbierto = ref(false)
 
+/**
+ * EL SALUDO Y EL DÍA. Personalidad sin prometer nada que no sea cierto.
+ *
+ * La tentación era poner un reloj grande con la hora corriendo. NO se pone: la
+ * hora que vale es la del SERVIDOR, y la del aparato puede ir desfasada. Una
+ * pantalla que enseña las 8:59 y registra la checada a las 9:01 no es bonita,
+ * es una discusión con Recursos Humanos.
+ *
+ * El saludo y la fecha, en cambio, salen igual de bien del aparato: que un
+ * «buenas tardes» llegue diez minutos antes no le cuesta la jornada a nadie.
+ */
+const saludo = computed(() => {
+  const h = new Date().getHours()
+  if (h < 12) return 'Buenos días'
+  return h < 19 ? 'Buenas tardes' : 'Buenas noches'
+})
+
+const diaEnPalabras = computed(() =>
+  new Intl.DateTimeFormat('es-MX', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date()),
+)
+
 /** Los tres estados de pedir la desvinculación: ni pedida, pidiéndola, pedida. */
 const pidiendoDesvinculacion = ref(false)
 const desvinculacionPedida = ref(false)
@@ -482,28 +507,35 @@ function olvidarEsteTelefono(): void {
 </script>
 
 <template>
-  <div class="bg-default text-default min-h-dvh px-4 py-8">
-    <div class="mx-auto w-full max-w-sm space-y-6">
+  <div class="bg-default text-default flex min-h-dvh flex-col px-4 py-8">
+    <div class="mx-auto flex w-full max-w-sm flex-1 flex-col space-y-6">
       <!--
-        LAS DOS COSAS DE UNA VEZ EN LA VIDA, EN LA ESQUINA.
+        LAS DOS COSAS DE UNA VEZ EN LA VIDA, ARRIBA Y CON SU NOMBRE.
+
+        Con icono Y texto: dos dibujos sueltos en una esquina son un acertijo, y
+        este no es un panel para gente que usa la aplicación todo el día — es
+        para quien entra treinta segundos, dos veces al día. Lo que hacen es
+        irreversible sin RRHH, así que menos aún conviene que se pulsen por
+        curiosidad.
 
         La casita se va en el paso de checar: es un adorno, y esta pantalla
         tiene UNA cosa que hacer. En los demás pasos se queda, porque ahí sí
         hace falta que se vea de qué pantalla se trata antes de leer nada.
       -->
-      <header class="relative space-y-1 text-center">
-        <div v-if="paso === 'checar'" class="absolute top-0 right-0 flex gap-1">
+      <header v-if="paso === 'checar'" class="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h1 class="text-highlighted text-lg font-semibold">Checar a distancia</h1>
+        <div class="ml-auto flex gap-1">
           <UButton
             v-if="!conLlave && puedeLlave"
             icon="i-lucide-fingerprint"
-            square
-            aria-label="Activar mi huella"
+            label="Mi huella"
+            size="xs"
             @click="activandoHuellaAbierto = true"
           />
           <UButton
             icon="i-lucide-unlink"
-            square
-            aria-label="Este equipo ya no es mío"
+            label="Ya no es mío"
+            size="xs"
             @click="
               () => {
                 error = null
@@ -512,7 +544,9 @@ function olvidarEsteTelefono(): void {
             "
           />
         </div>
-        <UIcon v-if="paso !== 'checar'" name="i-lucide-house" class="text-primary size-10" />
+      </header>
+      <header v-else class="space-y-1 text-center">
+        <UIcon name="i-lucide-house" class="text-primary size-10" />
         <h1 class="text-highlighted text-xl font-semibold">Checar a distancia</h1>
       </header>
 
@@ -574,18 +608,30 @@ function olvidarEsteTelefono(): void {
         <UAlert v-if="error" color="error" icon="i-lucide-circle-alert" :description="error" />
 
         <!--
-          EL BOTÓN, Y NADA MÁS, EN EL CENTRO.
+          EL BOTÓN, EN MEDIO DE LA PANTALLA DE VERDAD.
 
-          Sin icono: en un botón de este tamaño un dibujito no ayuda a
-          entenderlo y sí lo abarata. Y con aire arriba y abajo, para que quien
-          abre la aplicación con prisa no tenga que buscar dónde pulsar.
+          `flex-1` come todo el alto que sobra y el botón se centra dentro, así
+          que cae a media pantalla tanto en un teléfono como en un monitor. Con
+          `py-6` quedaba a media altura solo por casualidad, y en una pantalla
+          grande se iba arriba del todo.
         -->
-        <div class="py-6">
+        <div class="flex flex-1 flex-col items-center justify-center gap-5 py-8">
+          <div class="space-y-0.5 text-center">
+            <p class="text-highlighted text-xl font-semibold">{{ saludo }}</p>
+            <!--
+              `first-letter`, no `capitalize`: el segundo pone mayúscula en
+              CADA palabra y «martes, 16 de septiembre» saldría como «Martes,
+              16 De Septiembre».
+            -->
+            <p class="text-dimmed text-sm first-letter:uppercase">{{ diaEnPalabras }}</p>
+          </div>
+
           <UButton
             :label="conLlave ? 'Checar con mi huella' : 'Checar ahora'"
-            block
+            :icon="conLlave ? 'i-lucide-fingerprint' : 'i-lucide-clock'"
             :loading="enviando"
-            class="h-24 text-2xl font-semibold"
+            class="ring-primary/30 h-24 w-full justify-center text-2xl font-semibold ring-2"
+            :ui="{ leadingIcon: 'size-8' }"
             @click="checar"
           />
         </div>
