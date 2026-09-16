@@ -311,6 +311,28 @@ export default defineConfig({
         alert: { defaultVariants: { variant: 'subtle' } },
 
         /*
+         * LA TARJETA ES LA SUPERFICIE, no el lienzo.
+         *
+         * Su variante por omisión trae `bg-default`, que es EL MISMO token que
+         * el fondo de la página. Con los dos iguales, una tarjeta solo se
+         * distinguía por su raya de borde. Ahora sale de `--astra-superficie`:
+         * blanca en claro sobre el lienzo gris, y en oscuro la de siempre.
+         *
+         * Se sobreescribe la VARIANTE y no el slot: las clases de la variante
+         * se mezclan después y ganarían al slot, así que poner el color ahí
+         * abajo no habría servido de nada.
+         */
+        card: {
+          variants: {
+            variant: {
+              outline: {
+                root: 'bg-(--astra-superficie) ring ring-default divide-y divide-default',
+              },
+            },
+          },
+        },
+
+        /*
          * UBadge tampoco tiene ghost, y su omisión es `solid`: el color entero
          * de fondo con el texto en `text-inverted`. En claro se lee; EN OSCURO
          * NO —verde sobre verde, ilegible—, porque el fondo sube a emerald-400

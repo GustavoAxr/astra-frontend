@@ -1,6 +1,54 @@
 @import 'tailwindcss';
 @import '@nuxt/ui';
 
+/*
+ * LA TIPOGRAFÍA, EN UN SOLO SITIO.
+ *
+ * ══ POR QUÉ SE VEÍA DISTINTA EN CADA MÁQUINA ══
+ *
+ * El proyecto no declaraba NINGUNA familia, así que cada pantalla salía con lo
+ * que Tailwind deja por omisión —`system-ui`— y eso es una fuente distinta en
+ * cada sistema: San Francisco en un Mac, Segoe en Windows, Cantarell o DejaVu
+ * en Linux. La misma pantalla, tres pesos y tres anchos distintos.
+ *
+ * ══ POR QUÉ NO SE EMPAQUETA LA FUENTE DE APPLE ══
+ *
+ * La de la tienda de Apple es **SF Pro**, y su licencia la limita a interfaces
+ * para plataformas de Apple: no se puede servir desde un sitio web. Meterla en
+ * `dist/` sería repartir una fuente que no tenemos derecho a repartir.
+ *
+ * Lo que SÍ se puede, y da exactamente ese aspecto donde importa: pedirla por
+ * su nombre. `-apple-system` y `BlinkMacSystemFont` resuelven a la San
+ * Francisco REAL —la que ya está instalada— en cualquier Mac, iPhone o iPad,
+ * sin descargar nada y sin licencia que cumplir.
+ *
+ * ══ Y PARA LOS DEMÁS, INTER ══
+ *
+ * En Windows y en Linux no hay San Francisco, y ahí caía la lotería. Se
+ * empaqueta **Inter**, que se diseñó justo con esas proporciones y licencia
+ * SIL Open Font —libre de repartir—. Va EN EL PAQUETE y no desde Google Fonts
+ * por lo mismo que los iconos: la pantalla de checar tiene que funcionar sin
+ * red, y una fuente pedida a un tercero le cuenta a ese tercero quién entra.
+ *
+ * Solo la variable: un archivo cubre todos los pesos.
+ */
+@import '@fontsource-variable/inter/index.css';
+
+@theme {
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Inter Variable', Inter,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /*
+   * La monoespaciada va aparte y con la misma idea: `SF Mono` donde exista, y
+   * si no, la que traiga el sistema. Aquí no se empaqueta nada — una clave de
+   * puerta o un número de empleado se leen igual en cualquier monoespaciada, y
+   * no vale un archivo más en un teléfono con datos móviles.
+   */
+  --font-mono:
+    ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
 :root {
   /*
    * TODO CUADRADO. Cero, no «poquito».
@@ -23,6 +71,41 @@
    */
   --astra-desde: #0ea5e9;
   --astra-hasta: #22c55e;
+
+  /*
+   * LA SUPERFICIE DE UNA TARJETA, separada del lienzo de la página.
+   *
+   * Nuxt UI usa `--ui-bg` para las dos cosas, así que con un solo color no se
+   * pueden distinguir. Con el lienzo en gris y la tarjeta en blanco, cada
+   * bloque se recorta solo y la pantalla deja de ser una sábana blanca con
+   * rayas — que era lo que hacía que todo lo de color gritara.
+   */
+  --astra-superficie: #ffffff;
+}
+
+/*
+ * MODO CLARO: EL LIENZO NO ES BLANCO.
+ *
+ * `#f5f5f7` es un gris casi imperceptible, y esa es la gracia: baja el brillo
+ * de la pantalla entera sin que se note que hay un color, y el blanco de las
+ * tarjetas pasa a significar algo. Sobre blanco puro, un verde de marca se lee
+ * como un grito; sobre este gris, el mismo verde se lee como un acento.
+ *
+ * Va en `:root` y no dentro de `.light` porque el tema claro es el que manda
+ * cuando no hay ninguna clase puesta.
+ */
+:root,
+.light {
+  --ui-bg: #f5f5f7;
+  --astra-superficie: #ffffff;
+}
+
+/*
+ * EN OSCURO NO SE TOCA NADA, de momento. La tarjeta sigue compartiendo fondo
+ * con la página, que es como estaba y como se revisó.
+ */
+.dark {
+  --astra-superficie: var(--ui-bg);
 }
 
 /**

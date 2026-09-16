@@ -372,7 +372,7 @@ watch([filtro, selectedId, relojId], () => void permisos.run(), { immediate: tru
         <UButton
           v-if="puedePedir"
           icon="i-lucide-plus"
-          label="Pedir permiso"
+          label="Pedir tiempo extra"
           @click="abrirFormulario"
         />
       </template>
@@ -388,7 +388,15 @@ watch([filtro, selectedId, relojId], () => void permisos.run(), { immediate: tru
     <ApiErrorAlert :error="permisos.error.value" />
     <ApiErrorAlert :error="errorAlFirmar" />
 
-    <h2 class="text-highlighted pt-2 font-medium">Permisos pedidos y firmados</h2>
+    <!--
+      «Permisos» era el nombre de UNA de las cinco cosas que caben aquí, y ni
+      siquiera de la más común. Debajo hay horas extra, trabajo fuera de sede y
+      las tres correcciones del día —una checada que faltó, una que no cuenta,
+      un día revisado—. Ninguna de esas es un permiso: son solicitudes que
+      ajustan lo que el reloj midió, y quien las busca no las encontraba bajo
+      esa palabra.
+    -->
+    <h2 class="text-highlighted pt-2 font-medium">Ajustes horarios pedidos y firmados</h2>
 
     <div v-if="permisos.pending.value && !permisos.loaded.value" class="text-muted text-sm">
       Cargando…
@@ -397,7 +405,7 @@ watch([filtro, selectedId, relojId], () => void permisos.run(), { immediate: tru
     <EmptyState
       v-else-if="filas.length === 0"
       icon="i-lucide-file-check"
-      :title="filtro === 'PENDING' ? 'No hay nada que firmar' : 'No hay permisos que mostrar'"
+      :title="filtro === 'PENDING' ? 'No hay nada que firmar' : 'No hay ajustes que mostrar'"
       :description="
         filtro === 'PENDING'
           ? 'Cuando alguien pida autorización para trabajar fuera de jornada, aparecerá aquí.'

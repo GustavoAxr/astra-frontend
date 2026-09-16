@@ -181,6 +181,14 @@ export interface DerivedDay {
    * firmarlo.
    */
   correcciones?: string[]
+  /**
+   * LO QUE SE PIDIÓ SOBRE ESTE DÍA Y NADIE HA FIRMADO TODAVÍA.
+   *
+   * No cambia nada del día —una solicitud sin firmar no corrige nada—, pero
+   * quien lo mira tiene que saber que hay algo en curso. Sin esto, el día se
+   * veía intacto y se volvía a pedir lo mismo.
+   */
+  pendientes?: string[]
   exceptionCountsAsWorked: boolean
   exceptionDocumentRef: string | null
   /** El festivo que cae ese día, se haya trabajado o no. */

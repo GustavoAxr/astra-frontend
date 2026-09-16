@@ -198,16 +198,47 @@ function hhmm(m: number): string {
 
         <!--
           QUE ESTE DÍA NO SALIÓ SOLO DEL RELOJ.
+
           Va pegado al día y no en una columna aparte: quien lo mira para
-          firmarlo tiene que verlo sin buscarlo. El texto entero está en el
-          globo, que puede ser largo.
+          firmarlo tiene que verlo sin buscarlo.
+
+          Y EN UN GLOBO DE VERDAD, no en el `title` del navegador. El `title`
+          tarda casi un segundo, se corta, y no se puede leer con el teclado.
+          Aquí lo que hay que leer es qué se le cambió a una jornada: se lee
+          entero, en varias líneas y al instante.
         -->
-        <UIcon
-          v-if="f.dia.correcciones?.length"
-          name="i-lucide-pen-line"
-          class="text-info ml-1 size-3 align-middle"
-          :title="f.dia.correcciones.join(' · ')"
-        />
+        <UTooltip v-if="f.dia.correcciones?.length" :delay-duration="0">
+          <UIcon name="i-lucide-pen-line" class="text-info ml-1 size-3 align-middle" />
+          <template #content>
+            <div class="max-w-xs space-y-1 text-xs">
+              <p class="text-highlighted font-semibold">Este día se corrigió</p>
+              <p v-for="(c, i) in f.dia.correcciones" :key="i">{{ c }}</p>
+            </div>
+          </template>
+        </UTooltip>
+
+        <!--
+          Y LO QUE ESTÁ PEDIDO PERO SIN FIRMAR, que es otra cosa.
+
+          Un día con una solicitud en curso se veía EXACTAMENTE IGUAL que uno
+          intacto, así que se volvía a pedir lo mismo sin saberlo. El reloj de
+          arena dice que hay algo esperando firma; el globo dice qué, quién lo
+          pidió y con qué motivo, que es lo que hace falta para decidir si
+          hace falta pedir otra cosa o esperar.
+        -->
+        <UTooltip v-if="f.dia.pendientes?.length" :delay-duration="0">
+          <UIcon name="i-lucide-hourglass" class="text-warning ml-1 size-3 align-middle" />
+          <template #content>
+            <div class="max-w-xs space-y-1 text-xs">
+              <p class="text-highlighted font-semibold">
+                {{ f.dia.pendientes.length === 1 ? 'Hay una solicitud' : 'Hay solicitudes' }}
+                esperando firma
+              </p>
+              <p v-for="(c, i) in f.dia.pendientes" :key="i">{{ c }}</p>
+              <p class="text-muted">Hasta que se firme, el día no cambia.</p>
+            </div>
+          </template>
+        </UTooltip>
       </span>
 
       <!--

@@ -87,7 +87,15 @@ watch(
  */
 const linkClass = (name: string): string =>
   route.name === name
-    ? 'enlace-activo bg-elevated text-highlighted font-medium'
+    ? /*
+       * EL ACTIVO SE RECORTA CONTRA EL MENÚ, no contra la página.
+       *
+       * En claro el menú es del gris del lienzo y el activo va en blanco: es
+       * la misma idea que las tarjetas —lo que está encima, más claro— y hace
+       * que el estado activo se vea sin depender del color. El verde es el
+       * acento, no el soporte: quien no distingue verde sigue viendo cuál es.
+       */
+      'enlace-activo bg-(--astra-superficie) text-primary font-medium dark:text-highlighted'
     : 'text-muted hover:bg-elevated/60 hover:text-default'
 const roleLabels = computed(() => roles.value.map((role) => ROLE_LABEL[role]).join(' · '))
 const initials = computed(() =>
@@ -113,7 +121,7 @@ async function signOut(): Promise<void> {
 
     <!-- Navegación lateral -->
     <aside
-      class="border-default bg-elevated/30 flex shrink-0 flex-col border-r transition-[width] duration-200 lg:sticky lg:top-0 lg:h-screen"
+      class="border-default bg-default flex shrink-0 flex-col border-r transition-[width] duration-200 lg:sticky lg:top-0 lg:h-screen"
       :class="[menuOpen ? '' : 'max-lg:hidden', colapsado ? 'lg:w-16' : 'lg:w-64']"
     >
       <div
