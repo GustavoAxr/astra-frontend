@@ -94,7 +94,10 @@ export const NAVIGATION: readonly NavEntry[] = [
         icon: 'i-lucide-calendar-check',
         roles: SIN_GERENCIA,
       },
-      { name: 'overtime', label: 'Permisos', icon: 'i-lucide-timer' },
+      // «Permisos» era el nombre de lo que se PIDE ahí dentro, no el de la
+      // pantalla. Lo que se viene a hacer aquí es autorizar tiempo extra, y
+      // buscarlo bajo «Permisos» es no encontrarlo.
+      { name: 'overtime', label: 'Horas extras', icon: 'i-lucide-timer' },
       { name: 'punches', label: 'Marcajes', icon: 'i-lucide-fingerprint', roles: SIN_GERENCIA },
     ],
   },

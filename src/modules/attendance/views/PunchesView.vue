@@ -9,7 +9,7 @@ import { mergeQuery, type QueryChanges } from '@/shared/router/query'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
 import PageHeader from '@/shared/ui/PageHeader.vue'
 import { parseVerificationMethod } from '@/domain/verification'
-import { DEVICE_USER_TYPES, deviceUserTypeLook } from '@/domain/device-user-type'
+import { DEVICE_USER_TYPES, FUERA_DE_RELOJ, deviceUserTypeLook } from '@/domain/device-user-type'
 import { conNinguno, NINGUNO, sinNinguno } from '@/shared/ui/select-none'
 import { attendanceApi } from '../api'
 import PunchEvidenceSlideover from '../components/PunchEvidenceSlideover.vue'
@@ -106,9 +106,26 @@ const evidencia = ref<Punch | null>(null)
  * desaparece —queda en el título y en el visor de evidencia—, simplemente deja
  * de ocupar una columna que nadie sabe leer.
  */
+/**
+ * UN MARCAJE QUE NO SALIÓ DE NINGÚN RELOJ.
+ *
+ * Los hay de dos clases —el chequeo a distancia y la contingencia— y las dos
+ * tienen en común lo único que hace falta saber aquí: no hubo equipo. Se mira
+ * `deviceId` y no la procedencia porque es el hecho, no el canal.
+ *
+ * Solo cambia LA VISTA. En la base ese marcaje sigue igual que siempre.
+ */
+const sinReloj = (p: Punch): boolean => p.deviceId === null
+
 function nombreDelReloj(p: Punch): string {
   const partes = [p.deviceBrand, p.deviceModel].filter(Boolean)
   if (partes.length) return partes.join(' ')
+  /*
+   * «MOBILE_WEB» era lo que salía aquí, que es el nombre interno del canal y no
+   * dice nada a quien lee la tabla. Lo que hay que decir es que no hubo reloj;
+   * por cuál de los dos caminos entró ya lo dice la columna de al lado.
+   */
+  if (sinReloj(p)) return 'Sin reloj'
   // Sin marca ni modelo, la serie es mejor que un guion: al menos identifica.
   return p.serialNumber ?? p.source ?? '—'
 }
@@ -223,8 +240,20 @@ watch([from, to, employeeId, deviceUserType, deviceId, selectedId, page], () => 
         «normal» y eso el equipo no lo dijo.
       -->
       <template #enReloj-cell="{ row }">
+        <!--
+          SIN RELOJ NO ES «NO CONSTA». «No consta» dice que había un equipo
+          delante y no declaró nada; aquí no había ninguno. Mandar a alguien a
+          revisar un reloj que no existió es peor que no decir nada.
+        -->
+        <span
+          v-if="sinReloj(row.original)"
+          class="text-dimmed text-xs"
+          :title="FUERA_DE_RELOJ.detail"
+        >
+          {{ FUERA_DE_RELOJ.label }}
+        </span>
         <UBadge
-          v-if="deviceUserTypeLook(row.original.deviceUserType).color !== 'neutral'"
+          v-else-if="deviceUserTypeLook(row.original.deviceUserType).color !== 'neutral'"
           :label="deviceUserTypeLook(row.original.deviceUserType).label"
           :color="deviceUserTypeLook(row.original.deviceUserType).color"
           :title="deviceUserTypeLook(row.original.deviceUserType).detail"

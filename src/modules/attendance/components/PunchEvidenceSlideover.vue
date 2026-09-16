@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { punchTypeLook } from '@/domain/punch'
 import { parseVerificationMethod } from '@/domain/verification'
-import { deviceUserTypeLook } from '@/domain/device-user-type'
+import { FUERA_DE_RELOJ, deviceUserTypeLook } from '@/domain/device-user-type'
 import { describirEvento, glosaDeCampo } from '../isapi-glosario'
 import type { Punch } from '../types'
 
@@ -42,6 +42,8 @@ const derivados = computed(() => {
   const tipo = punchTypeLook(p.punchType)
   const metodo = parseVerificationMethod(p.verificationMethod)
   const reloj = deviceUserTypeLook(p.deviceUserType)
+  /* Sin equipo no hubo reloj: ni a distancia ni en contingencia. */
+  const sinReloj = p.deviceId === null
 
   return [
     {
@@ -79,20 +81,34 @@ const derivados = computed(() => {
       origen: citar('currentVerifyMode'),
       detalle: metodo.detail,
     },
+    /*
+     * SIN RELOJ NO ES «NO CONSTA», y aquí menos que en ningún sitio: esta es la
+     * pantalla a la que se viene a discutir un marcaje. «No consta» manda a
+     * revisar un equipo que en este caso no existió.
+     */
     {
       campo: 'Estado en el reloj',
-      valor: reloj.label,
-      origen: citar('userType'),
-      detalle: reloj.detail,
+      valor: sinReloj ? FUERA_DE_RELOJ.label : reloj.label,
+      origen: sinReloj ? 'no hubo equipo' : citar('userType'),
+      detalle: sinReloj ? FUERA_DE_RELOJ.detail : reloj.detail,
     },
     {
       campo: 'Reloj',
-      valor: [p.deviceBrand, p.deviceModel].filter(Boolean).join(' ') || 'No consta',
-      origen: p.serialNumber ? `serie ${p.serialNumber}` : 'sin número de serie',
-      detalle:
-        'La serie sale del alta del equipo, no del evento: el reloj no la ' +
-        'repite en cada marcaje. Aquí está entera porque es lo que identifica ' +
-        'al aparato ante el fabricante.',
+      valor: sinReloj
+        ? 'Sin reloj'
+        : [p.deviceBrand, p.deviceModel].filter(Boolean).join(' ') || 'No consta',
+      origen: sinReloj
+        ? 'la checada no pasó por ningún equipo'
+        : p.serialNumber
+          ? `serie ${p.serialNumber}`
+          : 'sin número de serie',
+      detalle: sinReloj
+        ? 'Se registró sin reloj de por medio. Lo que la respalda es la ' +
+          'credencial del equipo de la propia persona y el acuse que le llega ' +
+          'a su correo, no un aparato de la nave.'
+        : 'La serie sale del alta del equipo, no del evento: el reloj no la ' +
+          'repite en cada marcaje. Aquí está entera porque es lo que identifica ' +
+          'al aparato ante el fabricante.',
     },
     {
       campo: 'Confianza',

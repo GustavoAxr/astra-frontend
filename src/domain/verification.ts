@@ -38,6 +38,10 @@ const NAMES: Record<string, string> = {
   QR: 'código QR',
   VEIN: 'vena del dedo',
   MOBILE_GPS: 'teléfono con GPS',
+  // A distancia: los pone Astra, no un fabricante. Sin esto salían crudos en la
+  // pantalla de marcajes —«REMOTE_DEVICE»— junto a «huella» y «tarjeta».
+  REMOTE_DEVICE: 'equipo dado de alta',
+  REMOTE_PASSKEY: 'huella en su equipo',
   GPS_PORTAL_CAUTIVO: 'portal cautivo',
   SMS_GSM_LOCAL: 'mensaje de texto',
   WHATSAPP_OPT_IN: 'WhatsApp',

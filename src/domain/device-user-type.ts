@@ -65,6 +65,28 @@ const NO_CONSTA: DeviceUserTypeLook = {
   detail: 'El equipo no declaró cómo clasificaba a esta persona.',
 }
 
+/**
+ * CUANDO NO HUBO RELOJ, «no consta» ES MENTIRA.
+ *
+ * «No consta» dice que un equipo estaba delante y no declaró cómo clasificaba a
+ * esa persona. En un marcaje hecho a distancia —o en una contingencia— no había
+ * ningún equipo: no es que callara, es que no existía. Y la diferencia importa,
+ * porque «no consta» invita a ir a revisar el reloj, y ahí no hay nada que
+ * revisar.
+ *
+ * Es SOLO una etiqueta de pantalla: nada cambia en la base, donde ese campo
+ * sigue siendo nulo. La diferencia se deduce de que el marcaje no tiene equipo.
+ */
+export const FUERA_DE_RELOJ: DeviceUserTypeLook = {
+  label: 'Fuera de reloj',
+  color: 'neutral',
+  flagged: false,
+  declared: false,
+  detail:
+    'No hubo reloj: la checada se registró sin pasar por ningún equipo, así ' +
+    'que no hay clasificación que declarar.',
+}
+
 export function deviceUserTypeLook(raw: string | null): DeviceUserTypeLook {
   if (raw === null || raw.trim() === '') return NO_CONSTA
 
