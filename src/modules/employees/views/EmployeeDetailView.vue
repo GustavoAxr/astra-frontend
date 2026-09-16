@@ -442,11 +442,35 @@ const desfaseConElReloj = computed<string[]>(() => {
    * mundo por divergente sin que nadie hubiera cambiado nada.
    */
   const dia = (valor: string | null | undefined): string => (valor ?? '').slice(0, 10)
-  const vigencia = p.currentAssignment
-  if (vigencia && dia(enviado.validFrom) !== dia(vigencia.validFrom)) {
+
+  /*
+   * ══ CONTRA QUÉ SE COMPARA, Y POR QUÉ NO ES LA ADSCRIPCIÓN VIGENTE ══
+   *
+   * LA FECHA DE ALTA DEL RELOJ ES LA DE LA PRIMERA ADSCRIPCIÓN, Y NO SE MUEVE.
+   * Lo que el equipo guarda ahí es DESDE CUÁNDO vale esa credencial, y eso es
+   * desde que la persona entró — no desde su último cambio de puesto.
+   *
+   * Esto se comparaba contra `currentAssignment`, la VIGENTE. Así que cambiarle
+   * la adscripción a alguien nacía una adscripción con la fecha de hoy, dejaba
+   * de coincidir con lo que el reloj tiene —que es lo correcto— y la pantalla
+   * pedía empujar el registro entero para arreglar algo que no estaba roto.
+   * Cada cambio de puesto pedía un empujón que no hacía falta.
+   *
+   * El servidor ya lo hacía bien: su consulta manda `min(valid_from)`. Esta
+   * comparación se había quedado atrás, y una regla escrita en dos sitios
+   * termina así. Si algún día cambia allá, tiene que cambiar aquí.
+   *
+   * EL FIN SÍ SALE DE LA ÚLTIMA, también igual que el servidor: es la que se
+   * cierra cuando alguien se va, y es todo el bloqueo que tiene el aparato.
+   */
+  const porFecha = [...p.assignments].sort((a, b) => a.validFrom.localeCompare(b.validFrom))
+  const primera = porFecha[0]
+  const ultima = porFecha[porFecha.length - 1]
+
+  if (primera && dia(enviado.validFrom) !== dia(primera.validFrom)) {
     motivos.push('la fecha de alta')
   }
-  if (p.isActive && vigencia && dia(enviado.validTo) !== dia(vigencia.validTo)) {
+  if (p.isActive && ultima && dia(enviado.validTo) !== dia(ultima.validTo)) {
     motivos.push('la fecha de fin')
   }
 
