@@ -395,10 +395,16 @@ async function checar(): Promise<void> {
     if (e instanceof ApiError) {
       error.value = e.message
       /*
-       * 403 y 404 significan que este teléfono ya no sirve: se revocó, se
-       * venció, o a esa persona le quitaron el trabajo remoto. Se OLVIDA el
-       * token y se vuelve al principio, porque insistir con él no lo va a
-       * arreglar y dejarlo guardado haría que mañana pase lo mismo.
+       * 403 y 404 significan que este equipo ya no sirve: se revocó o se venció.
+       * Se OLVIDA el token y se vuelve al principio, porque insistir con él no
+       * lo va a arreglar y dejarlo guardado haría que mañana pase lo mismo.
+       *
+       * EL 409 NO ENTRA AQUÍ, Y ESA ES LA DIFERENCIA. Es «ahora mismo no, pero
+       * el alta está entera»: una baja de dos días, o una adscripción que hoy
+       * no es a distancia. Antes eso llegaba como 403 y esta línea le borraba
+       * la credencial a alguien por una pausa reversible — el lunes lo
+       * reactivaban, su equipo ya no tenía nada guardado y había que mandarle
+       * otro correo. El token se queda; se enseña el motivo y ya.
        */
       if (e.status === 403 || e.status === 404) {
         olvidarTelefono(entityId)

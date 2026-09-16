@@ -238,6 +238,26 @@ const soloDia = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
         </div>
       </div>
 
+      <!--
+        DE BAJA: EL ALTA SE PAUSA, NO SE PIERDE.
+
+        La tabla de abajo enseñaba el equipo como vigente y con su botón de
+        revocar mientras la persona estaba dada de baja, sin decir en ningún
+        sitio que esos días no puede checar. Y lo contrario también confundía:
+        alguien podía revocarlo «porque ya no sirve» cuando lo único que hacía
+        falta era reactivar a la persona.
+
+        Las dos cosas son ciertas a la vez y las dos hay que decirlas: hoy no
+        checa, y el alta sigue entera.
+      -->
+      <UAlert v-if="!persona.isActive" icon="i-lucide-pause" color="warning">
+        <template #description>
+          Está dado de baja, así que <strong>estos días no puede checar</strong> desde ningún
+          equipo. Su alta NO se pierde: en cuanto lo reactives vuelve a funcionar sola, sin mandarle
+          otro enlace.
+        </template>
+      </UAlert>
+
       <ApiErrorAlert :error="telefonos.error.value" />
 
       <p v-if="telefonos.pending.value && !telefonos.loaded.value" class="text-muted text-sm">
