@@ -47,6 +47,17 @@ type Paso = 'checar' | 'numero' | 'codigo'
 
 const paso = ref<Paso>('numero')
 /** Acaba de darse de alta con el enlace: es cuando se le enseña a instalarlo. */
+/**
+ * Los dos diálogos de la esquina.
+ *
+ * Activar la huella y pedir la desvinculación SE HACEN UNA VEZ EN LA VIDA del
+ * aparato; checar, dos veces al día. Ocupaban media pantalla cada una delante
+ * de quien solo viene a fichar. Se guardan detrás de dos botones pequeños, y
+ * el texto que explica lo que implican —que son irreversibles sin RRHH— viaja
+ * entero al diálogo: esconder el botón no es excusa para recortar el aviso.
+ */
+const activandoHuellaAbierto = ref(false)
+
 /** Los tres estados de pedir la desvinculación: ni pedida, pidiéndola, pedida. */
 const pidiendoDesvinculacion = ref(false)
 const desvinculacionPedida = ref(false)
@@ -313,6 +324,9 @@ async function activarHuella(): Promise<void> {
     await activarLlaveEnElServidor(entityId, token.value)
     conLlave.value = true
     marcarConLlave(entityId)
+    // El diálogo se cierra SOLO al salir bien. Si falló, se queda abierto con
+    // el error a la vista: cerrarlo dejaría a alguien creyendo que ya la tiene.
+    activandoHuellaAbierto.value = false
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : loQuePasoConLaLlave(e)
   } finally {
@@ -470,8 +484,35 @@ function olvidarEsteTelefono(): void {
 <template>
   <div class="bg-default text-default min-h-dvh px-4 py-8">
     <div class="mx-auto w-full max-w-sm space-y-6">
-      <header class="space-y-1 text-center">
-        <UIcon name="i-lucide-house" class="text-primary size-10" />
+      <!--
+        LAS DOS COSAS DE UNA VEZ EN LA VIDA, EN LA ESQUINA.
+
+        La casita se va en el paso de checar: es un adorno, y esta pantalla
+        tiene UNA cosa que hacer. En los demás pasos se queda, porque ahí sí
+        hace falta que se vea de qué pantalla se trata antes de leer nada.
+      -->
+      <header class="relative space-y-1 text-center">
+        <div v-if="paso === 'checar'" class="absolute top-0 right-0 flex gap-1">
+          <UButton
+            v-if="!conLlave && puedeLlave"
+            icon="i-lucide-fingerprint"
+            square
+            aria-label="Activar mi huella"
+            @click="activandoHuellaAbierto = true"
+          />
+          <UButton
+            icon="i-lucide-unlink"
+            square
+            aria-label="Este equipo ya no es mío"
+            @click="
+              () => {
+                error = null
+                pidiendoDesvinculacion = true
+              }
+            "
+          />
+        </div>
+        <UIcon v-if="paso !== 'checar'" name="i-lucide-house" class="text-primary size-10" />
         <h1 class="text-highlighted text-xl font-semibold">Checar a distancia</h1>
       </header>
 
@@ -533,30 +574,21 @@ function olvidarEsteTelefono(): void {
         <UAlert v-if="error" color="error" icon="i-lucide-circle-alert" :description="error" />
 
         <!--
-          JUSTO DESPUÉS DEL ALTA, y solo entonces: es el único momento en que
-          añadirlo a la pantalla de inicio significa algo. Puesto siempre,
-          estorbaría todos los días a quien ya lo instaló.
-        -->
-        <!--
-          AÑADIRLO A LA PANTALLA DE INICIO, MIENTRAS NO ESTÉ AÑADIDO.
+          EL BOTÓN, Y NADA MÁS, EN EL CENTRO.
 
-          Se pintaba SOLO en el instante siguiente al alta, y bastaba con
-          recargar la página para no volver a verlo nunca. Quien abrió el enlace
-          entre otras cosas y siguió a lo suyo se quedaba sin saber que esto se
-          instala — y al día siguiente vuelve a buscar el correo. El propio
-          componente ya se calla cuando la aplicación está instalada, que es la
-          condición que de verdad importa.
+          Sin icono: en un botón de este tamaño un dibujito no ayuda a
+          entenderlo y sí lo abarata. Y con aire arriba y abajo, para que quien
+          abre la aplicación con prisa no tenga que buscar dónde pulsar.
         -->
-        <GuiaDeInstalacion />
-
-        <UButton
-          :label="conLlave ? 'Checar con mi huella' : 'Checar ahora'"
-          :icon="conLlave ? 'i-lucide-fingerprint' : 'i-lucide-clock'"
-          size="xl"
-          block
-          :loading="enviando"
-          @click="checar"
-        />
+        <div class="py-6">
+          <UButton
+            :label="conLlave ? 'Checar con mi huella' : 'Checar ahora'"
+            block
+            :loading="enviando"
+            class="h-24 text-2xl font-semibold"
+            @click="checar"
+          />
+        </div>
 
         <!--
           Lo que quedó esperando señal. Se pinta SIEMPRE que haya algo, y no
@@ -574,108 +606,28 @@ function olvidarEsteTelefono(): void {
         </p>
 
         <!--
-          ACTIVAR LA HUELLA. Se ofrece solo si el aparato puede —preguntar por
-          una huella a un navegador sin lector manda a un diálogo que termina
-          en nada— y se dice lo que implica ANTES, porque desde el teléfono no
-          hay vuelta atrás: quitarla exige que RRHH revoque el aparato.
+          AÑADIRLO A LA PANTALLA DE INICIO, MIENTRAS NO ESTÉ AÑADIDO. Debajo del
+          botón y no encima: hacer falta hace falta una vez, y checar, todos los
+          días. El componente se calla solo cuando ya está instalada.
+        -->
+        <GuiaDeInstalacion />
+
+        <!--
+          YA PEDIDA: se dice aquí y no en el diálogo, porque es un estado del
+          aparato y no una ventana que se cierra. Quien vuelve mañana tiene que
+          seguir viendo que la petición está puesta.
         -->
         <div
-          v-if="!conLlave && puedeLlave"
-          class="border-default bg-elevated/50 space-y-3 border p-5"
+          v-if="desvinculacionPedida"
+          class="border-default bg-elevated/50 space-y-2 border p-4 text-center"
         >
-          <p class="text-highlighted text-sm font-semibold">
-            <UIcon name="i-lucide-fingerprint" class="size-4 align-[-3px]" />
-            Checa con tu huella
-          </p>
+          <UIcon name="i-lucide-mail-check" class="text-success size-6" />
+          <p class="text-highlighted text-sm font-semibold">Recursos Humanos ya lo sabe</p>
           <p class="text-muted text-xs">
-            Tu checada pasa a valer por sí sola, sin que nadie tenga que aprobarla. Y si alguien se
-            lleva tu equipo, no puede checar por ti.
+            En cuanto lo revoquen te mandarán un enlace nuevo para dar de alta el equipo que
+            quieras. Mientras tanto <strong>puedes seguir checando desde este</strong>.
           </p>
-          <p class="text-dimmed text-xs">
-            Una vez activada, este equipo ya no podrá checar sin tu huella. Para quitarla hay que
-            hablar con Recursos Humanos.
-          </p>
-          <UButton
-            label="Activar mi huella"
-            icon="i-lucide-fingerprint"
-            size="lg"
-            block
-            :loading="activando"
-            @click="activarHuella"
-          />
         </div>
-        <!--
-          PEDIR LA DESVINCULACIÓN, NO HACERLA.
-
-          Aquí había un «este no es mi equipo» que borraba la credencial de
-          este navegador y nada más. Sonaba inofensivo y era lo contrario: el
-          aparato seguía dado de alta en el servidor —ocupando el único hueco
-          que tiene cada persona— pero ya sin la credencial con la que checar.
-          Quien lo pulsaba se quedaba sin poder fichar Y sin poder darse de
-          alta en otro sitio, y nadie se enteraba.
-
-          Desvincular es revocar una credencial de jornada laboral: lo decide
-          RRHH. Lo que sí puede hacer quien perdió el aparato es avisar.
-        -->
-        <template v-if="desvinculacionPedida">
-          <div class="border-default bg-elevated/50 space-y-2 border p-4 text-center">
-            <UIcon name="i-lucide-mail-check" class="text-success size-6" />
-            <p class="text-highlighted text-sm font-semibold">Recursos Humanos ya lo sabe</p>
-            <p class="text-muted text-xs">
-              En cuanto lo revoquen te mandarán un enlace nuevo para dar de alta el equipo que
-              quieras. Mientras tanto <strong>puedes seguir checando desde este</strong>.
-            </p>
-          </div>
-        </template>
-        <template v-else-if="pidiendoDesvinculacion">
-          <div class="border-default space-y-3 border p-4">
-            <p class="text-highlighted text-sm font-semibold">Pedir que desvinculen este equipo</p>
-            <p class="text-muted text-xs">
-              Le llega a Recursos Humanos. No lo desvincula ahora mismo: hasta que lo revoquen, este
-              equipo sigue checando — así nadie se queda sin poder fichar por haber pulsado un
-              botón.
-            </p>
-            <UFormField label="¿Qué pasó?" help="Opcional, pero ayuda a saber si corre prisa.">
-              <UInput
-                v-model="motivoDesvinculacion"
-                placeholder="Se me perdió el teléfono"
-                maxlength="300"
-                size="lg"
-                class="w-full"
-              />
-            </UFormField>
-            <UAlert v-if="error" color="error" icon="i-lucide-circle-alert" :description="error" />
-            <div class="grid grid-cols-2 gap-2">
-              <UButton
-                label="Mejor no"
-                size="lg"
-                block
-                :disabled="enviando"
-                @click="pidiendoDesvinculacion = false"
-              />
-              <UButton
-                label="Mandar"
-                icon="i-lucide-send"
-                size="lg"
-                block
-                :loading="enviando"
-                @click="pedirDesvinculacion"
-              />
-            </div>
-          </div>
-        </template>
-        <UButton
-          v-else
-          label="Este equipo ya no es mío"
-          size="lg"
-          block
-          @click="
-            () => {
-              error = null
-              pidiendoDesvinculacion = true
-            }
-          "
-        />
       </template>
 
       <!-- Alta, paso 2: el código que llegó por WhatsApp. -->
@@ -817,5 +769,95 @@ function olvidarEsteTelefono(): void {
         </form>
       </template>
     </div>
+
+    <!--
+      ACTIVAR LA HUELLA. Se ofrece solo si el aparato puede —preguntar por una
+      huella a un navegador sin lector manda a un diálogo que termina en nada— y
+      se dice lo que implica ANTES, porque desde aquí no hay vuelta atrás:
+      quitarla exige que RRHH revoque el aparato. Ese aviso viaja entero al
+      diálogo: esconder el botón no es excusa para recortarlo.
+    -->
+    <UModal v-model:open="activandoHuellaAbierto" title="Checa con tu huella">
+      <template #body>
+        <div class="space-y-3">
+          <p class="text-muted text-sm">
+            Tu checada pasa a valer por sí sola, sin que nadie tenga que aprobarla. Y si alguien se
+            lleva tu equipo, no puede checar por ti.
+          </p>
+          <p class="text-dimmed text-sm">
+            Una vez activada, este equipo ya no podrá checar sin tu huella. Para quitarla hay que
+            hablar con Recursos Humanos.
+          </p>
+          <UAlert v-if="error" color="error" icon="i-lucide-circle-alert" :description="error" />
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <UButton
+              label="Ahora no"
+              size="lg"
+              block
+              :disabled="activando"
+              @click="activandoHuellaAbierto = false"
+            />
+            <UButton
+              label="Activar mi huella"
+              icon="i-lucide-fingerprint"
+              size="lg"
+              block
+              :loading="activando"
+              @click="activarHuella"
+            />
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!--
+      PEDIR LA DESVINCULACIÓN, NO HACERLA.
+
+      Aquí había un «este no es mi equipo» que borraba la credencial de este
+      navegador y nada más. Sonaba inofensivo y era lo contrario: el aparato
+      seguía dado de alta en el servidor —ocupando el único hueco que tiene cada
+      persona— pero ya sin la credencial con la que checar. Quien lo pulsaba se
+      quedaba sin poder fichar Y sin poder darse de alta en otro sitio.
+
+      Desvincular es revocar una credencial de jornada laboral: lo decide RRHH.
+      Lo que sí puede hacer quien perdió el aparato es avisar.
+    -->
+    <UModal v-model:open="pidiendoDesvinculacion" title="Este equipo ya no es mío">
+      <template #body>
+        <div class="space-y-3">
+          <p class="text-muted text-sm">
+            Le llega a Recursos Humanos. No lo desvincula ahora mismo: hasta que lo revoquen, este
+            equipo sigue checando — así nadie se queda sin poder fichar por haber pulsado un botón.
+          </p>
+          <UFormField label="¿Qué pasó?" help="Opcional, pero ayuda a saber si corre prisa.">
+            <UInput
+              v-model="motivoDesvinculacion"
+              placeholder="Se me perdió el teléfono"
+              maxlength="300"
+              size="lg"
+              class="w-full"
+            />
+          </UFormField>
+          <UAlert v-if="error" color="error" icon="i-lucide-circle-alert" :description="error" />
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <UButton
+              label="Mejor no"
+              size="lg"
+              block
+              :disabled="enviando"
+              @click="pidiendoDesvinculacion = false"
+            />
+            <UButton
+              label="Mandar"
+              icon="i-lucide-send"
+              size="lg"
+              block
+              :loading="enviando"
+              @click="pedirDesvinculacion"
+            />
+          </div>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
