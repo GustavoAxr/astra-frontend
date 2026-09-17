@@ -372,6 +372,22 @@ void refresh()
       "
     />
 
+    <!--
+      GUARDAR NO CIERRA ESTE FORMULARIO, y no es un descuido.
+
+      Aquí el `@saved` hacía `baseForm = null`. Como el modal se monta con
+      `v-if`, eso lo DESMONTABA en el acto y el panel de éxito del propio
+      modal —el que enseña el cartel con el QR de esa base— no llegaba a
+      pintarse nunca: salía el aviso de «guardado» y la pantalla volvía a la
+      lista. Para ver el QR había que entrar otra vez a editar y guardar de
+      nuevo, que es justo lo que el modal dice en su código que quería evitar.
+
+      Quien acaba de dar de alta una base es exactamente quien puede imprimir
+      su cartel y pegarlo, y en ese momento tiene la impresora a mano.
+
+      Cerrar sigue siendo cosa de quien mira: «Listo» y la equis emiten
+      `update:open` en falso, y ahí abajo es donde se vacía `baseForm`.
+    -->
     <InstallationFormModal
       v-if="baseForm"
       :open="true"
@@ -385,12 +401,7 @@ void refresh()
           if (!value) baseForm = null
         }
       "
-      @saved="
-        () => {
-          baseForm = null
-          void refresh()
-        }
-      "
+      @saved="() => void refresh()"
     />
 
     <DeleteResourceDialog
