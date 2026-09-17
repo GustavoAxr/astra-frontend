@@ -42,8 +42,11 @@ duda gana `/docs` y la API corriendo, no este archivo.**
   [src/shared/api/session.ts](../src/shared/api/session.ts).
 - **Paginación**: `page`/`limit` (page desde 1, limit 25 por omisión, tope 100) **solo en
   `/employees`**. El resto devuelve arreglo plano.
-- `mustChangePassword` viene `true` en todos los usuarios sembrados y **no hay ruta para
-  cambiarla**: es un aviso, no un bloqueo.
+- `mustChangePassword` viene `true` en todos los usuarios sembrados: es un aviso, no un
+  bloqueo. La ruta **sí existe** —`POST /auth/change-password`, cuerpo `{ actual, nueva }`,
+  mínimo 10 caracteres— y **cierra todas las sesiones**, la que pide el cambio incluida:
+  el servidor borra las cookies y responde `{ sesionesCerradas, mensaje }`. Después hay
+  que volver a entrar, así que el store mata la sesión del navegador en el acto.
 - `GET /agents` responde **403 al `DIRECTOR_HOLDING`**. El secreto HMAC solo aparece en la
   respuesta de `POST /agents`, una vez, y no se guarda en `localStorage` ni en consola.
 

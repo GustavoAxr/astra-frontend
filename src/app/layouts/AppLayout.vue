@@ -11,8 +11,10 @@ import LegalEntityPicker from '@/modules/org/components/LegalEntityPicker.vue'
 import ClientePicker from '@/modules/soporte/components/ClientePicker.vue'
 import AstraLogo from '@/shared/ui/AstraLogo.vue'
 import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
+import ChangePasswordDialog from '@/modules/auth/components/ChangePasswordDialog.vue'
 import OverflowTooltip from '@/shared/ui/OverflowTooltip.vue'
 import { THEMES, useTheme } from '@/shared/theme'
+import { useAviso } from '@/shared/ui/aviso'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -20,6 +22,7 @@ const router = useRouter()
 const { me, roles, hasProvisionalPassword, showsLegalEntityPicker } = storeToRefs(auth)
 
 const legalEntityFilter = useLegalEntityFilter()
+const aviso = useAviso()
 
 const menuOpen = ref(false)
 
@@ -37,12 +40,25 @@ const colapsado = useStorage('astra-menu-colapsado', false)
 
 const theme = useTheme()
 
-/** El activo se marca con una palomita; lo demás sería adivinar cuál está puesto. */
+/**
+ * El activo se marca con una palomita; lo demás sería adivinar cuál está puesto.
+ *
+ * VA COMO `checkbox` Y NO CON UN `trailingIcon`, que es lo que había antes y no
+ * pintaba nada: `UDropdownMenu` no mira `trailingIcon` en sus elementos —su
+ * ranura trasera solo sabe de submenús, teclas y del indicador de marcado—, así
+ * que la palomita no salía nunca y los tres temas se veían idénticos.
+ * `type: 'checkbox'` es el mecanismo que sí existe para eso.
+ *
+ * El tema se pone en `onSelect` y no en `onUpdateChecked`: volver a elegir el
+ * que ya está puesto desmarcaría la casilla, y «Oscuro» no es un interruptor
+ * que se pueda apagar — es una de tres opciones, y siempre hay una.
+ */
 const themeItems = computed(() =>
   THEMES.map((t) => ({
     label: t.label,
     icon: t.icon,
-    trailingIcon: theme.current.value === t.value ? 'i-lucide-check' : undefined,
+    type: 'checkbox' as const,
+    checked: theme.current.value === t.value,
     onSelect: () => {
       theme.current.value = t.value
     },
@@ -51,6 +67,7 @@ const themeItems = computed(() =>
 
 /** Salir también cambia algo de un clic, y el botón es pequeño. */
 const confirmingSignOut = ref(false)
+const changingPassword = ref(false)
 
 // Los roles solo deciden qué se ve en el menú. Nunca si una llamada se hace.
 const items = computed(() => visibleNavigation(roles.value))
@@ -107,8 +124,65 @@ const initials = computed(() =>
     .toUpperCase(),
 )
 
+/**
+ * EL MENÚ DE LA PERSONA, que es lo que antes eran tres botones sueltos.
+ *
+ * El pie tenía el nombre, el cargo y TRES iconos —tema, retraer, salir— en
+ * doscientos treinta píxeles. El nombre entraba cortado a la tercera letra
+ * («Gustavo …», «Administra…»), y era el único dato del pie que dice algo: los
+ * iconos ya se explican solos. Añadir un cuarto para la contraseña lo habría
+ * roto del todo.
+ *
+ * Ahora el nombre y el cargo son el botón, y lo que se hace con la cuenta
+ * —tema, contraseña, salir— vive dentro. Fuera queda únicamente retraer la
+ * barra, que no es algo de la cuenta sino de la barra.
+ *
+ * El correo va en la cabecera del menú porque no está en ningún otro sitio de
+ * la aplicación, y es la respuesta a «¿con cuál de mis cuentas entré?».
+ */
+const userItems = computed(() => [
+  [{ label: me.value?.fullName ?? '', description: me.value?.email, type: 'label' as const }],
+  [{ label: 'Tema', icon: theme.icon.value, children: themeItems.value }],
+  [
+    {
+      label: 'Cambiar contraseña',
+      icon: 'i-lucide-key-round',
+      onSelect: () => {
+        changingPassword.value = true
+      },
+    },
+  ],
+  [
+    {
+      label: 'Cerrar sesión',
+      icon: 'i-lucide-log-out',
+      color: 'error' as const,
+      onSelect: () => {
+        confirmingSignOut.value = true
+      },
+    },
+  ],
+])
+
 async function signOut(): Promise<void> {
   await auth.logout()
+  legalEntityFilter.reset()
+  await router.push({ name: 'login' })
+}
+
+/**
+ * Cambiar la contraseña TERMINA la sesión —el servidor revoca todas—, así que
+ * de aquí se sale por el mismo sitio que al cerrar sesión. El aviso se lanza
+ * antes de navegar: el toaster vive en `App.vue`, por encima del router, y
+ * sobrevive al cambio de pantalla.
+ */
+async function onPasswordChanged(sesionesCerradas: number): Promise<void> {
+  aviso.hecho(
+    'Contraseña cambiada',
+    sesionesCerradas > 1
+      ? `Se cerraron ${sesionesCerradas} sesiones. Vuelve a entrar.`
+      : 'Vuelve a entrar con la nueva.',
+  )
   legalEntityFilter.reset()
   await router.push({ name: 'login' })
 }
@@ -237,29 +311,54 @@ async function signOut(): Promise<void> {
       </nav>
 
       <div class="border-default border-t" :class="colapsado ? 'p-2' : 'p-3'">
-        <div class="flex gap-2.5" :class="colapsado ? 'flex-col items-center' : 'items-center'">
-          <div
-            class="bg-elevated text-highlighted flex size-8 shrink-0 items-center justify-center text-xs font-medium"
-            :title="colapsado ? `${me?.fullName} · ${roleLabels}` : undefined"
+        <div class="flex gap-1" :class="colapsado ? 'flex-col items-center' : 'items-center'">
+          <!--
+            El menú se abre HACIA ARRIBA y alineado por la izquierda: está
+            pegado al fondo de la pantalla, así que abajo no cabe, y alineado
+            por la derecha se saldría de la barra retraída.
+          -->
+          <UDropdownMenu
+            :items="userItems"
+            :content="{ side: 'top', align: 'start' }"
+            :ui="{ content: 'min-w-60' }"
+            class="min-w-0"
+            :class="colapsado ? '' : 'flex-1'"
           >
-            {{ initials }}
-          </div>
-
-          <div v-if="!colapsado" class="min-w-0 flex-1">
-            <p class="text-highlighted truncate text-sm font-medium">{{ me?.fullName }}</p>
-            <p class="text-dimmed truncate text-xs">{{ roleLabels }}</p>
-          </div>
-
-          <UDropdownMenu :items="themeItems">
             <UButton
-              :icon="theme.icon.value"
-              square
-              size="sm"
-              aria-label="Cambiar entre tema claro y oscuro"
-            />
+              :class="colapsado ? 'p-2' : 'w-full gap-2.5 px-2 py-1.5'"
+              :aria-label="`Cuenta de ${me?.fullName}`"
+              :title="colapsado ? `${me?.fullName} · ${roleLabels}` : undefined"
+            >
+              <span
+                class="bg-elevated text-highlighted flex size-8 shrink-0 items-center justify-center text-xs font-medium"
+              >
+                {{ initials }}
+              </span>
+
+              <!--
+                `min-w-0` en el hueco del texto es lo que permite que `truncate`
+                funcione: sin él, el nombre largo no se deja encoger y empuja al
+                chevrón fuera de la barra en vez de recortarse.
+              -->
+              <template v-if="!colapsado">
+                <span class="min-w-0 flex-1 text-left">
+                  <span class="text-highlighted block truncate text-sm font-medium">
+                    {{ me?.fullName }}
+                  </span>
+                  <span class="text-dimmed block truncate text-xs font-normal">
+                    {{ roleLabels }}
+                  </span>
+                </span>
+                <UIcon name="i-lucide-chevrons-up-down" class="text-dimmed size-3.5 shrink-0" />
+              </template>
+            </UButton>
           </UDropdownMenu>
 
-          <!-- Solo en pantalla grande: en móvil la barra ya se abre y cierra entera. -->
+          <!--
+            Lo único que queda fuera del menú, porque no es de la cuenta sino de
+            la barra. Solo en pantalla grande: en móvil la barra ya se abre y
+            cierra entera.
+          -->
           <UButton
             :icon="colapsado ? 'i-lucide-panel-left-open' : 'i-lucide-panel-left-close'"
             square
@@ -268,14 +367,6 @@ async function signOut(): Promise<void> {
             :aria-label="colapsado ? 'Desplegar el menú' : 'Retraer el menú'"
             :title="colapsado ? 'Desplegar el menú' : 'Retraer el menú'"
             @click="colapsado = !colapsado"
-          />
-
-          <UButton
-            icon="i-lucide-log-out"
-            square
-            size="sm"
-            aria-label="Salir"
-            @click="confirmingSignOut = true"
           />
         </div>
       </div>
@@ -322,15 +413,25 @@ async function signOut(): Promise<void> {
 
       <main class="flex-1 px-4 py-6 lg:px-6">
         <!--
-          Aviso, no bloqueo: hoy no existe ruta para cambiar la contraseña y
-          todos los usuarios vienen con la marca puesta.
+          Aviso, no bloqueo: todos los usuarios vienen con la marca puesta, y
+          plantarle un formulario a cada uno antes de dejarle trabajar sería
+          convertir un aviso en un peaje. Lo que sí cambió es que ahora el aviso
+          lleva a algún lado, en vez de señalar una pantalla que no existía.
         -->
         <UAlert
           v-if="hasProvisionalPassword"
           icon="i-lucide-triangle-alert"
           color="warning"
           title="Tu contraseña es provisional"
-          description="Cámbiala en cuanto la pantalla exista. Puedes seguir trabajando."
+          description="Cámbiala cuando puedas. Puedes seguir trabajando."
+          :actions="[
+            {
+              label: 'Cambiar contraseña',
+              icon: 'i-lucide-key-round',
+              color: 'warning',
+              onClick: () => (changingPassword = true),
+            },
+          ]"
           class="mb-6"
         />
 
@@ -346,5 +447,7 @@ async function signOut(): Promise<void> {
       confirm-icon="i-lucide-log-out"
       :action="signOut"
     />
+
+    <ChangePasswordDialog v-model:open="changingPassword" @changed="onPasswordChanged" />
   </div>
 </template>

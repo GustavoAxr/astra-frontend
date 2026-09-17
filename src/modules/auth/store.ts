@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import { ApiError, SessionLostError } from '@/shared/api/errors'
 import { killSession, markSessionStarted, onSessionLost } from '@/shared/api/session'
 import { authApi } from './api'
-import type { AuthUser, LoginDto, Me, Role } from './types'
+import type { AuthUser, ChangePasswordDto, LoginDto, Me, Role } from './types'
 import { canDo, type Action } from './permissions'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -33,9 +33,13 @@ export const useAuthStore = defineStore('auth', () => {
   const showsLegalEntityPicker = computed(() => (me.value?.legalEntities ?? 0) > 1)
 
   /**
-   * Aviso, **no bloqueo**. Hoy no hay ruta para cambiar la contraseña y todos
-   * los usuarios sembrados traen `true`: tratarlo como bloqueo dejaría fuera a
-   * todo el mundo. Cuando exista la ruta, esto se convierte en bloqueo.
+   * Aviso, **no bloqueo**, y sigue siéndolo aunque la ruta ya exista.
+   *
+   * Todos los usuarios sembrados traen `true`, así que convertirlo en bloqueo
+   * pondría a todo el mundo delante de un formulario antes de dejarle trabajar.
+   * Lo que cambió es que el aviso ya lleva a algún sitio: antes señalaba una
+   * pantalla que no existía, que es la forma más rápida de que un aviso se
+   * vuelva invisible.
    */
   const hasProvisionalPassword = computed(() => user.value?.mustChangePassword === true)
 
@@ -81,6 +85,25 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * Cambiar la propia contraseña, que TERMINA LA SESIÓN.
+   *
+   * El servidor revoca todas las sesiones del usuario —la que pide el cambio
+   * incluida— y borra las cookies. Aquí se hace lo mismo del lado del navegador
+   * en vez de esperar a que la siguiente llamada devuelva 401: si no, la
+   * aplicación se queda unos segundos pintada con datos de una sesión que ya no
+   * existe, y el primer clic cae en un error en vez de en la pantalla de entrar.
+   *
+   * Devuelve cuántas sesiones se cerraron, porque quien lo hizo desde un sitio
+   * merece enterarse de que también se cerró la de su teléfono.
+   */
+  async function changePassword(dto: ChangePasswordDto): Promise<number> {
+    const { sesionesCerradas } = await authApi.changePassword(dto)
+    killSession()
+    clear()
+    return sesionesCerradas
+  }
+
+  /**
    * Arranque: `/auth/me` una sola vez aunque lo pidan cuatro guards a la vez.
    * Un 401 aquí significa «no hay sesión», que es una respuesta válida y no un
    * error que haya que enseñar.
@@ -122,6 +145,7 @@ export const useAuthStore = defineStore('auth', () => {
     hasProvisionalPassword,
     login,
     logout,
+    changePassword,
     ensureLoaded,
     clear,
   }

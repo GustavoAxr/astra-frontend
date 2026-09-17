@@ -32,8 +32,9 @@ export interface AuthUser {
   email: string
   fullName: string
   /**
-   * Contraseña provisional. Hoy **no bloquea**: no existe ruta para cambiarla,
-   * y todos los usuarios sembrados vienen con `true`. Se pinta como aviso.
+   * Contraseña provisional. Avisa, **no bloquea**: todos los usuarios sembrados
+   * vienen con `true`, así que tratarlo como bloqueo dejaría fuera a todo el
+   * mundo. El aviso ahora sí lleva a algún sitio — `POST /auth/change-password`.
    */
   mustChangePassword: boolean
   roles: Role[]
@@ -83,4 +84,26 @@ export interface Me {
 export interface LoginDto {
   email: string
   password: string
+}
+
+/**
+ * El cuerpo de `POST /auth/change-password`. Los nombres son los del DTO del
+ * servidor —en español— y no se traducen: con `forbidNonWhitelisted` activo, un
+ * `current`/`next` sería un 400 y no un campo ignorado.
+ */
+export interface ChangePasswordDto {
+  actual: string
+  nueva: string
+}
+
+/**
+ * Lo que devuelve el cambio. `sesionesCerradas` las cuenta TODAS, incluida la
+ * que pidió el cambio: el servidor revoca la familia entera a propósito —el
+ * motivo normal para cambiar una contraseña es sospechar que alguien entró, y
+ * dejar una sesión viva desperdiciaría el cambio—. Después de esto hay que
+ * volver a entrar, y la interfaz tiene que contarlo antes de que pase.
+ */
+export interface ChangePasswordResult {
+  sesionesCerradas: number
+  mensaje: string
 }
