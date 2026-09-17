@@ -123,3 +123,24 @@ export interface SyncOutcome {
   /** Por dónde va la lectura, en palabras del propio equipo. */
   watermarkLabel: string | null
 }
+
+/**
+ * Lo que devuelve `POST /devices/:id/recuperar-historico`.
+ *
+ * NO trae checadas, y eso es lo que hay que entender de esta pantalla: trae la
+ * confirmación de que la orden quedó puesta. Las checadas aparecen minuto a
+ * minuto, a medida que el agente recorre el rango.
+ */
+export interface RecuperacionPedida {
+  pedida: true
+  /** El día que quedó guardado, ya validado por el servidor. */
+  desde: string
+  /**
+   * Checadas de este equipo que siguen en la bandeja sin dueño.
+   *
+   * Esta recuperación **no las rescata**: vincular a alguien solo las marca
+   * resueltas, no las mete en su expediente. Hay que conciliar primero y
+   * recuperar después, y por eso el número se pinta.
+   */
+  sinDuenoPendientes: number
+}

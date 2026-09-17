@@ -1,5 +1,11 @@
 import { http } from '@/shared/api/http'
-import type { Device, DiscoveryResult, EnrollDeviceForm, SyncOutcome } from './types'
+import type {
+  Device,
+  DiscoveryResult,
+  EnrollDeviceForm,
+  RecuperacionPedida,
+  SyncOutcome,
+} from './types'
 
 export const devicesApi = {
   /** Arreglo plano. El único filtro que acepta el servidor es la instalación. */
@@ -68,6 +74,23 @@ export const devicesApi = {
       // Campo por campo: `forbidNonWhitelisted` está activo y uno de más da 400.
       ...(input.desde === undefined ? {} : { desde: input.desde }),
     }),
+
+  /**
+   * RECUPERAR EL HISTÓRICO POR EL AGENTE, que es la única vía que funciona
+   * desde producción.
+   *
+   * `sync` de arriba abre la conexión al reloj DESDE EL SERVIDOR, y el servidor
+   * está en otro país: `192.168.1.66` no existe para él. Sirve en desarrollo,
+   * cuando la API y el equipo comparten red, y nada más — es el mismo motivo
+   * por el que se quitó `check` (ver el comentario de arriba).
+   *
+   * Esto encola una orden y vuelve en el acto. No devuelve checadas: devuelve
+   * que la orden quedó puesta. El agente mueve su marca de agua a `desde` y su
+   * ciclo normal recorre el rango en los minutos siguientes. Releer no duplica
+   * nada — la clave de cada checada es determinista—.
+   */
+  recuperarHistorico: (deviceId: string, desde: string) =>
+    http.post<RecuperacionPedida>(`/devices/${deviceId}/recuperar-historico`, { desde }),
 }
 
 /**

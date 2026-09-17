@@ -4,7 +4,16 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAsync } from '@/shared/composables/useAsync'
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
 import ReportExportMenu from '@/modules/reports/components/ReportExportMenu.vue'
-import { quincenaAnterior, quincenaDe, todayLocal } from '@/shared/date'
+import {
+  mesDe,
+  mesEnPalabras,
+  moverMes,
+  quincenaAnterior,
+  quincenaDe,
+  rangoDelMes,
+  todayLocal,
+  type Rango,
+} from '@/shared/date'
 import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
 import { useAuthStore } from '@/modules/auth/store'
 import { orgApi } from '@/modules/org/api'
@@ -85,50 +94,137 @@ const exceptionTypes = useAsync((signal) => employeesApi.exceptionTypes(signal))
 const departments = useAsync((signal) => employeesApi.departments(signal))
 const positions = useAsync((signal) => orgApi.positions(undefined, signal))
 /**
- * El periodo que se está mirando. Se guarda el nombre, no las fechas: «este
- * mes» tiene que seguir significando este mes mañana, no el rango que se
- * calculó al abrir la pantalla.
+ * QUÉ PERIODO SE ESTÁ MIRANDO.
+ *
+ * Son dos cosas separadas, igual que en la pantalla de Asistencia: el MES sobre
+ * el que uno se para —y por el que navegan las flechas— y el CORTE dentro de
+ * ese mes. Se guarda el mes en `YYYY-MM` y no sus dos fechas porque «agosto»
+ * sigue siendo agosto se mire cuando se mire; el rango se deriva.
+ *
+ * ── POR QUÉ HIZO FALTA ──
+ * Antes solo existía el corte, y siempre contra HOY: los cinco periodos salían
+ * de días naturales hacia atrás desde el día en curso, así que el expediente no
+ * alcanzaba más allá del mes corriente. Con checadas desde agosto y estando en
+ * septiembre, agosto ya no se podía mirar entero — y el expediente es justo
+ * donde alguien discute una falta de hace dos meses.
+ *
+ * `libre` es la salida para el corte que no es un mes ni una quincena: los
+ * catorce días de un finiquito, o un tramo que cruza dos meses.
  */
-type Periodo = 'dia' | 'semana' | 'mes' | 'quincena' | 'quincena-anterior'
+type Periodo =
+  'dia' | 'semana' | 'quincena' | 'quincena-anterior' | 'mes' | 'primera' | 'segunda' | 'libre'
 
+const mesActual = mesDe(todayLocal())
+const mes = ref(mesActual)
 const periodo = ref<Periodo>('semana')
+const esMesActual = computed(() => mes.value === mesActual)
 
-const PERIODOS = [
+/** El rango libre. Arranca en el mes que se esté mirando, no en blanco. */
+const libreDesde = ref(rangoDelMes(mesActual, 'mes').from)
+const libreHasta = ref(todayLocal())
+
+/*
+ * LAS OPCIONES CAMBIAN SEGÚN EL MES. «Hoy», «esta semana» y «la quincena en
+ * curso» solo significan algo en el mes en el que estamos: ofrecer «hoy»
+ * estando parado en julio sería ofrecer un día que no está en la pantalla. En
+ * un mes pasado lo que hay son cortes de calendario.
+ *
+ * El rango libre está en las dos listas: no depende del mes, y es lo que
+ * permite un tramo que los cruza.
+ */
+const PERIODOS_DEL_MES_EN_CURSO = [
   { label: 'Hoy', value: 'dia' },
-  { label: 'Semana', value: 'semana' },
-  { label: 'Quincena', value: 'quincena' },
+  { label: 'Últimos 7 días', value: 'semana' },
+  { label: 'Quincena en curso', value: 'quincena' },
   { label: 'Quincena anterior', value: 'quincena-anterior' },
-  { label: 'Mes', value: 'mes' },
+  { label: 'Mes completo', value: 'mes' },
+  { label: 'Rango libre', value: 'libre' },
 ]
+
+const PERIODOS_DE_UN_MES_PASADO = [
+  { label: 'Mes completo', value: 'mes' },
+  { label: '1.ª quincena', value: 'primera' },
+  { label: '2.ª quincena', value: 'segunda' },
+  { label: 'Rango libre', value: 'libre' },
+]
+
+const periodos = computed(() =>
+  esMesActual.value ? PERIODOS_DEL_MES_EN_CURSO : PERIODOS_DE_UN_MES_PASADO,
+)
+
+/**
+ * NUNCA SE PIDEN DÍAS QUE NO HAN OCURRIDO.
+ *
+ * Un día con turno y sin checadas es una FALTA para el motor, y mañana todavía
+ * no hay checadas de nadie: pedir «el mes completo» un día 29 devolvería dos
+ * faltas de los días 30 y 31, que es acusar a alguien de algo que no ha pasado.
+ */
+const hastaHoy = (r: Rango): Rango => {
+  const hoy = todayLocal()
+  return r.to > hoy ? { from: r.from, to: hoy } : r
+}
 
 /**
  * Dos formas distintas de acotar, y la diferencia importa.
  *
- * «Hoy», «semana» y «mes» son días naturales hacia atrás: responden a «cómo ha
+ * «Hoy» y «últimos 7 días» son días naturales hacia atrás: responden a «cómo ha
  * ido últimamente». Las QUINCENAS son cortes de calendario —del 1 al 15 y del
  * 16 a fin de mes— porque son los que se cierran en nómina, y ahí el rango
  * tiene que coincidir exactamente con el periodo que se paga.
  *
  * La segunda quincena termina el último día del mes sea cual sea: 28, 29, 30
- * o 31. Eso lo resuelve `quincenaDe`, que se lo pregunta al calendario.
+ * o 31. Eso lo resuelve el calendario, no una cuenta a mano.
  */
-const rango = computed(() => {
+const rango = computed<Rango>(() => {
   const hoy = todayLocal()
 
-  if (periodo.value === 'quincena') return quincenaDe(hoy)
-  if (periodo.value === 'quincena-anterior') return quincenaAnterior(hoy)
+  if (periodo.value === 'libre') {
+    // Al revés se pediría un rango vacío y la pantalla diría «no hay días»
+    // cuando lo que hay es un par de campos cruzados.
+    return libreDesde.value <= libreHasta.value
+      ? { from: libreDesde.value, to: libreHasta.value }
+      : { from: libreHasta.value, to: libreDesde.value }
+  }
 
-  const atras = periodo.value === 'dia' ? 0 : periodo.value === 'semana' ? 6 : 29
+  if (periodo.value === 'quincena') return hastaHoy(quincenaDe(hoy))
+  if (periodo.value === 'quincena-anterior') return quincenaAnterior(hoy)
+  if (periodo.value === 'primera') return hastaHoy(rangoDelMes(mes.value, 'primera'))
+  if (periodo.value === 'segunda') return hastaHoy(rangoDelMes(mes.value, 'segunda'))
+  if (periodo.value === 'mes') return hastaHoy(rangoDelMes(mes.value, 'mes'))
+
+  // «Hoy» y «últimos 7 días» solo existen en el mes en curso.
+  const atras = periodo.value === 'dia' ? 0 : 6
   const desde = new Date(Date.parse(`${hoy}T00:00:00Z`) - atras * 86_400_000)
     .toISOString()
     .slice(0, 10)
   return { from: desde, to: hoy }
 })
 
+/**
+ * Al cambiar de mes, el corte elegido puede dejar de existir —«hoy» no está en
+ * julio— y entonces se cae al mes completo, que siempre aplica.
+ *
+ * Y el rango libre se muda al mes nuevo: dejarlo donde estaba haría que las
+ * flechas no cambiaran nada, que es la peor clase de control — uno que se
+ * pulsa, se mueve y no hace nada.
+ */
+function irAlMes(destino: string): void {
+  if (destino > mesActual) return
+  mes.value = destino
+
+  if (!periodos.value.some((p) => p.value === periodo.value)) periodo.value = 'mes'
+
+  const delMes = hastaHoy(rangoDelMes(destino, 'mes'))
+  libreDesde.value = delMes.from
+  libreHasta.value = delMes.to
+}
+
 /** Cómo se pidió el periodo. Solo se imprime en el expediente exportado. */
-const etiquetaDelPeriodo = computed(
-  () => PERIODOS.find((p) => p.value === periodo.value)?.label ?? 'Rango libre',
-)
+const etiquetaDelPeriodo = computed(() => {
+  if (periodo.value === 'libre') return `Del ${rango.value.from} al ${rango.value.to}`
+  const nombre = periodos.value.find((p) => p.value === periodo.value)?.label ?? 'Mes completo'
+  return esMesActual.value ? nombre : `${nombre} · ${mesEnPalabras(mes.value)}`
+})
 
 const attendance = useAsync((signal) => attendanceApi.derived(id.value, rango.value, signal))
 
@@ -176,7 +272,14 @@ function hhmm(minutos: number): string {
   return m === 0 ? `${h} h` : `${h} h ${m} min`
 }
 
-watch(periodo, () => void attendance.run())
+/*
+ * SE OBSERVA EL RANGO, NO EL CORTE.
+ *
+ * Ahora el rango depende del mes y de los dos campos del rango libre, no solo
+ * del corte. Vigilando `periodo` a secas, pulsar una flecha dejaba la pantalla
+ * con los datos del mes anterior y sin nada que avisara.
+ */
+watch(rango, () => void attendance.run())
 
 const editOpen = ref(false)
 const assignOpen = ref(false)
@@ -1305,16 +1408,65 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
         <div class="flex flex-wrap items-center gap-2">
           <h2 class="font-medium">Asistencia</h2>
           <!--
-            Días naturales hacia atrás, no semana ni mes del calendario: lo que
-            se quiere ver es «cómo ha ido últimamente», no un corte contable.
+            EL MES SOBRE EL QUE UNO SE PARA. Las flechas son la navegación:
+            antes el expediente solo alcanzaba el mes en curso, porque los cinco
+            periodos se contaban hacia atrás desde hoy. La de avanzar se apaga
+            en el mes actual —el futuro no tiene checadas— en vez de esconderse,
+            para que se vea que ahí termina el recorrido.
+
+            Mismo control, mismas palabras y mismo ancho que en Asistencia: es
+            la misma pregunta hecha en dos pantallas, y quien la aprende en una
+            no debería tener que volver a aprenderla.
           -->
-          <USelectMenu v-model="periodo" :items="PERIODOS" value-key="value" class="w-32" />
+          <div class="border-default flex items-center gap-0.5 border">
+            <UButton
+              icon="i-lucide-chevron-left"
+              square
+              size="sm"
+              aria-label="Mes anterior"
+              @click="irAlMes(moverMes(mes, -1))"
+            />
+            <span class="text-highlighted w-36 text-center text-sm font-medium capitalize">
+              {{ mesEnPalabras(mes) }}
+            </span>
+            <UButton
+              icon="i-lucide-chevron-right"
+              square
+              size="sm"
+              aria-label="Mes siguiente"
+              :disabled="esMesActual"
+              @click="irAlMes(moverMes(mes, 1))"
+            />
+          </div>
+
+          <USelectMenu v-model="periodo" :items="periodos" value-key="value" class="w-48" />
+
+          <!--
+            Los dos campos solo cuando hacen falta. Tenerlos siempre a la vista
+            haría creer que mandan ellos, y casi nunca mandan: el corte normal
+            es un mes o una quincena.
+          -->
+          <template v-if="periodo === 'libre'">
+            <UInput v-model="libreDesde" type="date" :max="todayLocal()" class="w-36" />
+            <UInput v-model="libreHasta" type="date" :max="todayLocal()" class="w-36" />
+          </template>
+
           <span v-if="attendance.data.value" class="text-dimmed text-xs">
             {{ diaCorto(attendance.data.value.from) }} →
             {{ diaCorto(attendance.data.value.to) }}
           </span>
+          <!--
+            SE LLEVA EL PERIODO. Sin las fechas, el enlace abría Marcajes en su
+            propio rango y había que volver a acotarlo a mano para mirar el mes
+            que se estaba mirando aquí. La tabla de arriba dice «5 marcajes» de
+            un día; esto es donde se ven los cinco, uno por uno, con su hora, su
+            método de verificación y su equipo.
+          -->
           <UButton
-            :to="{ name: 'punches', query: { employeeId: person.id } }"
+            :to="{
+              name: 'punches',
+              query: { employeeId: person.id, from: rango.from, to: rango.to },
+            }"
             label="Ver los marcajes"
             size="xs"
             class="ml-auto"
