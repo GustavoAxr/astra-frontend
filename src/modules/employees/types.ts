@@ -344,9 +344,25 @@ export interface EmployeeException {
   startTime: string | null
   endTime: string | null
   documentRef: string | null
-  approvedBy: string | null
-  approvedAt: string | null
   createdAt: string
+  /*
+   * `approvedBy` y `approvedAt` VIENEN en la respuesta y no se modelan a
+   * propósito: las columnas existen en la tabla desde el primer día y NADA las
+   * escribe —no hay ruta, no hay botón— y el motor de asistencia aplica la
+   * justificación igual. Pintarlas solo producía un «Sin aprobar» eterno que
+   * invitaba a buscar un trámite inexistente. En su lugar, el alta avisa por
+   * correo al jefe de la razón social.
+   */
+}
+
+/**
+ * Lo que devuelve el alta. `avisados` es cuántos correos salieron hacia la
+ * dirección de la razón social: `0` es legítimo —nadie con el rol
+ * `ADMIN_EMPRESA`— y nunca impide el registro, así que se dice en vez de
+ * prometer un aviso que quizá no tuvo destinatario.
+ */
+export interface EmployeeExceptionCreated extends EmployeeException {
+  avisados: number
 }
 
 export interface UpdateEmployeeForm {

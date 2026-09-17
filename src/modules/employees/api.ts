@@ -13,6 +13,7 @@ import type {
   Employee,
   EmployeeDetail,
   EmployeeException,
+  EmployeeExceptionCreated,
   EmployeeQuery,
   EmploymentEvent,
   ExceptionType,
@@ -153,7 +154,7 @@ export const employeesApi = {
     endDate: string
     documentRef?: string
   }) =>
-    http.post<EmployeeException>('/employee-exceptions', {
+    http.post<EmployeeExceptionCreated>('/employee-exceptions', {
       employeeId: input.employeeId,
       exceptionTypeId: input.exceptionTypeId,
       startDate: input.startDate,
