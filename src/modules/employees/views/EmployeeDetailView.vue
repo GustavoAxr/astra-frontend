@@ -354,9 +354,23 @@ const incidencias = computed(() =>
  * SE ABRE EN EL HISTORIAL, no en el alta: entrar a un expediente es casi
  * siempre venir a MIRAR, y quien viene a capturar sabe lo que busca.
  *
- * `unmountOnHide` en falso a propósito: cambiar de pestaña para comprobar una
- * fecha y volver no puede borrar lo que ya se escribió en el formulario.
+ * ══ POR QUÉ LOS RÓTULOS VAN EN LA CABECERA Y EL PANEL ABAJO ══
+ *
+ * `UTabs` pinta las dos cosas juntas, y juntas se comían una franja entera del
+ * cuerpo: el título arriba, los rótulos debajo, y el contenido empezando en el
+ * tercer renglón. Los rótulos son un mando, no contenido, y su sitio es la
+ * esquina de la tarjeta, enfrente del título.
+ *
+ * Así que el componente se queda con la LISTA —`:content="false"`— y los dos
+ * paneles se pintan a mano en el cuerpo, gobernados por el mismo `v-model`.
+ *
+ * Y con `v-show`, no con `v-if`, por lo mismo que antes llevaba
+ * `unmountOnHide` en falso: cambiar de pestaña para comprobar una fecha y
+ * volver no puede borrar lo que ya se escribió en el formulario.
  */
+const pestañaDeVidaLaboral = ref('historial')
+const pestañaDeIncidencias = ref('historial')
+
 const pestañasDeVidaLaboral = computed<TabsItem[]>(() => [
   {
     value: 'historial',
@@ -975,291 +989,313 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
       <!-- Vida laboral -->
       <UCard>
         <template #header>
-          <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 class="font-medium">Vida laboral</h2>
-            <!--
+          <!--
+            `flex-nowrap` y el título con `min-w-0`: en dos columnas la cabecera
+            no da para título, resumen y pestañas en un renglón, y con `wrap` las
+            que se caían al segundo eran las pestañas — que es justo lo que no
+            puede pasar, porque su sitio es la esquina. Ahora lo que se parte es
+            el resumen, que se lee igual de bien en dos líneas.
+          -->
+          <div class="flex flex-nowrap items-start justify-between gap-x-4">
+            <div class="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2 class="font-medium">Vida laboral</h2>
+              <!--
               La antigüedad es lo que se pregunta de esta tarjeta —para
               vacaciones, para finiquito, para una prima— y hasta ahora había
               que restarla mentalmente contra la fecha del alta.
             -->
-            <span v-if="vidaLaboral.antiguedadEnDias !== null" class="text-muted text-sm">
-              {{ antiguedadEnPalabras(vidaLaboral.antiguedadEnDias) }} de antigüedad
-              <span class="text-dimmed text-xs">
-                · desde el {{ diaCorto(vidaLaboral.altaVigente!) }}
+              <span v-if="vidaLaboral.antiguedadEnDias !== null" class="text-muted text-sm">
+                {{ antiguedadEnPalabras(vidaLaboral.antiguedadEnDias) }} de antigüedad
+                <span class="text-dimmed text-xs">
+                  · desde el {{ diaCorto(vidaLaboral.altaVigente!) }}
+                </span>
               </span>
-            </span>
-            <span v-else-if="vidaLaboral.bajaVigente" class="text-error text-sm">
-              De baja desde el {{ diaCorto(vidaLaboral.bajaVigente) }}
-            </span>
+              <span v-else-if="vidaLaboral.bajaVigente" class="text-error text-sm">
+                De baja desde el {{ diaCorto(vidaLaboral.bajaVigente) }}
+              </span>
+            </div>
+
+            <!--
+              Solo la LISTA de pestañas: el panel se pinta abajo. El `-my-1`
+              recupera el alto que el rótulo añade a la cabecera, para que la
+              tarjeta no crezca por llevar el mando aquí.
+            -->
+            <UTabs
+              v-model="pestañaDeVidaLaboral"
+              :items="pestañasDeVidaLaboral"
+              :content="false"
+              size="sm"
+              :ui="{ list: 'w-auto shrink-0 flex-nowrap border-b-0 -my-1' }"
+              class="w-auto shrink-0"
+            />
           </div>
         </template>
 
-        <UTabs :items="pestañasDeVidaLaboral" :unmount-on-hide="false">
-          <template #historial>
-            <!--
+        <div v-show="pestañaDeVidaLaboral === 'historial'">
+          <!--
               Una línea de tiempo, no una lista: los movimientos de una persona
               son una secuencia, y el hilo con sus puntos deja ver de un vistazo
               cuántas veces entró y salió. Se pinta de lo más reciente a lo más
               antiguo, que es como llega y como se lee.
             -->
-            <ol v-if="(events.data.value ?? []).length > 0" class="space-y-0 pt-2">
-              <li
-                v-for="(e, i) in events.data.value ?? []"
-                :key="e.id"
-                class="relative flex gap-3 pb-4 pl-1"
-              >
-                <!-- El hilo no se dibuja bajo el último punto: quedaría colgando. -->
-                <span
-                  v-if="i < (events.data.value ?? []).length - 1"
-                  class="bg-accented absolute top-3 bottom-0 left-[7px] w-px"
-                  aria-hidden="true"
-                />
-                <span
-                  class="mt-1.5 size-[15px] shrink-0 ring-4"
-                  :class="[COLOR_DE_EVENTO[e.eventType] ?? 'bg-muted', 'ring-default']"
-                  aria-hidden="true"
-                />
+          <ol v-if="(events.data.value ?? []).length > 0" class="space-y-0">
+            <li
+              v-for="(e, i) in events.data.value ?? []"
+              :key="e.id"
+              class="relative flex gap-3 pb-4 pl-1"
+            >
+              <!-- El hilo no se dibuja bajo el último punto: quedaría colgando. -->
+              <span
+                v-if="i < (events.data.value ?? []).length - 1"
+                class="bg-accented absolute top-3 bottom-0 left-[7px] w-px"
+                aria-hidden="true"
+              />
+              <span
+                class="mt-1.5 size-[15px] shrink-0 ring-4"
+                :class="[COLOR_DE_EVENTO[e.eventType] ?? 'bg-muted', 'ring-default']"
+                aria-hidden="true"
+              />
 
-                <div class="min-w-0 flex-1">
-                  <div class="flex flex-wrap items-baseline gap-x-2">
-                    <span class="text-highlighted text-sm font-medium">
-                      {{
-                        EMPLOYMENT_EVENT_LABEL[e.eventType as EmploymentEventType] ?? e.eventType
-                      }}
-                    </span>
-                    <span class="text-muted text-xs capitalize">
-                      {{ diaCorto(e.effectiveDate) }} de {{ e.effectiveDate.slice(0, 4) }}
-                    </span>
-                  </div>
-                  <p v-if="e.notes" class="text-muted mt-0.5 text-sm">{{ e.notes }}</p>
-                  <!--
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-baseline gap-x-2">
+                  <span class="text-highlighted text-sm font-medium">
+                    {{ EMPLOYMENT_EVENT_LABEL[e.eventType as EmploymentEventType] ?? e.eventType }}
+                  </span>
+                  <span class="text-muted text-xs capitalize">
+                    {{ diaCorto(e.effectiveDate) }} de {{ e.effectiveDate.slice(0, 4) }}
+                  </span>
+                </div>
+                <p v-if="e.notes" class="text-muted mt-0.5 text-sm">{{ e.notes }}</p>
+                <!--
                 Lo que no cuadra se dice EN la fila que lo provoca, no en un
                 aviso suelto arriba: así se sabe cuál de los cinco movimientos
                 hay que revisar.
               -->
-                  <p
-                    v-if="avisosPorEvento.get(e.id)"
-                    class="text-warning mt-1 flex items-start gap-1 text-xs"
-                  >
-                    <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0" />
-                    {{ avisosPorEvento.get(e.id) }}
-                  </p>
-                </div>
-              </li>
-            </ol>
-            <p v-else class="text-dimmed py-2 text-sm">
-              Sin movimientos registrados. Ni siquiera el alta: conviene capturarla, porque de ella
-              sale la antigüedad.
-            </p>
-          </template>
+                <p
+                  v-if="avisosPorEvento.get(e.id)"
+                  class="text-warning mt-1 flex items-start gap-1 text-xs"
+                >
+                  <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0" />
+                  {{ avisosPorEvento.get(e.id) }}
+                </p>
+              </div>
+            </li>
+          </ol>
+          <p v-else class="text-dimmed text-sm">
+            Sin movimientos registrados. Ni siquiera el alta: conviene capturarla, porque de ella
+            sale la antigüedad.
+          </p>
+        </div>
 
-          <!--
+        <!--
             Los campos con su rótulo y en rejilla, no en una hilera que se parte
             por donde alcance: con tres controles seguidos, el ancho de la
             pantalla decidía cuáles quedaban juntos y cuál caía solo con el
             botón al lado. Y una fecha sin rótulo encima solo dice «yyyy-mm-dd».
           -->
-          <template #registrar>
-            <form class="space-y-4 pt-2" @submit.prevent="addEvent">
-              <div class="grid gap-3 sm:grid-cols-2">
-                <UFormField label="Movimiento">
-                  <USelectMenu
-                    v-model="eventType"
-                    :items="eventItems"
-                    value-key="value"
-                    class="w-full"
-                  />
-                </UFormField>
-                <UFormField label="Fecha en que surte efecto">
-                  <UInput v-model="eventDate" type="date" class="w-full" />
-                </UFormField>
-                <UFormField label="Nota" hint="Opcional" class="sm:col-span-2">
-                  <UInput
-                    v-model="eventNotes"
-                    placeholder="Por qué, si hace falta"
-                    class="w-full"
-                  />
-                </UFormField>
-              </div>
-
-              <div class="flex justify-end">
-                <UButton
-                  type="submit"
-                  icon="i-lucide-plus"
-                  label="Registrar movimiento"
-                  :loading="savingEvent"
+        <div v-show="pestañaDeVidaLaboral === 'registrar'">
+          <form class="space-y-4" @submit.prevent="addEvent">
+            <div class="grid gap-3 sm:grid-cols-2">
+              <UFormField label="Movimiento">
+                <USelectMenu
+                  v-model="eventType"
+                  :items="eventItems"
+                  value-key="value"
+                  class="w-full"
                 />
-              </div>
-            </form>
-          </template>
-        </UTabs>
+              </UFormField>
+              <UFormField label="Fecha en que surte efecto">
+                <UInput v-model="eventDate" type="date" class="w-full" />
+              </UFormField>
+              <UFormField label="Nota" hint="Opcional" class="sm:col-span-2">
+                <UInput v-model="eventNotes" placeholder="Por qué, si hace falta" class="w-full" />
+              </UFormField>
+            </div>
+
+            <div class="flex justify-end">
+              <UButton
+                type="submit"
+                icon="i-lucide-plus"
+                label="Registrar movimiento"
+                :loading="savingEvent"
+              />
+            </div>
+          </form>
+        </div>
       </UCard>
 
       <!-- Vacaciones y permisos -->
       <UCard>
         <template #header>
-          <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 class="font-medium">Vacaciones y permisos</h2>
-            <!--
-              Cuánto lleva tomado este año, por tipo. Es lo que se viene a
-              buscar —«¿cuántos días de vacaciones le quedan?»— y antes había
-              que sumarlo a mano leyendo los rangos uno por uno.
-            -->
-            <span v-if="saldoDelAño.length > 0" class="text-muted text-sm">
-              <template v-for="(t, i) in saldoDelAño" :key="t.nombre">
-                <span v-if="i > 0" class="text-dimmed"> · </span>
-                {{ t.dias }} {{ t.dias === 1 ? 'día' : 'días' }} de
-                {{ t.nombre.toLowerCase() }}
-              </template>
-              <span class="text-dimmed text-xs"> en {{ añoEnCurso }}</span>
-            </span>
+          <div class="flex flex-nowrap items-start justify-between gap-x-4">
+            <div class="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2 class="font-medium">Vacaciones y permisos</h2>
+              <!--
+                Cuánto lleva tomado este año, por tipo. Es lo que se viene a
+                buscar —«¿cuántos días de vacaciones le quedan?»— y antes había
+                que sumarlo a mano leyendo los rangos uno por uno.
+              -->
+              <span v-if="saldoDelAño.length > 0" class="text-muted text-sm">
+                <template v-for="(t, i) in saldoDelAño" :key="t.nombre">
+                  <span v-if="i > 0" class="text-dimmed"> · </span>
+                  {{ t.dias }} {{ t.dias === 1 ? 'día' : 'días' }} de
+                  {{ t.nombre.toLowerCase() }}
+                </template>
+                <span class="text-dimmed text-xs"> en {{ añoEnCurso }}</span>
+              </span>
+            </div>
+
+            <UTabs
+              v-model="pestañaDeIncidencias"
+              :items="pestañasDeIncidencias"
+              :content="false"
+              size="sm"
+              :ui="{ list: 'w-auto shrink-0 flex-nowrap border-b-0 -my-1' }"
+              class="w-auto shrink-0"
+            />
           </div>
         </template>
 
-        <UTabs :items="pestañasDeIncidencias" :unmount-on-hide="false">
-          <template #historial>
-            <ul v-if="incidencias.length > 0" class="space-y-2 pt-2">
-              <!--
+        <div v-show="pestañaDeIncidencias === 'historial'">
+          <ul v-if="incidencias.length > 0" class="space-y-2">
+            <!--
                 Todas las filas con el MISMO borde. La que está en curso se
                 distinguía además con un borde azul, y eso la convertía en la
                 única fila perfilada de la pantalla: un recuadro de color que
                 pesaba más que lo que decía. Ya lleva su etiqueta «En curso», que
                 es donde se mira.
               -->
-              <li
-                v-for="x in incidencias"
-                :key="x.id"
-                class="border-default bg-(--astra-superficie) border px-3 py-2"
-              >
-                <div class="flex flex-wrap items-center gap-2">
-                  <UBadge
-                    :label="ESTADO_DE_INCIDENCIA[x.estado]?.label ?? x.estado"
-                    :color="ESTADO_DE_INCIDENCIA[x.estado]?.color ?? 'neutral'"
-                    size="sm"
-                  />
-                  <span class="text-highlighted text-sm font-medium">{{ x.exceptionName }}</span>
-                  <UBadge
-                    :label="x.isPaid ? 'Con goce' : 'Sin goce'"
-                    :color="x.isPaid ? 'success' : 'neutral'"
-                    size="sm"
-                  />
+            <li
+              v-for="x in incidencias"
+              :key="x.id"
+              class="border-default bg-(--astra-superficie) border px-3 py-2"
+            >
+              <div class="flex flex-wrap items-center gap-2">
+                <UBadge
+                  :label="ESTADO_DE_INCIDENCIA[x.estado]?.label ?? x.estado"
+                  :color="ESTADO_DE_INCIDENCIA[x.estado]?.color ?? 'neutral'"
+                  size="sm"
+                />
+                <span class="text-highlighted text-sm font-medium">{{ x.exceptionName }}</span>
+                <UBadge
+                  :label="x.isPaid ? 'Con goce' : 'Sin goce'"
+                  :color="x.isPaid ? 'success' : 'neutral'"
+                  size="sm"
+                />
 
-                  <UButton
-                    v-if="canWrite"
-                    icon="i-lucide-x"
-                    size="xs"
-                    class="ml-auto"
-                    :aria-label="`Cancelar ${x.exceptionName}`"
-                    @click="askRemoveException(x.id, x.exceptionName)"
-                  />
-                </div>
+                <UButton
+                  v-if="canWrite"
+                  icon="i-lucide-x"
+                  size="xs"
+                  class="ml-auto"
+                  :aria-label="`Cancelar ${x.exceptionName}`"
+                  @click="askRemoveException(x.id, x.exceptionName)"
+                />
+              </div>
 
-                <div class="text-muted mt-1 flex flex-wrap items-center gap-x-3 text-xs">
-                  <!--
+              <div class="text-muted mt-1 flex flex-wrap items-center gap-x-3 text-xs">
+                <!--
                 Un permiso de unas horas NO es un día: se dice con su horario.
                 El motor lo trata así —descuenta solo esas horas de la jornada
                 esperada— y la pantalla tiene que contar lo mismo.
               -->
-                  <span v-if="x.startTime && x.endTime" class="capitalize">
-                    {{ diaCorto(x.startDate) }} · {{ horaCorta(x.startTime) }} a
-                    {{ horaCorta(x.endTime) }}
+                <span v-if="x.startTime && x.endTime" class="capitalize">
+                  {{ diaCorto(x.startDate) }} · {{ horaCorta(x.startTime) }} a
+                  {{ horaCorta(x.endTime) }}
+                </span>
+                <template v-else>
+                  <span class="capitalize">
+                    {{ diaCorto(x.startDate) }}
+                    <template v-if="x.endDate !== x.startDate">
+                      → {{ diaCorto(x.endDate) }}
+                    </template>
                   </span>
-                  <template v-else>
-                    <span class="capitalize">
-                      {{ diaCorto(x.startDate) }}
-                      <template v-if="x.endDate !== x.startDate">
-                        → {{ diaCorto(x.endDate) }}
-                      </template>
-                    </span>
-                    <span class="text-dimmed">
-                      {{ duracionEnDias(x.startDate, x.endDate) }}
-                      {{ duracionEnDias(x.startDate, x.endDate) === 1 ? 'día' : 'días' }}
-                    </span>
-                  </template>
-
-                  <span v-if="x.documentRef" class="text-dimmed">
-                    <UIcon name="i-lucide-paperclip" class="inline size-3" />
-                    {{ x.documentRef }}
+                  <span class="text-dimmed">
+                    {{ duracionEnDias(x.startDate, x.endDate) }}
+                    {{ duracionEnDias(x.startDate, x.endDate) === 1 ? 'día' : 'días' }}
                   </span>
-                </div>
-              </li>
-            </ul>
-            <p v-else class="text-dimmed py-2 text-sm">Sin justificaciones registradas.</p>
-          </template>
+                </template>
 
-          <template #registrar>
-            <form class="space-y-4 pt-2" @submit.prevent="addException">
-              <div class="grid gap-3 sm:grid-cols-2">
-                <!--
+                <span v-if="x.documentRef" class="text-dimmed">
+                  <UIcon name="i-lucide-paperclip" class="inline size-3" />
+                  {{ x.documentRef }}
+                </span>
+              </div>
+            </li>
+          </ul>
+          <p v-else class="text-dimmed text-sm">Sin justificaciones registradas.</p>
+        </div>
+
+        <div v-show="pestañaDeIncidencias === 'registrar'">
+          <form class="space-y-4" @submit.prevent="addException">
+            <div class="grid gap-3 sm:grid-cols-2">
+              <!--
                   El tipo ocupa el ancho entero y va primero porque MANDA sobre
                   lo demás: de él salen el goce, si cuenta como jornada y si
                   hace falta folio — y ese cuarto campo aparece solo si lo pide.
                 -->
-                <UFormField label="Tipo" class="sm:col-span-2">
-                  <USelectMenu
-                    v-model="exceptionTypeId"
-                    :items="typeItems"
-                    value-key="value"
-                    placeholder="Vacaciones, permiso, incapacidad…"
-                    searchable
-                    class="w-full"
-                  />
-                </UFormField>
-                <UFormField label="Desde">
-                  <UInput v-model="exceptionFrom" type="date" class="w-full" />
-                </UFormField>
-                <UFormField label="Hasta" hint="Incluido">
-                  <UInput v-model="exceptionTo" type="date" class="w-full" />
-                </UFormField>
-                <UFormField
-                  v-if="chosenType?.requiresDocument"
-                  label="Folio del justificante"
-                  class="sm:col-span-2"
-                >
-                  <UInput
-                    v-model="exceptionDoc"
-                    placeholder="El folio del documento"
-                    class="w-full"
-                  />
-                </UFormField>
-              </div>
+              <UFormField label="Tipo" class="sm:col-span-2">
+                <USelectMenu
+                  v-model="exceptionTypeId"
+                  :items="typeItems"
+                  value-key="value"
+                  placeholder="Vacaciones, permiso, incapacidad…"
+                  searchable
+                  class="w-full"
+                />
+              </UFormField>
+              <UFormField label="Desde">
+                <UInput v-model="exceptionFrom" type="date" class="w-full" />
+              </UFormField>
+              <UFormField label="Hasta" hint="Incluido">
+                <UInput v-model="exceptionTo" type="date" class="w-full" />
+              </UFormField>
+              <UFormField
+                v-if="chosenType?.requiresDocument"
+                label="Folio del justificante"
+                class="sm:col-span-2"
+              >
+                <UInput
+                  v-model="exceptionDoc"
+                  placeholder="El folio del documento"
+                  class="w-full"
+                />
+              </UFormField>
+            </div>
 
-              <!-- Pagada y "cuenta como trabajada" son cosas distintas. -->
-              <p v-if="chosenType" class="text-muted text-xs">
-                {{ chosenType.isPaid ? 'Se paga' : 'Sin goce de sueldo' }} ·
-                {{
-                  chosenType.countsAsWorked
-                    ? 'cuenta como jornada trabajada'
-                    : 'no cuenta como jornada'
-                }}
-                <template v-if="chosenType.requiresDocument"> · exige justificante</template>
-              </p>
+            <!-- Pagada y "cuenta como trabajada" son cosas distintas. -->
+            <p v-if="chosenType" class="text-muted text-xs">
+              {{ chosenType.isPaid ? 'Se paga' : 'Sin goce de sueldo' }} ·
+              {{
+                chosenType.countsAsWorked
+                  ? 'cuenta como jornada trabajada'
+                  : 'no cuenta como jornada'
+              }}
+              <template v-if="chosenType.requiresDocument"> · exige justificante</template>
+            </p>
 
-              <!--
+            <!--
                 El aviso a la izquierda y el botón a la derecha, en la misma
                 línea: lo que va a pasar al pulsar se lee justo antes de pulsar.
                 No hay aprobación en el sistema —nunca la hubo, y el motor aplica
                 la justificación desde que se guarda—, así que lo único que puede
                 esperar quien la captura es que la dirección se entere.
               -->
-              <div
-                class="border-default flex flex-wrap items-center justify-end gap-3 border-t pt-3"
-              >
-                <p class="text-dimmed min-w-48 flex-1 text-xs">
-                  Se aplica en cuanto se guarda; no hay nada que aprobar. Al registrarla se avisa
-                  por correo a la dirección de esta razón social.
-                </p>
-                <UButton
-                  type="submit"
-                  icon="i-lucide-plus"
-                  label="Registrar justificación"
-                  :loading="savingException"
-                  :disabled="exceptionTypeId === '' || exceptionFrom === '' || exceptionTo === ''"
-                />
-              </div>
-            </form>
-          </template>
-        </UTabs>
+            <div class="border-default flex flex-wrap items-center justify-end gap-3 border-t pt-3">
+              <p class="text-dimmed min-w-48 flex-1 text-xs">
+                Se aplica en cuanto se guarda; no hay nada que aprobar. Al registrarla se avisa por
+                correo a la dirección de esta razón social.
+              </p>
+              <UButton
+                type="submit"
+                icon="i-lucide-plus"
+                label="Registrar justificación"
+                :loading="savingException"
+                :disabled="exceptionTypeId === '' || exceptionFrom === '' || exceptionTo === ''"
+              />
+            </div>
+          </form>
+        </div>
       </UCard>
     </div>
 
