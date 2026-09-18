@@ -213,7 +213,7 @@ async function onPasswordChanged(sesionesCerradas: number): Promise<void> {
           v-if="!colapsado"
           class="marca-astra text-[1.75rem] leading-none font-semibold tracking-tight"
         >
-          Clocc
+          CLOCC
         </span>
       </div>
 
