@@ -6,6 +6,7 @@ import { startRegistration } from '@simplewebauthn/browser'
 import { ApiError } from '@/shared/api/errors'
 import { loQuePasoConLaHuella, sePuedeUsarHuella } from '@/shared/huella'
 import { credencialApi, type InvitacionCanjeada } from '../api'
+import { recordarQuienSoy } from '@/modules/org/quien-soy'
 
 /**
  * REGISTRAR CON QUÉ VOY A PROBAR QUE SOY YO AL CHECAR EN LA PUERTA.
@@ -56,6 +57,27 @@ const error = ref<string | null>(null)
 
 const listo = ref<{ nombre: string; con: 'pin' | 'huella'; venceEl: string } | null>(null)
 
+/**
+ * QUE LA PUERTA YA SEPA QUIÉN ERES.
+ *
+ * El cartel vive en el mismo sitio que esta pantalla, así que lo que se guarda
+ * aquí lo lee él. Sin esto, alguien acababa de registrar su huella y al llegar
+ * a la puerta el cartel le pedía otra vez su número de empleado, como si no lo
+ * conociera de nada.
+ */
+function dejarloAnotado(r: { nombre: string; employeeCode: string }): void {
+  const partes = r.nombre.trim().split(/\s+/)
+  recordarQuienSoy(entityId, {
+    employeeCode: r.employeeCode,
+    /*
+     * Nombre y la inicial del apellido — «Fermín M.»— exactamente como lo dice
+     * el cartel al final de una checada. Si no coincidiera, la misma persona
+     * vería dos formas de llamarse en dos pantallas de la misma aplicación.
+     */
+    nombreCorto: partes.length > 1 ? `${partes[0]} ${partes[1]?.charAt(0)}.` : (partes[0] ?? ''),
+  })
+}
+
 onMounted(async () => {
   puedeHuella.value = await sePuedeUsarHuella()
 })
@@ -104,6 +126,7 @@ async function guardarPin() {
   error.value = null
   try {
     const r = await credencialApi.ponerPin(entityId, invitacion.value, pin.value)
+    dejarloAnotado(r)
     listo.value = { nombre: r.nombre, con: 'pin', venceEl: r.venceEl }
     paso.value = 'listo'
     /* Nunca se queda en memoria más de lo necesario. */
@@ -135,6 +158,7 @@ async function activarHuella() {
       respuesta,
       etiqueta.value.trim() || undefined,
     )
+    dejarloAnotado(r)
     listo.value = { nombre: r.nombre, con: 'huella', venceEl: r.venceEl }
     paso.value = 'listo'
   } catch (e) {
@@ -230,19 +254,36 @@ async function activarHuella() {
           class="border-default bg-elevated/50 space-y-3 border p-5"
         >
           <p class="text-highlighted text-sm font-semibold">
-            <UIcon name="i-lucide-fingerprint" class="size-4 align-[-3px]" />
-            Con la huella de este teléfono
+            <UIcon name="i-lucide-scan-face" class="size-4 align-[-3px]" />
+            Como desbloqueas este teléfono
           </p>
+          <!--
+            NI «HUELLA» A SECAS NI «CLOCC NUNCA LA VE».
+
+            Decía «con la huella de este teléfono» y no se entendía DÓNDE se
+            pone el dedo: la gente pensaba en el lector del reloj de la pared,
+            que es el aparato en el que llevan años poniéndolo. Y en un iPhone
+            no hay huella que poner: hay Face ID.
+
+            Lo que hay que decir son tres cosas, en este orden: es lo MISMO con
+            lo que ya desbloquea su teléfono, se hace EN SU TELÉFONO y no en el
+            reloj, y no se manda a ninguna parte.
+          -->
           <p class="text-muted text-sm">
-            Lo recomendado. La huella no sale de tu teléfono —Clocc nunca la ve— y en la puerta solo
-            tienes que ponerla.
+            Lo recomendado. Es lo mismo con lo que desbloqueas este teléfono —tu cara, tu huella o
+            la clave del aparato— y lo confirmas <strong>en tu teléfono</strong>, no en el reloj de
+            la pared.
+          </p>
+          <p class="text-dimmed text-xs">
+            Tu cara y tu huella no salen de este teléfono: ni Clocc ni la empresa las reciben nunca.
+            Lo único que viaja es que este aparato confirmó que eras tú.
           </p>
           <UFormField label="¿Cómo se llama este teléfono?" help="Opcional.">
             <UInput v-model="etiqueta" placeholder="Mi celular" class="w-full" />
           </UFormField>
           <UButton
-            label="Usar mi huella"
-            icon="i-lucide-fingerprint"
+            label="Usar mi cara o mi huella"
+            icon="i-lucide-scan-face"
             size="xl"
             block
             :loading="enviando"
@@ -254,8 +295,10 @@ async function activarHuella() {
           v-else-if="quien.tienePasskey"
           class="border-success/40 bg-success/10 flex items-center gap-3 border p-4"
         >
-          <UIcon name="i-lucide-fingerprint" class="text-success size-6 shrink-0" />
-          <p class="text-default text-sm">Ya tienes la huella activada en un teléfono.</p>
+          <UIcon name="i-lucide-scan-face" class="text-success size-6 shrink-0" />
+          <p class="text-default text-sm">
+            Ya tienes activado el desbloqueo de tu teléfono en un aparato.
+          </p>
         </div>
 
         <div class="border-default bg-elevated/50 space-y-3 border p-5">
@@ -282,13 +325,30 @@ async function activarHuella() {
         </div>
 
         <!--
-          Sin huella posible se dice por qué, en vez de callar la opción: quien
-          ve a un compañero poner el dedo y a él no se lo ofrecen merece saber
-          que es su teléfono y no un trato distinto.
+          SIN CARA NI HUELLA SE DICE POR QUÉ, Y SOBRE TODO SE DICE LA CAUSA MÁS
+          FRECUENTE, que no es el teléfono.
+
+          Pasó en un iPhone que sí tiene Face ID: el enlace se abrió DENTRO de la
+          aplicación del correo, y ese navegador de dentro no deja crear
+          credenciales. La pantalla decía «este teléfono no puede», que es falso
+          y además deja a la persona sin nada que hacer. Ahora dice qué probar.
         -->
-        <p v-if="!puedeHuella" class="text-dimmed text-center text-xs">
-          Este teléfono no puede usar huella para esto, así que tu camino es el PIN.
-        </p>
+        <div v-if="!puedeHuella" class="border-default bg-elevated/50 space-y-2 border p-4 text-sm">
+          <p class="text-highlighted font-semibold">
+            <UIcon name="i-lucide-info" class="size-4 align-[-3px]" />
+            Aquí no puedo ofrecerte tu cara ni tu huella
+          </p>
+          <p class="text-muted">
+            Casi siempre es porque este enlace se abrió dentro de otra aplicación —el correo o
+            WhatsApp—. Copia la dirección y ábrela en <strong>Safari</strong> o
+            <strong>Chrome</strong>, y vuelve a intentarlo.
+          </p>
+          <p class="text-dimmed text-xs">
+            Si ya estás en Safari o Chrome: en iPhone hace falta tener encendido el
+            <strong>Llavero de iCloud</strong> (Ajustes › tu nombre › iCloud), y en Android la
+            pantalla de bloqueo. Si no, ponle un PIN y listo — también sirve.
+          </p>
+        </div>
       </template>
 
       <!-- Paso 2 · camino del PIN. -->

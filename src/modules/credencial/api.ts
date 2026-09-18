@@ -32,6 +32,15 @@ export interface InvitacionCanjeada {
 export interface CredencialRegistrada {
   listo: true
   nombre: string
+  /**
+   * SU PROPIO NÚMERO DE EMPLEADO.
+   *
+   * Viene para que esta pantalla lo deje guardado en el teléfono y el cartel de
+   * la puerta no se lo vuelva a pedir. No es un dato que se filtre: quien llega
+   * hasta aquí acaba de canjear un código que llegó a su buzón, y el número va
+   * escrito en su gafete.
+   */
+  employeeCode: string
   venceEl: string
 }
 

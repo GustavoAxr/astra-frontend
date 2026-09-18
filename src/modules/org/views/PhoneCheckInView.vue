@@ -9,6 +9,7 @@ import {
 } from '../checar-sin-reloj'
 import { ApiError } from '@/shared/api/errors'
 import { loQuePasoConLaHuella } from '@/shared/huella'
+import { olvidarQuienSoy, quienSoy, recordarQuienSoy } from '../quien-soy'
 
 /**
  * CHECAR DESDE EL TELÉFONO CUANDO EL RELOJ ESTÁ MUERTO.
@@ -38,6 +39,14 @@ import { loQuePasoConLaHuella } from '@/shared/huella'
  *
  * Y EL NOMBRE APARECE AL FINAL, con la checada ya hecha. Antes salía en cuanto
  * se tecleaba un número, y eso convertía el cartel en un directorio.
+ *
+ * ══ Y NO VUELVE A PEDIR EL NÚMERO ══
+ *
+ * La primera vez sí; a partir de ahí este teléfono se acuerda. Pedirlo cada día
+ * tenía sentido cuando la contingencia era un aparato compartido pegado a la
+ * puerta, y dejó de tenerlo en cuanto cada quien llega con el suyo y con su
+ * credencial. Lo que se recuerda es el número y el nombre —ni el PIN ni nada
+ * con lo que se pueda checar—, así que un teléfono perdido no ficha por nadie.
  */
 const route = useRoute()
 const entityId = String(route.params.entityId ?? '')
@@ -78,13 +87,30 @@ const puedeChecar = computed(
 
 const puedeIdentificar = computed(() => clave.value.trim().length >= 1 && !enviando.value)
 
+/** Lo que este teléfono recuerda de su dueño, si ya checó alguna vez. */
+const yo = ref(quienSoy(entityId))
+
 onMounted(async () => {
   try {
     base.value = await checarSinReloj.mirar(entityId, installationId)
   } catch (e) {
     errorAlAbrir.value = e instanceof ApiError ? e.message : 'No encuentro esta base'
+    return
   } finally {
     cargando.value = false
+  }
+
+  /*
+   * Con memoria, se pide el permiso SOLO, nada más abrir. Así la pantalla ya
+   * aparece en el paso de la huella o del PIN y quien llega no teclea nada.
+   *
+   * Se hace aquí y no al pulsar porque el navegador solo abre el diálogo de la
+   * huella si viene de un toque reciente: si al pulsar «checar» hubiera que
+   * esperar antes a esta llamada, ese toque se gastaría por el camino.
+   */
+  if (yo.value !== null) {
+    clave.value = yo.value.employeeCode
+    await identificar()
   }
 })
 
@@ -173,6 +199,13 @@ async function checar(): Promise<void> {
       ...(firma ? { firma } : {}),
       ...(pideAhora.value === 'PIN' ? { pin: pin.value } : {}),
     })
+    /* Este teléfono ya sabe de quién es: la próxima vez no pregunta nada. */
+    recordarQuienSoy(entityId, {
+      employeeCode: clave.value.trim(),
+      nombreCorto: r.nombreCorto,
+    })
+    yo.value = quienSoy(entityId)
+
     listo.value = {
       /* El nombre viene de la respuesta: es lo único que lo dice, y solo ahora. */
       nombre: r.nombreCorto,
@@ -217,10 +250,20 @@ function volverAEmpezar(): void {
   conPin.value = false
 }
 
+/**
+ * «No soy yo» / «Checar otra persona»: se olvida el dueño de este teléfono.
+ *
+ * Olvidar es lo correcto aunque suene drástico: si alguien pulsa esto es porque
+ * el aparato cambió de manos —o lo prestó un rato—, y dejar el número anterior
+ * puesto haría que la próxima persona empiece con el nombre de otra en la
+ * pantalla. Volver a recordarlo cuesta teclear el número una vez.
+ */
 function otraPersona(): void {
   listo.value = null
   clave.value = ''
   error.value = null
+  olvidarQuienSoy(entityId)
+  yo.value = null
   volverAEmpezar()
 }
 </script>
@@ -270,10 +313,22 @@ function otraPersona(): void {
           no se equivocó de tecla. El número lo escribió esa persona hace dos
           segundos: repetirlo no le dice a nadie nada que no supiera.
         -->
+        <!--
+          CON MEMORIA SE SALUDA POR SU NOMBRE, Y NO SE CONTRADICE CON LA REGLA.
+
+          El nombre no viene del servidor: lo guardó ESTE teléfono la última vez
+          que esta persona checó de verdad. Teclear números en otro aparato
+          sigue sin decir de quién son, que es lo que se quería cerrar.
+        -->
         <div class="border-default bg-elevated/50 border p-5 text-center">
-          <p class="text-muted text-xs tracking-wide uppercase">Vas a checar con el número</p>
-          <p class="text-highlighted mt-1 font-mono text-lg font-semibold">
-            {{ clave.trim() }}
+          <p class="text-muted text-xs tracking-wide uppercase">
+            {{ yo ? 'Vas a checar como' : 'Vas a checar con el número' }}
+          </p>
+          <p
+            class="text-highlighted mt-1 text-lg font-semibold"
+            :class="yo?.nombreCorto ? '' : 'font-mono'"
+          >
+            {{ yo?.nombreCorto || clave.trim() }}
           </p>
         </div>
 
@@ -284,7 +339,8 @@ function otraPersona(): void {
         >
           <UIcon name="i-lucide-fingerprint" class="text-primary size-8" />
           <p class="text-default text-sm">
-            Al darle a checar, tu teléfono te va a pedir tu huella o tu cara.
+            Al darle a checar, <strong>tu teléfono</strong> te va a pedir tu cara o tu huella. No
+            tienes que tocar el reloj de la pared.
           </p>
         </div>
 
