@@ -189,7 +189,7 @@ onMounted(cargar)
       <div
         v-for="u in visibles"
         :key="u.id"
-        class="border-default border p-4"
+        class="border-default bg-(--astra-superficie) border p-4"
         :class="u.isActive ? '' : 'opacity-60'"
       >
         <div class="flex flex-wrap items-start gap-3">

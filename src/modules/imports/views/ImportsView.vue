@@ -241,7 +241,7 @@ const porFila = (errores: ErrorDeFila[]) =>
       </div>
 
       <!-- 1. Catálogos. Van primero porque sin ellos no hay plantilla. -->
-      <section class="border-default space-y-4 border p-5">
+      <section class="border-default bg-(--astra-superficie) space-y-4 border p-5">
         <div>
           <h2 class="text-highlighted text-base font-semibold">1 · Catálogos</h2>
           <p class="text-muted mt-1 text-sm">
@@ -313,7 +313,7 @@ const porFila = (errores: ErrorDeFila[]) =>
         del personal —sin turno no se puede dar de alta a nadie— pero se llenan
         distinto: dos hojas que se cruzan.
       -->
-      <section class="border-default space-y-4 border p-5">
+      <section class="border-default bg-(--astra-superficie) space-y-4 border p-5">
         <div>
           <h2 class="text-highlighted text-base font-semibold">2 · Turnos y horarios</h2>
           <p class="text-muted mt-1 text-sm">
@@ -415,7 +415,7 @@ const porFila = (errores: ErrorDeFila[]) =>
         </ul>
       </section>
 
-      <section class="border-default space-y-4 border p-5">
+      <section class="border-default bg-(--astra-superficie) space-y-4 border p-5">
         <div>
           <h2 class="text-highlighted text-base font-semibold">3 · Personal</h2>
           <p class="text-muted mt-1 text-sm">

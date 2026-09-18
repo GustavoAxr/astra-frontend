@@ -17,7 +17,39 @@ import { VitePWA } from 'vite-plugin-pwa'
 // - `soft`:  campos de formulario. `bg-elevated/50` fijo, para que el campo se
 //            distinga del fondo sin llegar a tener borde.
 const ghost = { defaultVariants: { variant: 'ghost' } } as const
-const soft = { defaultVariants: { variant: 'soft' } } as const
+
+/*
+ * EL RELLENO DEL CAMPO, QUE SE REDEFINE Y NO SOLO SE ELIGE.
+ *
+ * `soft` sigue siendo la variante de todo campo, como manda la regla del
+ * proyecto. Lo que cambia es de qué está hecha: el `bg-elevated/50` de fábrica
+ * daba `#f8fafc` sobre una tarjeta blanca —tres unidades de diferencia con el
+ * blanco— y el campo se perdía. Ahora sale de `--astra-campo`, que es un color
+ * plano y no una transparencia, así que no cambia según lo que tenga detrás.
+ *
+ * Los tonos viven en `main.css` porque dependen del TEMA, y una hoja de estilos
+ * sabe de temas; esto no. En oscuro valen exactamente lo de antes.
+ *
+ * ══ DOS VARIANTES, Y NO ES UN DESCUIDO ══
+ *
+ * Siete de los diez campos marcan el foco con `focus:` y tres —fecha, hora y
+ * etiquetas— con `has-focus:`, porque en esos el que recibe el foco es un hijo
+ * y no la caja. Copiar `focus:` en los tres habría dejado tres campos sin
+ * señal de foco. Verificado uno por uno contra el tema generado en
+ * `node_modules/.nuxt-ui/ui/`.
+ */
+const RELLENO = 'bg-(--astra-campo) hover:bg-(--astra-campo-activo) disabled:bg-(--astra-campo)'
+
+const soft = {
+  defaultVariants: { variant: 'soft' },
+  variants: { variant: { soft: `${RELLENO} focus:bg-(--astra-campo-activo)` } },
+} as const
+
+/** Los que enfocan un hijo: `UInputDate`, `UInputTime`, `UInputTags`. */
+const softFocoInterno = {
+  defaultVariants: { variant: 'soft' },
+  variants: { variant: { soft: `${RELLENO} has-focus:bg-(--astra-campo-activo)` } },
+} as const
 
 /**
  * QUÉ ICONOS HAY QUE METER EN EL PAQUETE.
@@ -150,7 +182,7 @@ export default defineConfig({
       includeAssets: ['iconos/apple-touch-icon.png', 'iconos/icono.svg'],
       manifest: {
         id: '/remoto',
-        name: 'Astra · Checar a distancia',
+        name: 'Clocc · Checar a distancia',
         /* Lo que cabe debajo del icono en un teléfono: doce caracteres. */
         short_name: 'Checar',
         description: 'Registra tu jornada desde donde trabajas.',
@@ -338,11 +370,86 @@ export default defineConfig({
          * NO —verde sobre verde, ilegible—, porque el fondo sube a emerald-400
          * y el «inverted» de ese tema no le hace bastante contraste.
          *
-         * `subtle` es además la variante que manda la regla del proyecto para
-         * los componentes sin ghost: fondo al 10 %, texto del color entero y un
-         * aro finísimo. Se lee en los dos temas y deja de gritar.
+         * ══ Y POR QUÉ `soft` Y NO `subtle`, QUE ES LO QUE MANDA LA REGLA ══
+         *
+         * La regla del proyecto pide la variante más plana disponible, y entre
+         * estas dos la diferencia ES EL ARO: `subtle` = `soft` + `ring`. El aro
+         * era lo que convertía la etiqueta en una pegatina perfilada, que pesa
+         * más que la palabra que lleva dentro. `soft` es literalmente la misma
+         * variante sin él, así que esto no se salta la regla: la cumple mejor.
+         *
+         * ══ POR QUÉ NO VALÍA EL `subtle` DE FÁBRICA ══
+         *
+         * Traía `bg-{color}/10 text-{color} ring ring-{color}/25`, y `text-warning`
+         * es el tono 500 del color —yellow-500, `#eab308`—. Un 500 sobre un fondo
+         * al 10 % que es casi blanco da 1.9:1: por debajo del 4.5:1 de la WCAG, y
+         * es justo lo que se ve como un amarillo que brilla y no se lee. El aro al
+         * 25 % remataba: convertía la etiqueta en un chip perfilado, que pesa más
+         * que lo que dice.
+         *
+         * ══ LO QUE HAY AHORA: TONOS CON NOMBRE, NO TRANSPARENCIAS ══
+         *
+         * Relleno en el 50 —el tono más pálido de la paleta— y texto en el 700.
+         * El 100 seguía siendo crema saturada; el 50 es un velo del color, que
+         * es lo que pastel quiere decir. El texto no baja del 700 porque es el
+         * suelo legible: yellow-700 sobre yellow-50 da 4.8:1 y yellow-600 se cae
+         * a 2.8:1, por debajo del mínimo.
+         *
+         * En oscuro, el mismo gesto al revés: 950 de fondo y 300 de texto. La
+         * transparencia se quita a propósito — `bg-{color}/10` cambiaba de
+         * aspecto según si la etiqueta caía sobre el lienzo o sobre una tarjeta.
+         *
+         * ══ POR QUÉ ESTÁN ESCRITAS UNA POR UNA ══
+         *
+         * Da grima, y es obligatorio: Tailwind genera las clases BUSCÁNDOLAS como
+         * texto en los archivos. Un `bg-(--ui-color-${color}-100)` construido en
+         * un `map()` no existe como cadena en ningún sitio, así que no se
+         * generaría ninguna de las reglas y las etiquetas saldrían sin fondo.
+         *
+         * `neutral` no aparece: su `subtle` ya es `bg-elevated text-default`, que
+         * no tiene color que suavizar.
          */
-        badge: { defaultVariants: { variant: 'subtle' } },
+        badge: {
+          defaultVariants: { variant: 'soft' },
+          compoundVariants: [
+            {
+              color: 'primary',
+              variant: 'soft',
+              class:
+                'bg-(--ui-color-primary-50) text-(--ui-color-primary-700) dark:bg-(--ui-color-primary-950) dark:text-(--ui-color-primary-300)',
+            },
+            {
+              color: 'secondary',
+              variant: 'soft',
+              class:
+                'bg-(--ui-color-secondary-50) text-(--ui-color-secondary-700) dark:bg-(--ui-color-secondary-950) dark:text-(--ui-color-secondary-300)',
+            },
+            {
+              color: 'success',
+              variant: 'soft',
+              class:
+                'bg-(--ui-color-success-50) text-(--ui-color-success-700) dark:bg-(--ui-color-success-950) dark:text-(--ui-color-success-300)',
+            },
+            {
+              color: 'info',
+              variant: 'soft',
+              class:
+                'bg-(--ui-color-info-50) text-(--ui-color-info-700) dark:bg-(--ui-color-info-950) dark:text-(--ui-color-info-300)',
+            },
+            {
+              color: 'warning',
+              variant: 'soft',
+              class:
+                'bg-(--ui-color-warning-50) text-(--ui-color-warning-700) dark:bg-(--ui-color-warning-950) dark:text-(--ui-color-warning-300)',
+            },
+            {
+              color: 'error',
+              variant: 'soft',
+              class:
+                'bg-(--ui-color-error-50) text-(--ui-color-error-700) dark:bg-(--ui-color-error-950) dark:text-(--ui-color-error-300)',
+            },
+          ],
+        },
 
         /*
          * ESCALA DE CAPAS
@@ -371,9 +478,9 @@ export default defineConfig({
         slideover: { slots: { overlay: 'z-50', content: 'z-50' } },
         drawer: { slots: { overlay: 'z-50', content: 'z-50' } },
 
-        selectMenu: { defaultVariants: { variant: 'soft' }, slots: { content: 'z-[60]' } },
-        inputMenu: { defaultVariants: { variant: 'soft' }, slots: { content: 'z-[60]' } },
-        select: { defaultVariants: { variant: 'soft' }, slots: { content: 'z-[60]' } },
+        selectMenu: { ...soft, slots: { content: 'z-[60]' } },
+        inputMenu: { ...soft, slots: { content: 'z-[60]' } },
+        select: { ...soft, slots: { content: 'z-[60]' } },
         popover: { slots: { content: 'z-[60]' } },
         /*
          * El tema por omisión del globo trae `h-6` —altura fija— y `truncate`
@@ -397,10 +504,10 @@ export default defineConfig({
 
         // Campos de formulario: ligeramente sombreados.
         input: soft,
-        inputDate: soft,
+        inputDate: softFocoInterno,
         inputNumber: soft,
-        inputTags: soft,
-        inputTime: soft,
+        inputTags: softFocoInterno,
+        inputTime: softFocoInterno,
         pinInput: soft,
         textarea: soft,
 
@@ -411,6 +518,18 @@ export default defineConfig({
         // UPagination reenvía `variant` a sus botones. La página activa se
         // deja en `soft` porque en ghost sería indistinguible del resto.
         pagination: { defaultVariants: { variant: 'ghost', activeVariant: 'soft' } },
+
+        /*
+         * UTabs no tiene ghost (pill · link) y su omisión es `pill`: una barra
+         * gris de extremo a extremo con una pastilla blanca deslizándose dentro.
+         * Es un bloque de color dentro de una tarjeta que ya es una superficie,
+         * y pesa más que los dos rótulos que lleva.
+         *
+         * `link` es la plana de las dos —rótulos sueltos y una raya que se
+         * desliza bajo el activo—, así que es la que manda la regla. El
+         * deslizamiento es el mismo: el indicador se mueve igual en las dos.
+         */
+        tabs: { defaultVariants: { variant: 'link' } },
       },
     }),
   ],

@@ -213,7 +213,7 @@ async function onPasswordChanged(sesionesCerradas: number): Promise<void> {
           v-if="!colapsado"
           class="marca-astra text-[1.75rem] leading-none font-semibold tracking-tight"
         >
-          Astra
+          Clocc
         </span>
       </div>
 
@@ -442,7 +442,7 @@ async function onPasswordChanged(sesionesCerradas: number): Promise<void> {
     <ConfirmDialog
       v-model:open="confirmingSignOut"
       title="Cerrar sesión"
-      message="Vas a salir de Astra. Lo que no hayas guardado se pierde."
+      message="Vas a salir de Clocc. Lo que no hayas guardado se pierde."
       confirm-label="Cerrar sesión"
       confirm-icon="i-lucide-log-out"
       :action="signOut"

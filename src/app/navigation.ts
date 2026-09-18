@@ -161,7 +161,7 @@ export const NAVIGATION: readonly NavEntry[] = [
       },
       {
         name: 'users',
-        label: 'Quién entra a Astra',
+        label: 'Quién entra a Clocc',
         icon: 'i-lucide-key-round',
         roles: ACTION_ROLES.manageUsers,
       },
@@ -171,7 +171,7 @@ export const NAVIGATION: readonly NavEntry[] = [
        */
       {
         name: 'outbox',
-        label: 'Correos que manda Astra',
+        label: 'Correos que manda Clocc',
         icon: 'i-lucide-mail',
         roles: ACTION_ROLES.viewOutbox,
       },

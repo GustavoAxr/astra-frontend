@@ -170,7 +170,7 @@ async function copiarClave(): Promise<void> {
 <template>
   <UModal
     v-model:open="abierto"
-    title="Dar acceso a Astra"
+    title="Dar acceso a Clocc"
     :description="
       paso === 'quien'
         ? '¿Quién va a entrar?'
@@ -223,7 +223,7 @@ async function copiarClave(): Promise<void> {
             @click="sinExpediente"
           />
           <p class="text-dimmed text-xs">
-            Para quien usa Astra sin estar en la plantilla: soporte del proveedor, un contador
+            Para quien usa Clocc sin estar en la plantilla: soporte del proveedor, un contador
             externo.
           </p>
         </template>

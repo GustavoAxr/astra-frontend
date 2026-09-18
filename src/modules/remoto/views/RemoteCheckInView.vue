@@ -790,7 +790,7 @@ function olvidarEsteTelefono(): void {
         <form v-if="WHATSAPP_ACTIVO" class="space-y-4" @submit.prevent="pedirCodigo">
           <UFormField
             label="Tu número de empleado"
-            help="El mismo que usas en el reloj. También vale tu clave de Astra."
+            help="El mismo que usas en el reloj. También vale tu clave de Clocc."
           >
             <UInput
               v-model="clave"

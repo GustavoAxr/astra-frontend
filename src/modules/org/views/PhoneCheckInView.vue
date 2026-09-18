@@ -224,7 +224,7 @@ function otraPersona(): void {
           -->
           <UFormField
             label="Tu número de empleado"
-            help="El que sale en la pantalla del reloj. También vale tu clave de Astra."
+            help="El que sale en la pantalla del reloj. También vale tu clave de Clocc."
           >
             <UInput
               v-model="clave"

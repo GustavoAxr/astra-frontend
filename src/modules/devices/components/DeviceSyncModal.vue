@@ -239,7 +239,7 @@ async function read(): Promise<void> {
         <template v-if="porElAgente">
           <UFormField
             label="Recuperar desde el día"
-            help="El reloj guarda su histórico completo. Lo que falta en Astra es lo anterior al día en que el agente se dio de alta: su primera lectura arranca 30 días atrás, no antes."
+            help="El reloj guarda su histórico completo. Lo que falta en Clocc es lo anterior al día en que el agente se dio de alta: su primera lectura arranca 30 días atrás, no antes."
           >
             <UInput
               v-model="desde"

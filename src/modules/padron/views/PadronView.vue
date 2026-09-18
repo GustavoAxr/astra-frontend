@@ -286,7 +286,7 @@ const ESTADOS: Record<
     <EmptyState
       v-if="difs.loaded.value && !rows.length"
       icon="i-lucide-check-check"
-      title="El reloj está como Astra dice"
+      title="El reloj está como Clocc dice"
       :description="`Las ${alDia} personas vinculadas coinciden en nombre, vigencia, bloqueo y permiso de puerta. Los acentos y las mayúsculas no cuentan como diferencia: «Gomez» y «Gómez» son la misma persona.`"
     />
 

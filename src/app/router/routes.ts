@@ -108,13 +108,13 @@ export const routes: RouteRecordRaw[] = [
       {
         path: 'correos',
         name: 'outbox',
-        meta: { roles: ACTION_ROLES.viewOutbox, title: 'Correos que manda Astra' },
+        meta: { roles: ACTION_ROLES.viewOutbox, title: 'Correos que manda Clocc' },
         component: () => import('@/modules/outbox/views/OutboxView.vue'),
       },
       {
         path: 'usuarios',
         name: 'users',
-        meta: { roles: ACTION_ROLES.manageUsers, title: 'Quién entra a Astra' },
+        meta: { roles: ACTION_ROLES.manageUsers, title: 'Quién entra a Clocc' },
         component: () => import('@/modules/users/views/UsersView.vue'),
       },
       {

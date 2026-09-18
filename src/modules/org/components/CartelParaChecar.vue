@@ -127,7 +127,7 @@ async function copiar(): Promise<void> {
         color="warning"
         icon="i-lucide-triangle-alert"
         title="Este QR no va a funcionar en un teléfono"
-        description="Dice «localhost», que en el teléfono significa el propio teléfono. Pon la dirección por la que se llega a Astra desde la red."
+        description="Dice «localhost», que en el teléfono significa el propio teléfono. Pon la dirección por la que se llega a Clocc desde la red."
       />
 
       <UAlert

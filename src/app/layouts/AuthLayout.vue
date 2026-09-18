@@ -40,7 +40,7 @@ const themeItems = computed(() =>
            dejaba un bloque alto y desequilibrado. -->
       <div class="mb-6 flex items-center justify-center gap-3">
         <AstraLogo class="size-14 shrink-0" />
-        <p class="marca-astra text-[3.5rem] leading-none font-semibold tracking-tight">Astra</p>
+        <p class="marca-astra text-[3.5rem] leading-none font-semibold tracking-tight">Clocc</p>
       </div>
       <RouterView />
     </div>

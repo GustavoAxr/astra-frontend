@@ -33,7 +33,6 @@
  * Solo la variable: un archivo cubre todos los pesos.
  */
 @import '@fontsource-variable/inter/index.css';
-@import '@fontsource-variable/jetbrains-mono/index.css';
 
 @theme {
   --font-sans:
@@ -41,20 +40,22 @@
     'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
   /*
-   * LA MONOESPACIADA SÍ VA EMPAQUETADA Y VA PRIMERO, al revés que la de texto.
+   * UNA SOLA FUENTE EN TODO EL PROYECTO.
    *
-   * Con la del sistema, un Mac ponía SF Mono, un Windows Consolas y un Fedora
-   * Liberation Mono: tres anchos distintos para las mismas columnas de claves,
-   * horas y números de serie — que es justo donde se nota, porque en una tabla
-   * lo que alinea es el ancho del dígito.
+   * Antes se empaquetaba JetBrains Mono para las columnas de claves, horas y
+   * números de serie. Se quitó a propósito: la monoespaciada cantaba demasiado
+   * al lado del texto —una clave en un tipo y su etiqueta en otro, a dos
+   * centímetros— y la decisión fue normalizar a una única familia.
    *
-   * Aquí no hay razón para preferir la de Apple: nadie espera una monoespaciada
-   * «de la tienda», y lo que importa es que la misma tabla se vea igual en las
-   * tres máquinas. JetBrains Mono, con licencia SIL, distingue el cero de la O
-   * y el uno de la ele, que en un número de empleado no es un detalle.
+   * `--font-mono` no se elimina porque decenas de clases `font-mono` la
+   * referencian; se apunta a la MISMA pila que `--font-sans`, así que
+   * `font-mono` y `font-sans` rinden idénticas y no queda ni rastro de la
+   * monoespaciada. Si algún día una tabla necesita que los dígitos alineen, eso
+   * se resuelve con `tabular-nums`, que no cambia la familia.
    */
   --font-mono:
-    'JetBrains Mono Variable', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Inter Variable', Inter,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 :root {
@@ -79,54 +80,144 @@
    */
   --astra-desde: #0ea5e9;
   --astra-hasta: #22c55e;
-
 }
 
-/*
- * ══ LAS DOS SUPERFICIES: EL LIENZO Y LA TARJETA ══
- *
- * Nuxt UI usa `--ui-bg` para las dos cosas, así que con un solo color un bloque
- * solo se distinguía por su raya de borde. `--astra-superficie` separa lo que
- * va ENCIMA del lienzo.
- *
- * En claro el lienzo es `#f5f5f7` —un gris casi imperceptible, y esa es la
- * gracia: baja el brillo de la pantalla sin que se note que hay un color— y la
- * tarjeta es blanca. Sobre blanco puro un verde de marca se lee como un grito;
- * sobre este gris, el mismo verde es un acento.
- *
- * ══ `:root:not(.dark)` Y NO `:root` ══
- *
- * Esto rompió el modo oscuro y conviene que quede escrito por qué. La clase
- * `dark` se pone en el `<html>`, que ES `:root`: una regla en `:root` a secas
- * también se aplica de noche. Y como esta hoja va FUERA de `@layer`, le gana a
- * la de Nuxt UI —que vive dentro de `@layer theme`— por mucho que aquella diga
- * `.dark`. El resultado fue el lienzo claro debajo del tema oscuro.
- *
- * Las capas mandan sobre la especificidad: `.dark` dentro de una capa pierde
- * contra `:root` fuera de ella. Por eso la exclusión va escrita en el selector
- * y no se deja al orden.
- */
 :root:not(.dark),
 .light {
   --ui-bg: #f5f5f7;
+  --ui-bg-card: #f7f7f7;
   --astra-superficie: #ffffff;
+
+  /*
+   * EL FONDO DE LOS CAMPOS, PORQUE `bg-elevated/50` NO SE VE SOBRE BLANCO.
+   *
+   * La regla del proyecto dice que un campo lleva `soft`, y el `soft` de Nuxt UI
+   * es `bg-elevated/50`: la mitad de `neutral-100` —slate-100, `#f1f5f9`— sobre
+   * lo que haya detrás. Encima de una tarjeta blanca eso da `#f8fafc`: tres
+   * unidades de diferencia con el blanco, o sea nada. El campo desaparece y el
+   * formulario se lee como una lista de rótulos sueltos.
+   *
+   * Aquí es un color PLANO y no una transparencia, que es la otra mitad del
+   * problema: con `/50` el mismo campo cambiaba de tono según cayera sobre una
+   * tarjeta blanca o sobre el lienzo, así que no había forma de fijarlo.
+   *
+   * ══ POR QUÉ `#efefef` Y NO `#f7f7f7` ══
+   *
+   * `#f7f7f7` se ve sobre una tarjeta blanca, pero NO dentro de un modal:
+   * `UModal` usa `bg-default`, que en claro es `#f5f5f7`, y ahí el campo queda
+   * dos unidades MÁS CLARO que el fondo — justo al revés de lo que tiene que
+   * ser. `#efefef` se lee sobre los dos, que es lo que hace falta porque el
+   * mismo campo aparece en las dos superficies.
+   *
+   * `-activo` es el hover y el foco, un escalón más. Va a `#e7e7e7` y no a
+   * `bg-elevated` entero (`#f1f5f9`): aquel es AZULADO —el tema neutro es
+   * `slate`— y desde este gris se notaba más el cambio de tinte que el de
+   * claridad.
+   */
+  --astra-campo: #efefef;
+  --astra-campo-activo: #e7e7e7;
+
+  --astra-boton-claro: #79c6a6;
+
+  /*
+   * Y ESE VERDE ES EL `primary` DEL TEMA EN CLARO, no el color de una regla.
+   *
+   * Antes se pintaba solo la ETIQUETA de los botones, y ahí estaba el
+   * desajuste: dentro de una tarjeta, el lápiz de «Editar» salía en el
+   * emerald-500 de fábrica y la palabra de al lado en el verde opaco. Dos
+   * verdes a dos centímetros. Lo mismo con el enlace activo del menú, los
+   * estados de los interruptores y los aros de foco.
+   *
+   * Poniéndolo en el token lo hereda TODO lo que el tema llama `primary`, que
+   * es justo lo que significa «respetar la colorimetría»: un solo verde, y
+   * quien no sea `primary` —los botones `neutral`, los de borrar— sigue con el
+   * suyo. La regla que pintaba etiquetas hacía lo contrario: teñía de verde
+   * hasta los botones neutros, porque un selector no sabe de qué color es un
+   * botón.
+   *
+   * Nuxt UI declara `--ui-primary` en una etiqueta `<style>` que inyecta en
+   * tiempo de ejecución, y dentro de `@layer theme`. Esta hoja va FUERA de toda
+   * capa, así que gana — el mismo mecanismo que se explica arriba.
+   */
+  --ui-primary: var(--astra-boton-claro);
+
+  /*
+   * EL TEXTO EN CLARO, UN ESCALÓN MÁS ABAJO DEL NEGRO.
+   *
+   * Nuxt UI pone en claro `--ui-text-highlighted: neutral-900` y
+   * `--ui-text: neutral-700` —y `neutral` es `slate`—. El 900 es un casi-negro
+   * que, sobre el lienzo `#f5f5f7`, deja los encabezados de tabla en negrita
+   * pegando un brillo duro: la pantalla se lee como un papel recién impreso con
+   * el contraste al máximo.
+   *
+   * Cada uno baja UN escalón, no dos. Que bajaran los dos al mismo sitio
+   * ahorraría un token y destruiría la jerarquía: `highlighted` existe justo
+   * para diferenciarse de `text`, y con los dos en `700` un encabezado pesaría
+   * lo mismo que la fila de debajo.
+   *
+   *   highlighted  900 → 800  (13.4:1 sobre el lienzo)
+   *   text         700 → 600  (7.0:1)
+   *
+   * Los dos siguen muy por encima del 4.5:1 de la WCAG, así que esto suaviza
+   * sin acercarse al límite. `muted` y `dimmed` no se tocan: ya eran suaves
+   * —«No hay marcajes en este rango» sale de ahí— y bajarlos también los
+   * dejaría por debajo.
+   *
+   * Gana a la declaración de la librería porque esta hoja va FUERA de `@layer`
+   * y la suya vive dentro de `@layer theme`. Es el mismo mecanismo que se
+   * explica arriba, y aquí juega a favor.
+   */
+  --ui-text-highlighted: var(--ui-color-neutral-800);
+  --ui-text: var(--ui-color-neutral-600);
 }
 
 /*
- * EN OSCURO, la tarjeta se separa del lienzo con el gris de un escalón. Es la
- * misma idea que en claro —lo que está encima, más claro— y no la deja plana
- * como estaba.
- */
-/*
- * EN OSCURO, la superficie es EXACTAMENTE lo que ya eran esos paneles:
- * `bg-elevated/20`, o sea un 20 % del gris elevado sobre el fondo de la
- * página. Se escribe con `color-mix` para que el oscuro no cambie ni un pixel
- * mientras el claro se reordena — cambiar dos temas a la vez es como se
- * arregla uno y se rompe el otro sin notarlo.
+ * LA ESCALERA DEL MODO OSCURO, ENTERA Y EN COLORES PLANOS.
+ *
+ * ══ POR QUÉ HUBO QUE ESCRIBIRLA ══
+ *
+ * La superficie salía de `color-mix(… var(--ui-bg-card) 50%)`, y `--ui-bg-card`
+ * SOLO SE DECLARA EN CLARO —ahí arriba, dentro de `:root:not(.dark)`—. En
+ * oscuro esa variable no existe, así que la mezcla entera era inválida y el
+ * navegador descartaba la propiedad: las tarjetas no se quedaban planas, se
+ * quedaban SIN FONDO. Por eso no se veían.
+ *
+ * Es el fallo clásico de esta hoja al revés: no una regla de claro colándose en
+ * oscuro, sino una variable de claro que en oscuro no está. Se comprueba mirando
+ * `dist/assets/*.css`, que es donde se ve el valor final.
+ *
+ * ══ POR QUÉ CUATRO TOKENS Y NO UNO ══
+ *
+ * Porque subir la tarjeta sin subir lo que va ENCIMA de ella la deja limpia y se
+ * lleva por delante todo lo que lleva dentro. En oscuro, un fondo se lee por la
+ * diferencia con lo que tiene detrás, y esa diferencia es un presupuesto que se
+ * reparte entre cuatro capas:
+ *
+ *   lienzo      #0f172a   el de siempre, `--ui-bg` (slate-900). No se toca.
+ *   tarjeta     #1c2739   el escalón que se pedía, bien visible sobre el lienzo.
+ *   encima      #26334a   `bg-elevated`: campos, etiquetas neutras, hovers,
+ *                         bloques de código. Sube para seguir viéndose SOBRE la
+ *                         tarjeta; con el `slate-800` de fábrica —#1e293b— se
+ *                         habría fundido con ella.
+ *   bordes      #2c3a52   igual: el borde de fábrica en oscuro es `slate-800`, o
+ *                         sea el color de la tarjeta, y cada fila con borde
+ *                         dentro de una —las justificaciones, por ejemplo—
+ *                         habría desaparecido.
+ *
+ * Todos PLANOS y no transparencias, por lo mismo que en claro: con `/50` el
+ * mismo campo cambiaba de tono según cayera sobre una tarjeta o sobre el
+ * lienzo, y no había forma de fijarlo.
  */
 :root.dark,
 .dark {
-  --astra-superficie: color-mix(in oklab, var(--ui-bg-elevated) 20%, var(--ui-bg));
+  --astra-superficie: #1c2739;
+
+  --ui-bg-elevated: #26334a;
+  --ui-border: #2c3a52;
+
+  /* El campo es lo elevado, y el activo —hover y foco— un escalón más. */
+  --astra-campo: var(--ui-bg-elevated);
+  --astra-campo-activo: #303e58;
 }
 
 /**
@@ -148,12 +239,13 @@
 /*
  * EL DEGRADADO DE LA MARCA EN LOS BOTONES Y EN EL ENLACE ACTIVO.
  *
- * SOLO EN OSCURO, y no por capricho: sobre fondo claro un degradado que va del
- * cian al verde se queda con muy poco contraste contra el blanco —el verde
+ * EL DEGRADADO NO SE MUEVE DEL LOGOTIPO Y DE LA PALABRA «ASTRA». En los botones
+ * va SOLO EN OSCURO, y no por capricho: sobre fondo claro un degradado que va
+ * del cian al verde se queda con muy poco contraste contra el blanco —el verde
  * ronda 2:1 y el mínimo legible son 4.5:1—, así que el texto se lee peor justo
  * en lo que hay que pulsar. En oscuro, los dos colores brillan sobre la pizarra
- * y el contraste sube en vez de bajar. En claro se quedan los colores del tema,
- * que ahí sí se leen.
+ * y el contraste sube en vez de bajar. En claro no hace falta ninguna regla: el
+ * verde opaco ya es el `primary` del tema, y los botones lo heredan solos.
  *
  * SE PINTA LA ETIQUETA, NO EL BOTÓN ENTERO. Los iconos de Nuxt UI son máscaras
  * con `background-color: currentColor`; poniendo el color transparente en el
@@ -224,5 +316,5 @@ body {
 *,
 *::before,
 *::after {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
 }
