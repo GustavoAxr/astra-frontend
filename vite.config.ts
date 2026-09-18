@@ -237,13 +237,14 @@ export default defineConfig({
         globPatterns: ['index.html', 'favicon.{ico,svg}', 'iconos/*.{png,svg}'],
         navigateFallback: '/index.html',
         /*
-         * Y SOLO PARA `/remoto`. Sin esta lista, el worker contestaría con el
-         * caparazón cacheado a CUALQUIER navegación de Astra estando sin red, y
-         * quien abriera la pantalla de empleados vería una aplicación que
-         * arranca y luego falla en cada llamada. Es peor que un error del
-         * navegador: parece que funciona.
+         * Y SOLO PARA LAS DOS PANTALLAS QUE SE INSTALAN: `/remoto` —checar desde
+         * casa— y `/checar` —el cartel de la puerta—. Sin esta lista, el worker
+         * contestaría con el caparazón cacheado a CUALQUIER navegación de Clocc
+         * estando sin red, y quien abriera la pantalla de empleados vería una
+         * aplicación que arranca y luego falla en cada llamada. Es peor que un
+         * error del navegador: parece que funciona.
          */
-        navigateFallbackAllowlist: [/^\/remoto/],
+        navigateFallbackAllowlist: [/^\/remoto/, /^\/checar/],
         runtimeCaching: [
           {
             /*

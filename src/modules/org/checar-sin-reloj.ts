@@ -65,6 +65,27 @@ export const checarSinReloj = {
     ),
 
   /**
+   * LA CHECADA DE QUIEN TECLEÓ SU CÓDIGO PERSONAL.
+   *
+   * Sin número de empleado: el código lo inventó esa persona y solo lo sabe
+   * ella, mientras que el número va escrito en el gafete que lleva colgado.
+   * Pedir los dos era pedir un secreto y un dato público.
+   */
+  checarConCodigo: (
+    entityId: string,
+    installationId: string,
+    cuerpo: {
+      codigo: string
+      lat: number
+      lng: number
+      accuracyMeters?: number
+    },
+  ) =>
+    http.post<ChecadaDeLaPuerta>(`/contingency/${entityId}/${installationId}/code/punch`, cuerpo, {
+      skipRefresh: true,
+    }),
+
+  /**
    * LA CHECADA DE QUIEN NO TECLEÓ NADA.
    *
    * Sin número y sin permiso: quién es lo dice la firma, que lleva dentro a qué

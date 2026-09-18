@@ -58,6 +58,21 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/modules/remoto/views/RemoteCheckInView.vue'),
   },
   /*
+   * LA PUERTA DEL ICONO INSTALADO DEL CARTEL.
+   *
+   * El manifiesto es un archivo estático y su dirección de arranque no puede
+   * llevar dentro el identificador de una base, así que apunta aquí y aquí se
+   * recuerda cuál fue la última. Quien llegue sin nada recordado —icono en un
+   * teléfono nuevo, o alguien tecleando la dirección— ve un texto que le dice
+   * qué le falta, no una pantalla en blanco.
+   */
+  {
+    path: '/checar',
+    name: 'phone-check-in-entry',
+    meta: { public: true, title: 'Checar' },
+    component: () => import('@/modules/org/views/ChecarEntryView.vue'),
+  },
+  /*
    * REGISTRAR LA CREDENCIAL CON LA QUE SE CHECA EN LA PUERTA.
    *
    * Pública y sin armazón, como las dos de arriba. Lleva solo la EMPRESA: la
