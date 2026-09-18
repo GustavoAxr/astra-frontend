@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ultimaEmpresa } from '../telefono-guardado'
+import { miBase } from '@/modules/org/mi-base'
 
 /**
  * LA PUERTA DEL ICONO DE LA PANTALLA DE INICIO.
@@ -21,6 +22,25 @@ const sinEmpresa = ref(false)
 onMounted(() => {
   const empresa = ultimaEmpresa()
   if (empresa === null) {
+    /*
+     * RED DE ABAJO PARA EL ICONO QUE SE INSTALÓ MAL.
+     *
+     * El manifiesto del sitio apunta aquí, así que un icono creado antes de que
+     * el cartel tuviera el suyo —o por un navegador que no hizo caso— aterriza
+     * en esta pantalla y le dice a alguien que su equipo no está dado de alta,
+     * cuando lo que esa persona quería era fichar en la puerta de su trabajo.
+     *
+     * Si este teléfono recuerda una base, era eso: se le manda allí en vez de
+     * dejarlo leyendo un texto que no le toca.
+     */
+    const base = miBase()
+    if (base !== null) {
+      void router.replace({
+        name: 'phone-check-in',
+        params: { entityId: base.entityId, installationId: base.installationId },
+      })
+      return
+    }
     sinEmpresa.value = true
     return
   }

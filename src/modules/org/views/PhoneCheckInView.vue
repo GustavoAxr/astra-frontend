@@ -64,7 +64,7 @@ const puedeFirmar = ref(false)
 const conMiCodigo = ref(false)
 const codigo = ref('')
 
-const puedeConCodigo = computed(() => /^\d{6}$/.test(codigo.value) && !enviando.value)
+const puedeConCodigo = computed(() => /^\d{4,6}$/.test(codigo.value) && !enviando.value)
 
 /**
  * EL CARTEL SE INSTALA COMO SU PROPIA APLICACIÓN, no como la de a distancia.
@@ -290,7 +290,7 @@ function otraPersona(): void {
         <form class="space-y-4" @submit.prevent="checarConMiCodigo">
           <UFormField
             label="Tu código"
-            help="Los seis números que inventaste al registrarte. No es tu número de empleado."
+            help="Los números que inventaste al registrarte. No es tu número de empleado."
           >
             <UInput
               v-model="codigo"

@@ -86,7 +86,7 @@ const puedeCanjear = computed(() => /^\d{6}$/.test(codigoDelCorreo.value) && !en
  * puerta y su código no es el que recuerda.
  */
 const miCodigoCuadra = computed(
-  () => /^\d{6}$/.test(miCodigo.value) && miCodigo.value === miCodigoOtraVez.value,
+  () => /^\d{4,6}$/.test(miCodigo.value) && miCodigo.value === miCodigoOtraVez.value,
 )
 
 const venceEnPalabras = computed(() => {
@@ -258,7 +258,7 @@ async function activarMiCara(): Promise<void> {
           -->
           <UFormField
             label="Inventa tu código"
-            help="Seis números que elijas tú. NO es el del correo: este es el que vas a teclear en la puerta."
+            help="De 4 a 6 números que elijas tú. NO es el del correo: este es el que vas a teclear en la puerta."
           >
             <UInput
               v-model="miCodigo"
