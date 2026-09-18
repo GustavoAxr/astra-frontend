@@ -93,6 +93,20 @@ const yo = ref(quienSoy(entityId))
 /** Si el aparato puede firmar. Sin esto no se ofrece: lleva a un diálogo vacío. */
 const puedeFirmar = ref(false)
 
+/**
+ * UNA SOLA COSA EN LA PANTALLA, y el número detrás de un enlace.
+ *
+ * Tener las dos a la vista convertía una pantalla de un solo gesto en una
+ * decisión: quien llega con prisa no tiene que elegir entre dos caminos, tiene
+ * que fichar. Así que se enseña el que prueba quién es y el otro se guarda.
+ *
+ * NO SE BORRA, y conviene saber por qué: lo necesitan quien registró PIN en vez
+ * de huella, quien todavía no se ha registrado —hoy, casi toda la planta— y el
+ * aparato que no puede firmar. Borrarlo el día que se enciende esto dejaría a
+ * esa gente sin poder fichar en su propio trabajo.
+ */
+const conMiNumero = ref(false)
+
 onMounted(async () => {
   puedeFirmar.value = await sePuedeUsarHuella()
 
@@ -486,7 +500,7 @@ function otraPersona(): void {
           quien todavía no se ha registrado, para quien tiene PIN y para el
           aparato que no puede firmar — por eso esto es un botón y no un muro.
         -->
-        <template v-if="puedeFirmar">
+        <template v-if="puedeFirmar && !conMiNumero">
           <UButton
             label="Checar con mi cara o mi huella"
             icon="i-lucide-scan-face"
@@ -495,18 +509,32 @@ function otraPersona(): void {
             :loading="enviando"
             @click="checarSinNumero"
           />
+
+          <UAlert v-if="error" color="error" icon="i-lucide-circle-alert" :description="error" />
+
           <p class="text-dimmed text-center text-xs">
-            Si ya registraste tu credencial, con esto basta: tu teléfono dice quién eres.
+            Tu teléfono dice quién eres. No hace falta teclear nada.
           </p>
 
-          <div class="flex items-center gap-3">
-            <div class="border-default flex-1 border-t"></div>
-            <span class="text-dimmed text-xs">o con tu número</span>
-            <div class="border-default flex-1 border-t"></div>
-          </div>
+          <!--
+            El otro camino existe, pero no compite: es un renglón pequeño al
+            final, para quien registró PIN, para quien todavía no se ha
+            registrado y para el día en que la cara no lee.
+          -->
+          <UButton
+            label="No puedo usar mi cara o mi huella"
+            size="sm"
+            block
+            @click="
+              () => {
+                error = null
+                conMiNumero = true
+              }
+            "
+          />
         </template>
 
-        <form class="space-y-4" @submit.prevent="identificar">
+        <form v-else class="space-y-4" @submit.prevent="identificar">
           <!--
             DICE «NÚMERO», NO «CLAVE», y la diferencia costó una prueba fallida.
             Con «tu clave del reloj» la primera persona tecleó su clave de
@@ -541,6 +569,20 @@ function otraPersona(): void {
             :loading="enviando"
           />
         </form>
+
+        <UButton
+          v-if="puedeFirmar && conMiNumero"
+          label="Volver a mi cara o mi huella"
+          icon="i-lucide-scan-face"
+          size="sm"
+          block
+          @click="
+            () => {
+              error = null
+              conMiNumero = false
+            }
+          "
+        />
       </template>
     </div>
   </div>
