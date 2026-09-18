@@ -66,26 +66,7 @@ const codigo = ref('')
 
 const puedeConCodigo = computed(() => /^\d{4,6}$/.test(codigo.value) && !enviando.value)
 
-/**
- * EL CARTEL SE INSTALA COMO SU PROPIA APLICACIÓN, no como la de a distancia.
- *
- * Un sitio tiene UN manifiesto, y el de Clocc apunta a `/remoto`: sin esto, el
- * navegador ofrecería instalar la aplicación de checar desde casa a quien está
- * parado en la puerta de la nave — mismo icono, mismo nombre, otra pantalla.
- * Se cambia la etiqueta en caliente, que es lo que Chrome lee para decidir qué
- * está instalando.
- *
- * En iPhone da igual lo que diga el manifiesto: Safari guarda LA DIRECCIÓN QUE
- * ESTÉ ABIERTA, que es exactamente la de esta base. Por eso funciona en los dos
- * sitios por caminos distintos.
- */
-function elManifiestoDeLaPuerta(): void {
-  const etiqueta = document.querySelector<HTMLLinkElement>('link[rel="manifest"]')
-  if (etiqueta !== null) etiqueta.href = '/manifest-checar.webmanifest'
-}
-
 onMounted(async () => {
-  elManifiestoDeLaPuerta()
   puedeFirmar.value = await sePuedeUsarHuella()
 
   try {

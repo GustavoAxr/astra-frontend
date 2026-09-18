@@ -18,38 +18,69 @@
     -->
     <link rel="apple-touch-icon" href="/iconos/apple-touch-icon.png">
     <meta name="theme-color" content="#059669">
+    <!--
+      iOS abre en su propia ventana lo que se añade a la pantalla de inicio solo
+      si lo lee aquí. Con el manifiesto ya bastaría, pero el cartel de la puerta
+      se instala SIN manifiesto —ver el script de abajo— y sin esta etiqueta se
+      abriría dentro de Safari, con su barra de direcciones ocupando media
+      pantalla de alguien que solo viene a fichar.
+    -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script>
       /*
-       * QUÉ APLICACIÓN SE ESTÁ INSTALANDO, DECIDIDO ANTES DE QUE EL NAVEGADOR
-       * LEA EL MANIFIESTO.
+       * QUÉ APLICACIÓN SE INSTALA DESDE EL CARTEL DE LA PUERTA.
+       *
+       * ══ EL PROBLEMA, QUE TIENE DOS MITADES ══
        *
        * Un sitio tiene UN manifiesto, y el de Clocc apunta a `/remoto` —checar
-       * desde casa—. Quien añadía a su pantalla de inicio el cartel de la
-       * puerta acababa con un icono que abría la pantalla de checar a distancia
-       * y le decía «este equipo no está dado de alta en ninguna empresa».
+       * desde casa—. Quien añadía a su pantalla de inicio el cartel de su puerta
+       * acababa con un icono que abría la pantalla de a distancia y le decía
+       * «este equipo no está dado de alta en ninguna empresa».
        *
-       * Se intentó cambiar la etiqueta al montar la pantalla y NO BASTA: para
-       * entonces Safari ya pidió el manifiesto y no vuelve a mirarlo. Aquí
-       * ocurre mientras el navegador aún está leyendo la cabecera, que es el
-       * único momento en que sirve.
+       * La respuesta evidente —darle al cartel su propio manifiesto, con
+       * `start_url: /checar`— funciona en Android y NO funciona en iPhone: ahí
+       * la aplicación instalada tiene su PROPIO almacenamiento, separado del de
+       * Safari, así que al abrirse no recuerda en qué puerta checa esa persona y
+       * vuelve a quedarse sin saber a dónde ir.
        *
-       * La etiqueta la inyecta el plugin de PWA al construir, así que puede no
-       * existir todavía cuando esto corre: si no está, se crea.
+       * ══ LA SOLUCIÓN, DISTINTA EN CADA SISTEMA ══
+       *
+       * En iPhone se le quita el manifiesto a esta pantalla. Sin manifiesto,
+       * Safari guarda LA DIRECCIÓN QUE ESTÁ ABIERTA —que ya lleva dentro la
+       * empresa y la base— y el icono abre exactamente esa puerta, sin depender
+       * de recordar nada.
+       *
+       * En Android y en escritorio se le pone el suyo: allí el almacenamiento es
+       * el mismo que el del navegador, así que `/checar` sí encuentra la base
+       * recordada, y a cambio se gana una instalación de verdad.
+       *
+       * Se hace en `DOMContentLoaded` y no aquí mismo porque el plugin inyecta su
+       * etiqueta AL FINAL de la cabecera: cuando este script corre, todavía no
+       * existe la que hay que quitar.
        */
-      try {
-        if (location.pathname.indexOf('/checar') === 0) {
-          var enlace = document.querySelector('link[rel="manifest"]')
-          if (!enlace) {
-            enlace = document.createElement('link')
-            enlace.rel = 'manifest'
-            document.head.appendChild(enlace)
+      document.addEventListener('DOMContentLoaded', function () {
+        try {
+          if (location.pathname.indexOf('/checar') !== 0) return
+
+          var ua = navigator.userAgent
+          var esApple =
+            /iPhone|iPad|iPod/.test(ua) ||
+            (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+
+          var etiquetas = document.querySelectorAll('link[rel="manifest"]')
+          if (esApple) {
+            for (var i = 0; i < etiquetas.length; i++) etiquetas[i].remove()
+            return
           }
-          enlace.href = '/manifest-checar.webmanifest'
+          for (var j = 0; j < etiquetas.length; j++) {
+            etiquetas[j].href = '/manifest-checar.webmanifest'
+          }
+        } catch (e) {
+          /* Sin esto el icono llevará a la otra pantalla, que explica qué hacer.
+             No es motivo para no pintar la página. */
         }
-      } catch (e) {
-        /* Sin manifiesto correcto el icono llevará a la otra pantalla, que
-           explica qué hacer. No es motivo para no pintar la página. */
-      }
+      })
     </script>
     <!--
       El editor de geocercas pide sus imágenes a Mapbox. Resolver el nombre y
