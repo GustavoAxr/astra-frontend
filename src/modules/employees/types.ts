@@ -23,6 +23,17 @@ export interface Employee {
   whatsappVerified: boolean
   isActive: boolean
   /**
+   * QUÉ FORMAS DE CHECAR tiene habilitadas, para el indicador del listado.
+   *   · presencial = enrolado en un reloj físico
+   *   · remoto     = teléfono para checar a distancia (vive en la adscripción)
+   *   · movil      = credencial (huella/PIN) para checar en la geocerca
+   */
+  acceso: {
+    presencial: boolean
+    remoto: boolean
+    movil: boolean
+  }
+  /**
    * Vigencia de hoy. `null` = sin base ni turno asignados, y eso hay que verlo
    * en la lista: sin turno no se le puede calcular asistencia.
    */

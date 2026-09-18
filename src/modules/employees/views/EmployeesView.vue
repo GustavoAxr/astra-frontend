@@ -161,6 +161,7 @@ watch([page, search, estado, legalEntityId], () => void run(), { immediate: true
         { id: 'turno', header: 'Turno' },
         { id: 'puesto', header: 'Puesto' },
         { accessorKey: 'isActive', header: 'Estado' },
+        { id: 'acceso', header: 'Acceso' },
         { id: 'acciones', header: '' },
       ]"
       :loading="pending"
@@ -212,6 +213,40 @@ watch([page, search, estado, legalEntityId], () => void run(), { immediate: true
           :color="row.original.isActive ? 'success' : 'neutral'"
         />
       </template>
+
+      <!--
+        LOS TRES ACCESOS de un vistazo. Un icono por forma de checar —presencial,
+        remoto, móvil en geocerca—: en color cuando la tiene, tenue cuando no.
+        Icono y no punto porque tres puntos iguales no dicen CUÁL es cuál; cada
+        uno lleva su título para quien lo lea con el ratón o con lector.
+      -->
+      <template #acceso-cell="{ row }">
+        <div class="flex items-center gap-2">
+          <UIcon
+            name="i-lucide-fingerprint"
+            class="size-4"
+            :class="row.original.acceso.presencial ? 'text-primary' : 'text-dimmed opacity-30'"
+            :title="
+              row.original.acceso.presencial
+                ? 'Presencial: enrolado en el reloj'
+                : 'Sin acceso presencial'
+            "
+          />
+          <UIcon
+            name="i-lucide-globe"
+            class="size-4"
+            :class="row.original.acceso.remoto ? 'text-primary' : 'text-dimmed opacity-30'"
+            :title="row.original.acceso.remoto ? 'Remoto: checa a distancia' : 'Sin acceso remoto'"
+          />
+          <UIcon
+            name="i-lucide-smartphone"
+            class="size-4"
+            :class="row.original.acceso.movil ? 'text-primary' : 'text-dimmed opacity-30'"
+            :title="row.original.acceso.movil ? 'Móvil: checa en la geocerca' : 'Sin acceso móvil'"
+          />
+        </div>
+      </template>
+
       <template #acciones-cell="{ row }">
         <UButton
           :to="{ name: 'employee-detail', params: { employeeId: row.original.id } }"
