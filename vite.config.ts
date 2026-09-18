@@ -183,8 +183,12 @@ export default defineConfig({
       manifest: {
         id: '/remoto',
         name: 'Clocc · Checar a distancia',
-        /* Lo que cabe debajo del icono en un teléfono: doce caracteres. */
-        short_name: 'Checar',
+        /*
+         * Lo que queda debajo del icono en la pantalla de inicio: la MARCA, no
+         * lo que hace la pantalla. Decía «Checar», que en una pantalla llena de
+         * iconos no dice de quién es ni lleva a ningún sitio reconocible.
+         */
+        short_name: 'Clocc',
         description: 'Registra tu jornada desde donde trabajas.',
         lang: 'es-MX',
         dir: 'ltr',
@@ -285,6 +289,32 @@ export default defineConfig({
        */
       devOptions: { enabled: true, type: 'module', navigateFallback: 'index.html' },
     }),
+    /*
+     * EL MANIFIESTO NO VIAJA EN EL HTML, y hay que explicar por qué se le quita
+     * al plugin lo que el plugin acaba de poner.
+     *
+     * Un sitio tiene UN manifiesto y aquí conviven DOS aplicaciones instalables
+     * —checar desde casa y el cartel de la puerta—, más un tercer caso en el que
+     * lo correcto es NO tener ninguno: en iPhone, una aplicación instalada tiene
+     * su propio almacenamiento, separado del de Safari, así que un `start_url`
+     * fijo llega sin saber en qué puerta checa esa persona. Sin manifiesto,
+     * Safari guarda la dirección que está abierta —que ya lleva dentro la
+     * empresa y la base— y el icono abre exactamente esa puerta.
+     *
+     * Quitarlo en el navegador no bastaba: cuando el script de la cabecera
+     * corre, el plugin todavía no ha inyectado su etiqueta, y al hacerlo después
+     * la etiqueta vuelve. Así que se quita AQUÍ, al construir, y el script de
+     * `index.html` pone la que toque según dónde se esté.
+     */
+    {
+      name: 'clocc-manifiesto-en-tiempo-de-ejecucion',
+      enforce: 'post' as const,
+      transformIndexHtml: {
+        order: 'post' as const,
+        handler: (html: string) =>
+          html.replace(/<link[^>]+rel="manifest"[^>]*>/g, ''),
+      },
+    },
     vue(),
     vueJsx(),
     vueDevTools(),

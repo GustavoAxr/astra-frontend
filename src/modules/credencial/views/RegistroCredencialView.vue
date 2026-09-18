@@ -51,7 +51,16 @@ const nonce = String(route.query.alta ?? '')
 type Paso = 'invitacion' | 'miCodigo' | 'miCara' | 'listo'
 const paso = ref<Paso>('invitacion')
 
-const codigoDelCorreo = ref('')
+/**
+ * SEIS CUADRITOS, UNO POR CIFRA.
+ *
+ * El valor viaja como arreglo —una posición por casilla— porque eso es lo que
+ * permite que el teléfono salte de una a la siguiente y que pegar el código
+ * entero desde el mensaje lo reparta solo. Lo que se manda al servidor es la
+ * cadena de las seis.
+ */
+const cifras = ref<number[]>([])
+const codigoDelCorreo = computed(() => cifras.value.join(''))
 const invitacion = computed(() => ({ nonce, codigo: codigoDelCorreo.value }))
 
 /** De quién es la invitación. Llega al canjear, nunca antes. */
@@ -208,14 +217,22 @@ async function activarMiCara(): Promise<void> {
             label="El código de tu correo"
             help="Las seis cifras que vienen en el mismo correo que este enlace."
           >
-            <UInput
-              v-model="codigoDelCorreo"
-              placeholder="000000"
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              maxlength="6"
+            <!--
+              `otp` es lo que hace que el teléfono ofrezca el código del mensaje
+              encima del teclado, y que pegarlo entero reparta una cifra por
+              casilla en vez de meterlo todo en la primera.
+
+              En cuanto está la sexta se canjea solo: quien acaba de teclear seis
+              números no tiene por qué buscar además un botón.
+            -->
+            <UPinInput
+              v-model="cifras"
+              :length="6"
+              type="number"
+              otp
               size="xl"
-              class="w-full"
+              class="justify-center"
+              @complete="canjear"
             />
           </UFormField>
 

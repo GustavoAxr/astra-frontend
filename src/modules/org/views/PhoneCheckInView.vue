@@ -290,7 +290,7 @@ function otraPersona(): void {
           <UButton
             type="submit"
             label="Checar aquí"
-            icon="i-lucide-map-pin"
+            icon="i-lucide-clock"
             size="xl"
             block
             :disabled="!puedeConCodigo"

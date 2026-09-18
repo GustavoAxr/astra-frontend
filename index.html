@@ -26,61 +26,60 @@
       pantalla de alguien que solo viene a fichar.
     -->
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <!--
+      EL NOMBRE QUE QUEDA DEBAJO DEL ICONO. Sin esto, iPhone propone el `<title>`
+      de la página —«Clocc - Codegahp»— y lo corta por donde le cabe. Es lo
+      único que ve esa persona en su pantalla de inicio: tiene que decir la
+      marca, no lo que hace la pantalla.
+    -->
+    <meta name="apple-mobile-web-app-title" content="Clocc">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script>
       /*
-       * QUÉ APLICACIÓN SE INSTALA DESDE EL CARTEL DE LA PUERTA.
+       * QUÉ APLICACIÓN SE ESTÁ INSTALANDO, DECIDIDO AQUÍ Y NO EN EL HTML.
        *
-       * ══ EL PROBLEMA, QUE TIENE DOS MITADES ══
+       * ══ POR QUÉ NO HAY UNA ETIQUETA FIJA ══
        *
-       * Un sitio tiene UN manifiesto, y el de Clocc apunta a `/remoto` —checar
-       * desde casa—. Quien añadía a su pantalla de inicio el cartel de su puerta
-       * acababa con un icono que abría la pantalla de a distancia y le decía
-       * «este equipo no está dado de alta en ninguna empresa».
+       * Un sitio tiene UN manifiesto, y aquí conviven dos pantallas instalables
+       * —checar desde casa y el cartel de la puerta— más un caso en el que lo
+       * correcto es no tener ninguno. La etiqueta que inyectaba el plugin se
+       * quita al construir (ver `vite.config.ts`) y aquí se pone la que toca.
        *
-       * La respuesta evidente —darle al cartel su propio manifiesto, con
-       * `start_url: /checar`— funciona en Android y NO funciona en iPhone: ahí
-       * la aplicación instalada tiene su PROPIO almacenamiento, separado del de
-       * Safari, así que al abrirse no recuerda en qué puerta checa esa persona y
-       * vuelve a quedarse sin saber a dónde ir.
+       * ══ EL CARTEL EN IPHONE NO LLEVA MANIFIESTO, Y ES DELIBERADO ══
        *
-       * ══ LA SOLUCIÓN, DISTINTA EN CADA SISTEMA ══
+       * Una aplicación instalada en iPhone tiene su PROPIO almacenamiento,
+       * separado del de Safari: un `start_url` fijo como `/checar` llega ahí sin
+       * recordar en qué puerta checa esa persona, y se queda sin saber a dónde
+       * ir. Sin manifiesto, Safari guarda LA DIRECCIÓN QUE ESTÁ ABIERTA —que ya
+       * lleva dentro la empresa y la base— y el icono abre exactamente esa
+       * puerta. Las etiquetas `apple-mobile-web-app-*` de arriba son las que
+       * hacen que aun así se abra en su propia ventana y con el nombre correcto.
        *
-       * En iPhone se le quita el manifiesto a esta pantalla. Sin manifiesto,
-       * Safari guarda LA DIRECCIÓN QUE ESTÁ ABIERTA —que ya lleva dentro la
-       * empresa y la base— y el icono abre exactamente esa puerta, sin depender
-       * de recordar nada.
-       *
-       * En Android y en escritorio se le pone el suyo: allí el almacenamiento es
-       * el mismo que el del navegador, así que `/checar` sí encuentra la base
-       * recordada, y a cambio se gana una instalación de verdad.
-       *
-       * Se hace en `DOMContentLoaded` y no aquí mismo porque el plugin inyecta su
-       * etiqueta AL FINAL de la cabecera: cuando este script corre, todavía no
-       * existe la que hay que quitar.
+       * En Android y en escritorio el almacenamiento es el mismo que el del
+       * navegador, así que ahí sí se pone el del cartel y se gana una
+       * instalación de verdad.
        */
-      document.addEventListener('DOMContentLoaded', function () {
+      ;(function () {
         try {
-          if (location.pathname.indexOf('/checar') !== 0) return
-
           var ua = navigator.userAgent
           var esApple =
             /iPhone|iPad|iPod/.test(ua) ||
             (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+          var enLaPuerta = location.pathname.indexOf('/checar') === 0
 
-          var etiquetas = document.querySelectorAll('link[rel="manifest"]')
-          if (esApple) {
-            for (var i = 0; i < etiquetas.length; i++) etiquetas[i].remove()
-            return
-          }
-          for (var j = 0; j < etiquetas.length; j++) {
-            etiquetas[j].href = '/manifest-checar.webmanifest'
-          }
+          if (enLaPuerta && esApple) return
+
+          var enlace = document.createElement('link')
+          enlace.rel = 'manifest'
+          enlace.href = enLaPuerta
+            ? '/manifest-checar.webmanifest'
+            : '/manifest.webmanifest'
+          document.head.appendChild(enlace)
         } catch (e) {
-          /* Sin esto el icono llevará a la otra pantalla, que explica qué hacer.
-             No es motivo para no pintar la página. */
+          /* Sin manifiesto no se puede instalar, pero la pantalla funciona
+             igual. No es motivo para no pintar nada. */
         }
-      })
+      })()
     </script>
     <!--
       El editor de geocercas pide sus imágenes a Mapbox. Resolver el nombre y
