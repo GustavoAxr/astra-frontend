@@ -1,3 +1,8 @@
+import type {
+  AuthenticationResponseJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+} from '@simplewebauthn/browser'
+
 import { http } from '@/shared/api/http'
 
 /**
@@ -19,10 +24,30 @@ export interface BaseVistaDesdeElTelefono {
   tieneArea: boolean
 }
 
+/** Qué le va a pedir la puerta a esta persona para dejarla checar. */
+export type LoQuePideLaPuerta = 'HUELLA' | 'PIN' | 'NADA'
+
+/**
+ * EL PERMISO YA NO TRAE EL NOMBRE, y no es un descuido.
+ *
+ * Lo traía, y eso convertía el cartel de la puerta en un directorio: con probar
+ * números salía la plantilla entera, y con la plantilla en la mano, fichar por
+ * cualquiera. El nombre llega al final, con la checada ya registrada.
+ */
 export interface PermisoParaChecar {
-  nombreCorto: string
   nonce: string
   expiresAt: string
+  pide: LoQuePideLaPuerta
+  /** Solo cuando pide huella: lo que el navegador necesita para firmar. */
+  opciones?: PublicKeyCredentialRequestOptionsJSON
+  /** Tiene las dos y puede cambiar: hay días en que el lector no lee. */
+  tambienPin: boolean
+}
+
+export interface ChecadaDeLaPuerta {
+  cuando: string
+  /** Aparece aquí y en ningún otro sitio: es el acuse, no un directorio. */
+  nombreCorto: string
 }
 
 export const checarSinReloj = {
@@ -42,11 +67,17 @@ export const checarSinReloj = {
   checar: (
     entityId: string,
     installationId: string,
-    cuerpo: { nonce: string; lat: number; lng: number; accuracyMeters?: number },
+    cuerpo: {
+      nonce: string
+      lat: number
+      lng: number
+      accuracyMeters?: number
+      /* Una de las dos, la que haya pedido el paso anterior. Nunca las dos. */
+      pin?: string
+      firma?: AuthenticationResponseJSON
+    },
   ) =>
-    http.post<{ cuando: string }>(
-      `/contingency/${entityId}/${installationId}/punch`,
-      cuerpo,
-      { skipRefresh: true },
-    ),
+    http.post<ChecadaDeLaPuerta>(`/contingency/${entityId}/${installationId}/punch`, cuerpo, {
+      skipRefresh: true,
+    }),
 }

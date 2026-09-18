@@ -42,6 +42,12 @@ const NAMES: Record<string, string> = {
   // pantalla de marcajes —«REMOTE_DEVICE»— junto a «huella» y «tarjeta».
   REMOTE_DEVICE: 'equipo dado de alta',
   REMOTE_PASSKEY: 'huella en su equipo',
+  // El cartel de la puerta. Los pone Astra, no un fabricante, y salían crudos
+  // en la pantalla de marcajes —«CONTINGENCY_PIN»— junto a «huella» y «tarjeta».
+  CONTINGENCY_CODE: 'número en el cartel',
+  CONTINGENCY_PIN: 'PIN en el cartel',
+  CONTINGENCY_PASSKEY: 'huella en su teléfono',
+  CONTINGENCY_ROLL_CALL: 'pasada de lista',
   GPS_PORTAL_CAUTIVO: 'portal cautivo',
   SMS_GSM_LOCAL: 'mensaje de texto',
   WHATSAPP_OPT_IN: 'WhatsApp',

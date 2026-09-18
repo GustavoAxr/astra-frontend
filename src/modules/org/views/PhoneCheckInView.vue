@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { checarSinReloj, type BaseVistaDesdeElTelefono } from '../checar-sin-reloj'
+import { WebAuthnError, startAuthentication } from '@simplewebauthn/browser'
+import {
+  checarSinReloj,
+  type BaseVistaDesdeElTelefono,
+  type PermisoParaChecar,
+} from '../checar-sin-reloj'
 import { ApiError } from '@/shared/api/errors'
+import { loQuePasoConLaHuella } from '@/shared/huella'
 
 /**
  * CHECAR DESDE EL TELÉFONO CUANDO EL RELOJ ESTÁ MUERTO.
@@ -19,6 +25,19 @@ import { ApiError } from '@/shared/api/errors'
  * SIN MAPA A PROPÓSITO. La comprobación la hace el servidor con el área
  * dibujada; pintar aquí un mapa costaría datos, batería y segundos para
  * enseñarle a alguien un punto sobre el que no puede hacer nada.
+ *
+ * ══ AHORA HAY QUE PROBAR QUIÉN ERES, NO SOLO DÓNDE ESTÁS ══
+ *
+ * El área dice dónde está el teléfono; nunca dijo quién lo sostiene. Con solo
+ * el número —que va escrito en el gafete— quien ya estaba dentro fichaba por el
+ * compañero que no llegó. Así que quien tenga credencial registrada la presenta
+ * aquí: la huella de su propio teléfono, o su PIN.
+ *
+ * Quien todavía no se ha registrado sigue checando como hasta hoy. El día que
+ * esto se enciende, la planta entera tiene que poder seguir fichando.
+ *
+ * Y EL NOMBRE APARECE AL FINAL, con la checada ya hecha. Antes salía en cuanto
+ * se tecleaba un número, y eso convertía el cartel en un directorio.
  */
 const route = useRoute()
 const entityId = String(route.params.entityId ?? '')
@@ -29,10 +48,33 @@ const base = ref<BaseVistaDesdeElTelefono | null>(null)
 const errorAlAbrir = ref<string | null>(null)
 
 const clave = ref('')
-const permiso = ref<{ nombreCorto: string; nonce: string } | null>(null)
+const permiso = ref<PermisoParaChecar | null>(null)
 const enviando = ref(false)
 const error = ref<string | null>(null)
 const listo = ref<{ hora: string; nombre: string } | null>(null)
+
+const pin = ref('')
+/**
+ * Tiene huella pero pidió teclear su PIN.
+ *
+ * Existe porque los lectores fallan: un dedo mojado, una funda, el frío. Sin
+ * esta salida, quien registró la huella se queda fuera de su propio trabajo por
+ * un sensor sucio — y la alternativa a la que recurriría es pedirle a un
+ * compañero que le fiche, que es justo lo que todo esto viene a impedir.
+ */
+const conPin = ref(false)
+
+/** Qué le toca hacer ahora mismo a quien está delante. */
+const pideAhora = computed<'HUELLA' | 'PIN' | 'NADA'>(() => {
+  if (permiso.value === null) return 'NADA'
+  if (permiso.value.pide === 'HUELLA' && !conPin.value) return 'HUELLA'
+  if (permiso.value.pide === 'HUELLA' && conPin.value) return 'PIN'
+  return permiso.value.pide
+})
+
+const puedeChecar = computed(
+  () => !enviando.value && (pideAhora.value !== 'PIN' || /^\d{4,6}$/.test(pin.value)),
+)
 
 const puedeIdentificar = computed(() => clave.value.trim().length >= 1 && !enviando.value)
 
@@ -50,8 +92,7 @@ async function identificar(): Promise<void> {
   enviando.value = true
   error.value = null
   try {
-    const p = await checarSinReloj.identificar(entityId, installationId, clave.value.trim())
-    permiso.value = { nombreCorto: p.nombreCorto, nonce: p.nonce }
+    permiso.value = await checarSinReloj.identificar(entityId, installationId, clave.value.trim())
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'No pude comprobar tu clave'
   } finally {
@@ -111,15 +152,30 @@ async function checar(): Promise<void> {
   error.value = null
 
   try {
+    /*
+     * LA HUELLA SE PIDE PRIMERO, ANTES QUE LA UBICACIÓN, y el orden importa:
+     * el navegador solo abre el diálogo de la huella si viene de un toque
+     * reciente de la persona. Esperar antes a que el GPS conteste —que puede
+     * tardar veinte segundos bajo un techo de lámina— gasta ese permiso y el
+     * diálogo ya no sale.
+     */
+    const firma =
+      pideAhora.value === 'HUELLA' && permiso.value.opciones !== undefined
+        ? await startAuthentication({ optionsJSON: permiso.value.opciones })
+        : undefined
+
     const pos = await ubicacion()
     const r = await checarSinReloj.checar(entityId, installationId, {
       nonce: permiso.value.nonce,
       lat: pos.coords.latitude,
       lng: pos.coords.longitude,
       accuracyMeters: Math.round(pos.coords.accuracy),
+      ...(firma ? { firma } : {}),
+      ...(pideAhora.value === 'PIN' ? { pin: pin.value } : {}),
     })
     listo.value = {
-      nombre: permiso.value.nombreCorto,
+      /* El nombre viene de la respuesta: es lo único que lo dice, y solo ahora. */
+      nombre: r.nombreCorto,
       hora: new Date(r.cuando).toLocaleTimeString('es-MX', {
         hour: '2-digit',
         minute: '2-digit',
@@ -128,9 +184,20 @@ async function checar(): Promise<void> {
   } catch (e) {
     if (e instanceof ApiError) {
       error.value = e.message
-      // Un permiso gastado o vencido no se arregla reintentando: hay que
-      // volver a teclear la clave, y la pantalla lo dice sola volviendo atrás.
-      if (e.status === 409 || e.status === 400) permiso.value = null
+      /*
+       * UN PIN EQUIVOCADO NO MANDA AL PRINCIPIO. Llega con 401 y a propósito:
+       * el servidor lo comprueba ANTES de escribir nada, así que el permiso
+       * sigue vivo y la persona solo tiene que volver a teclear su PIN. Con una
+       * fila detrás, obligarla a repetir también su número es media fila más.
+       */
+      if (e.status === 401) pin.value = ''
+      // Un permiso gastado o vencido sí: eso no se arregla reintentando, y la
+      // pantalla lo dice sola volviendo atrás.
+      else if (e.status === 409 || e.status === 400) volverAEmpezar()
+    } else if (e instanceof WebAuthnError) {
+      // La huella no salió: se dice en palabras y se deja intentarlo otra vez
+      // sin perder el permiso — el reto sigue vivo hasta que el servidor lo gasta.
+      error.value = loQuePasoConLaHuella(e)
     } else if (e instanceof Error && !('code' in e)) {
       // Los que lanza esta pantalla ya traen escrito qué pasa y qué hacer.
       error.value = e.message
@@ -143,11 +210,18 @@ async function checar(): Promise<void> {
   }
 }
 
+/** Vuelve al número, sin borrar el mensaje que explica por qué. */
+function volverAEmpezar(): void {
+  permiso.value = null
+  pin.value = ''
+  conPin.value = false
+}
+
 function otraPersona(): void {
   listo.value = null
-  permiso.value = null
   clave.value = ''
   error.value = null
+  volverAEmpezar()
 }
 </script>
 
@@ -186,14 +260,51 @@ function otraPersona(): void {
         />
       </template>
 
-      <!-- Paso 2: ya sé quién es, falta dónde está. -->
+      <!-- Paso 2: falta probar quién es y dónde está. -->
       <template v-else-if="permiso">
+        <!--
+          SE REPITE EL NÚMERO TECLEADO, NO EL NOMBRE.
+
+          El nombre ya no viaja hasta el final —con él, probar números sacaba la
+          plantilla entera—, pero quien está en la puerta necesita confirmar que
+          no se equivocó de tecla. El número lo escribió esa persona hace dos
+          segundos: repetirlo no le dice a nadie nada que no supiera.
+        -->
         <div class="border-default bg-elevated/50 border p-5 text-center">
-          <p class="text-muted text-xs tracking-wide uppercase">Vas a checar como</p>
-          <p class="text-highlighted mt-1 text-lg font-semibold">
-            {{ permiso.nombreCorto }}
+          <p class="text-muted text-xs tracking-wide uppercase">Vas a checar con el número</p>
+          <p class="text-highlighted mt-1 font-mono text-lg font-semibold">
+            {{ clave.trim() }}
           </p>
         </div>
+
+        <!-- Le toca poner el dedo. -->
+        <div
+          v-if="pideAhora === 'HUELLA'"
+          class="border-default bg-elevated/50 space-y-2 border p-5 text-center"
+        >
+          <UIcon name="i-lucide-fingerprint" class="text-primary size-8" />
+          <p class="text-default text-sm">
+            Al darle a checar, tu teléfono te va a pedir tu huella o tu cara.
+          </p>
+        </div>
+
+        <!-- O teclear su PIN. -->
+        <UFormField
+          v-else-if="pideAhora === 'PIN'"
+          label="Tu PIN"
+          help="El que registraste. No es la clave con la que abres la puerta."
+        >
+          <UInput
+            v-model="pin"
+            type="password"
+            placeholder="····"
+            inputmode="numeric"
+            autocomplete="off"
+            maxlength="6"
+            size="xl"
+            class="w-full"
+          />
+        </UFormField>
 
         <UAlert v-if="error" color="error" icon="i-lucide-circle-alert" :description="error" />
 
@@ -202,6 +313,7 @@ function otraPersona(): void {
           icon="i-lucide-map-pin"
           size="xl"
           block
+          :disabled="!puedeChecar"
           :loading="enviando"
           @click="checar"
         />
@@ -209,6 +321,41 @@ function otraPersona(): void {
           El teléfono va a pedirte permiso para usar tu ubicación. Sin ella no se puede comprobar
           que estás en tu centro de trabajo.
         </p>
+
+        <!--
+          LA SALIDA CUANDO EL LECTOR NO LEE. Un dedo mojado, una funda, el frío.
+          Sin esto, quien registró su huella se queda fuera de su propio trabajo
+          por un sensor sucio — y lo que haría entonces es pedirle a un compañero
+          que le fiche, que es justo lo que todo esto viene a impedir.
+        -->
+        <UButton
+          v-if="permiso.tambienPin && !conPin"
+          label="Mejor con mi PIN"
+          icon="i-lucide-lock-keyhole"
+          size="lg"
+          block
+          @click="
+            () => {
+              error = null
+              conPin = true
+            }
+          "
+        />
+        <UButton
+          v-else-if="conPin"
+          label="Volver a la huella"
+          icon="i-lucide-fingerprint"
+          size="lg"
+          block
+          @click="
+            () => {
+              error = null
+              pin = ''
+              conPin = false
+            }
+          "
+        />
+
         <UButton label="No soy yo" size="lg" block @click="otraPersona" />
       </template>
 
