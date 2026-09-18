@@ -2,13 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { WebAuthnError, startAuthentication } from '@simplewebauthn/browser'
+import { loQuePasoConLaHuella, sePuedeUsarHuella } from '@/shared/huella'
 import {
   checarSinReloj,
   type BaseVistaDesdeElTelefono,
   type PermisoParaChecar,
 } from '../checar-sin-reloj'
 import { ApiError } from '@/shared/api/errors'
-import { loQuePasoConLaHuella } from '@/shared/huella'
 import { olvidarQuienSoy, quienSoy, recordarQuienSoy } from '../quien-soy'
 
 /**
@@ -90,7 +90,12 @@ const puedeIdentificar = computed(() => clave.value.trim().length >= 1 && !envia
 /** Lo que este teléfono recuerda de su dueño, si ya checó alguna vez. */
 const yo = ref(quienSoy(entityId))
 
+/** Si el aparato puede firmar. Sin esto no se ofrece: lleva a un diálogo vacío. */
+const puedeFirmar = ref(false)
+
 onMounted(async () => {
+  puedeFirmar.value = await sePuedeUsarHuella()
+
   try {
     base.value = await checarSinReloj.mirar(entityId, installationId)
   } catch (e) {
@@ -233,6 +238,62 @@ async function checar(): Promise<void> {
       error.value = loQuePasoConLaHuella(e)
     } else if (e instanceof Error && !('code' in e)) {
       // Los que lanza esta pantalla ya traen escrito qué pasa y qué hacer.
+      error.value = e.message
+    } else {
+      error.value =
+        'No pude leer tu ubicación. Acepta el permiso de ubicación y vuelve a intentarlo'
+    }
+  } finally {
+    enviando.value = false
+  }
+}
+
+/**
+ * CHECAR SIN TECLEAR NADA.
+ *
+ * El teléfono enseña las credenciales que tiene de este sitio, la persona pone
+ * su cara o su huella, y esa firma dice quién es. El número de empleado no hace
+ * falta en ningún momento — y es lo correcto: un número que va escrito en el
+ * gafete nunca demostró nada, y aquí hay algo que sí.
+ *
+ * Si el aparato no tiene ninguna credencial guardada, el diálogo se cierra sin
+ * nada y se dice qué hacer: teclear el número, que es el camino de siempre.
+ */
+async function checarSinNumero(): Promise<void> {
+  enviando.value = true
+  error.value = null
+
+  try {
+    /*
+     * El reto se pide ANTES de la ubicación por lo mismo de siempre: el
+     * navegador solo abre el diálogo de la firma si viene de un toque reciente,
+     * y esperar al GPS —hasta veinte segundos— se lo come.
+     */
+    const reto = await checarSinReloj.retoSinNumero(entityId, installationId)
+    const firma = await startAuthentication({ optionsJSON: reto.opciones })
+
+    const pos = await ubicacion()
+    const r = await checarSinReloj.checarConHuella(entityId, installationId, {
+      nonce: reto.nonce,
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      accuracyMeters: Math.round(pos.coords.accuracy),
+      firma,
+    })
+
+    listo.value = {
+      nombre: r.nombreCorto,
+      hora: new Date(r.cuando).toLocaleTimeString('es-MX', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    }
+  } catch (e) {
+    if (e instanceof ApiError) {
+      error.value = e.message
+    } else if (e instanceof WebAuthnError) {
+      error.value = loQuePasoConLaHuella(e)
+    } else if (e instanceof Error && !('code' in e)) {
       error.value = e.message
     } else {
       error.value =
@@ -417,6 +478,34 @@ function otraPersona(): void {
 
       <!-- Paso 1: quién eres. -->
       <template v-else>
+        <!--
+          LA CARA O LA HUELLA, PRIMERO Y SIN TECLEAR NADA.
+
+          Quien ya registró su credencial no tiene por qué decirnos su número:
+          el teléfono lo demuestra mejor. El formulario de abajo se queda para
+          quien todavía no se ha registrado, para quien tiene PIN y para el
+          aparato que no puede firmar — por eso esto es un botón y no un muro.
+        -->
+        <template v-if="puedeFirmar">
+          <UButton
+            label="Checar con mi cara o mi huella"
+            icon="i-lucide-scan-face"
+            size="xl"
+            block
+            :loading="enviando"
+            @click="checarSinNumero"
+          />
+          <p class="text-dimmed text-center text-xs">
+            Si ya registraste tu credencial, con esto basta: tu teléfono dice quién eres.
+          </p>
+
+          <div class="flex items-center gap-3">
+            <div class="border-default flex-1 border-t"></div>
+            <span class="text-dimmed text-xs">o con tu número</span>
+            <div class="border-default flex-1 border-t"></div>
+          </div>
+        </template>
+
         <form class="space-y-4" @submit.prevent="identificar">
           <!--
             DICE «NÚMERO», NO «CLAVE», y la diferencia costó una prueba fallida.

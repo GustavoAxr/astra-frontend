@@ -50,7 +50,43 @@ export interface ChecadaDeLaPuerta {
   nombreCorto: string
 }
 
+/** El reto para firmar sin decir quién eres. Lo resuelve la propia credencial. */
+export interface RetoSinNumero {
+  nonce: string
+  opciones: PublicKeyCredentialRequestOptionsJSON
+}
+
 export const checarSinReloj = {
+  retoSinNumero: (entityId: string, installationId: string) =>
+    http.post<RetoSinNumero>(
+      `/contingency/${entityId}/${installationId}/passkey/options`,
+      {},
+      { skipRefresh: true },
+    ),
+
+  /**
+   * LA CHECADA DE QUIEN NO TECLEÓ NADA.
+   *
+   * Sin número y sin permiso: quién es lo dice la firma, que lleva dentro a qué
+   * credencial pertenece. Lo que impide repetirla es el reto, que sirve una vez.
+   */
+  checarConHuella: (
+    entityId: string,
+    installationId: string,
+    cuerpo: {
+      nonce: string
+      lat: number
+      lng: number
+      accuracyMeters?: number
+      firma: AuthenticationResponseJSON
+    },
+  ) =>
+    http.post<ChecadaDeLaPuerta>(
+      `/contingency/${entityId}/${installationId}/passkey/punch`,
+      cuerpo,
+      { skipRefresh: true },
+    ),
+
   mirar: (entityId: string, installationId: string, signal?: AbortSignal) =>
     http.get<BaseVistaDesdeElTelefono>(`/contingency/${entityId}/${installationId}`, {
       skipRefresh: true,
