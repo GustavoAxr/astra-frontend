@@ -1,10 +1,4 @@
-import {
-  WebAuthnError,
-  browserSupportsWebAuthn,
-  platformAuthenticatorIsAvailable,
-  startAuthentication,
-  startRegistration,
-} from '@simplewebauthn/browser'
+import { startAuthentication, startRegistration } from '@simplewebauthn/browser'
 import type { AuthenticationResponseJSON } from '@simplewebauthn/browser'
 
 import { remotoApi } from './api'
@@ -12,30 +6,12 @@ import { remotoApi } from './api'
 /**
  * LA HUELLA DEL PROPIO TELÉFONO.
  *
- * Envuelve `@simplewebauthn/browser` para dejar en la pantalla solo dos verbos
- * —activar y firmar— y, sobre todo, para traducir sus errores. Los que salen
- * de la biblioteca están escritos para quien programa («The operation either
- * timed out or was not allowed»); quien tiene el teléfono en la mano necesita
- * saber si tiene que volver a poner el dedo o llamar a Recursos Humanos.
+ * Envuelve `@simplewebauthn/browser` para dejar en la pantalla solo dos verbos:
+ * activar y firmar. Lo que NO depende de para qué se firma —si el aparato puede
+ * tener huella, y qué quiere decir cada error de la biblioteca— vive en
+ * `@/shared/huella`, porque la pantalla de la credencial de puerta pregunta
+ * exactamente lo mismo y dos copias se habrían desviado.
  */
-
-/**
- * ¿Este teléfono puede tener llave?
- *
- * Se preguntan las dos cosas y hacen falta las dos: que el navegador entienda
- * WebAuthn, y que el aparato tenga un autenticador PROPIO —huella, cara, PIN
- * del sistema—. Un navegador de escritorio sin lector cumple la primera y no
- * la segunda, y ofrecerle activar la huella sería mandarlo a un diálogo que
- * termina en nada.
- */
-export async function sePuedeUsarLlave(): Promise<boolean> {
-  if (!browserSupportsWebAuthn()) return false
-  try {
-    return await platformAuthenticatorIsAvailable()
-  } catch {
-    return false
-  }
-}
 
 /**
  * Da de alta la llave en este teléfono.
@@ -57,34 +33,4 @@ export async function firmarChecada(
 ): Promise<AuthenticationResponseJSON> {
   const opciones = await remotoApi.opcionesDeChecada(entityId, token)
   return startAuthentication({ optionsJSON: opciones })
-}
-
-/**
- * El error de WebAuthn, en palabras.
- *
- * Se distinguen los tres casos que llevan a acciones distintas, y solo esos:
- * volver a intentarlo, usar otro teléfono, o avisar a sistemas. Enumerar los
- * quince nombres de error de la especificación no ayudaría a nadie que tenga
- * que checar y llegue tarde.
- */
-export function loQuePasoConLaLlave(e: unknown): string {
-  if (e instanceof WebAuthnError) {
-    switch (e.name) {
-      case 'NotAllowedError':
-        /*
-         * El mismo error para «canceló» y «se agotó el tiempo»: la
-         * especificación los junta A PROPÓSITO, para que una página no pueda
-         * distinguir si hay alguien delante. No se puede afinar más, y
-         * pretender lo contrario sería inventar.
-         */
-        return 'No se completó. Vuelve a intentarlo y pon tu huella cuando el teléfono te la pida.'
-      case 'InvalidStateError':
-        return 'Este teléfono ya tiene la huella activada.'
-      case 'NotSupportedError':
-        return 'Este teléfono no puede usar huella para checar. Puedes checar sin ella.'
-      default:
-        return 'No pudimos usar la huella de este teléfono. Vuelve a intentarlo.'
-    }
-  }
-  return e instanceof Error ? e.message : 'No pudimos usar la huella de este teléfono.'
 }

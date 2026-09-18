@@ -24,6 +24,7 @@ import { WHATSAPP_ACTIVO } from '@/shared/config/funciones'
 import EmployeeDayTimeline from '@/modules/attendance/components/EmployeeDayTimeline.vue'
 import CorregirDiaModal from '@/modules/attendance/components/CorregirDiaModal.vue'
 import TelefonosRemotos from '../components/TelefonosRemotos.vue'
+import CredencialDeChecado from '../components/CredencialDeChecado.vue'
 import type { TabsItem } from '@nuxt/ui'
 import type { DerivedDay } from '@/modules/attendance/types'
 import { attendanceStatusLook } from '@/modules/attendance/types'
@@ -57,6 +58,20 @@ const auth = useAuthStore()
 const id = computed(() => String(route.params.employeeId))
 
 const canWrite = computed(() => auth.can('assignEmployee'))
+/*
+ * REPARTIR CREDENCIALES DE PUERTA NO ES ASIGNAR ADSCRIPCIONES.
+ *
+ * Va con su propio permiso y no con `canWrite` porque el backend declara otros
+ * roles: `SOPORTE` asigna adscripciones en cualquier cliente pero no reparte
+ * con qué ficha la gente su jornada — eso es del cliente.
+ */
+const puedeDarAcceso = computed(() => auth.can('grantMobileCheckIn'))
+/*
+ * Y VERLO es más ancho que repartirlo. Sin esta línea, la tarjeta le pedía el
+ * estado al servidor para `DIRECTOR_HOLDING` y `OPERADOR` —que sí abren el
+ * expediente— y se llevaba un 403 pintado en rojo.
+ */
+const puedeVerAcceso = computed(() => auth.can('viewMobileCheckIn'))
 
 /**
  * Borrar definitivamente es de quien administra la razón social, no de RRHH.
@@ -1058,6 +1073,17 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
         vive ahora en el globo del distintivo de arriba.
       -->
       <TelefonosRemotos v-if="esRemota" :persona="person" :puede-revocar="canWrite" />
+
+      <!--
+        LA CREDENCIAL DE LA PUERTA, para todo el mundo y no solo para quien
+        checa a distancia: quien trabaja en la nave es justamente quien pasa por
+        el cartel de la contingencia, que es lo que esta credencial protege.
+      -->
+      <CredencialDeChecado
+        v-if="puedeVerAcceso"
+        :persona="person"
+        :puede-dar-acceso="puedeDarAcceso"
+      />
 
       <!--
         SIN RELOJ. Solo cuando de verdad no tiene número en ninguno: quien ya

@@ -58,6 +58,21 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/modules/remoto/views/RemoteCheckInView.vue'),
   },
   /*
+   * REGISTRAR LA CREDENCIAL CON LA QUE SE CHECA EN LA PUERTA.
+   *
+   * Pública y sin armazón, como las dos de arriba. Lleva solo la EMPRESA: la
+   * credencial es de la PERSONA y sirve en cualquier base suya, así que no
+   * cuelga de ninguna instalación. La invitación viaja en `?alta=<nonce>`, y el
+   * código de seis cifras NO va en el enlace — se teclea, para que un enlace
+   * reenviado por error no baste por sí solo.
+   */
+  {
+    path: '/credencial/:entityId',
+    name: 'checkin-credential',
+    meta: { public: true, title: 'Registrar mi credencial' },
+    component: () => import('@/modules/credencial/views/RegistroCredencialView.vue'),
+  },
+  /*
    * LA PUERTA DE LA APLICACIÓN INSTALADA.
    *
    * El manifiesto es un archivo estático y no puede llevar dentro el

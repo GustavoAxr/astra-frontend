@@ -11,12 +11,8 @@ import {
   olvidarTelefono,
   recordarEmpresa,
 } from '../telefono-guardado'
-import {
-  activarLlave as activarLlaveEnElServidor,
-  firmarChecada,
-  loQuePasoConLaLlave,
-  sePuedeUsarLlave,
-} from '../llave'
+import { activarLlave as activarLlaveEnElServidor, firmarChecada } from '../llave'
+import { loQuePasoConLaHuella, sePuedeUsarHuella } from '@/shared/huella'
 import { colaDisponible, encolar, pendientes, sacar } from '../cola-de-checadas'
 import GuiaDeInstalacion from '../components/GuiaDeInstalacion.vue'
 
@@ -150,7 +146,7 @@ onMounted(async () => {
     await altaDesdeElEnlace()
   }
 
-  puedeLlave.value = await sePuedeUsarLlave()
+  puedeLlave.value = await sePuedeUsarHuella()
 
   /*
    * Y lo primero de todo: sacar lo que se quedó atrapado sin red. Se hace al
@@ -353,7 +349,7 @@ async function activarHuella(): Promise<void> {
     // el error a la vista: cerrarlo dejaría a alguien creyendo que ya la tiene.
     activandoHuellaAbierto.value = false
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : loQuePasoConLaLlave(e)
+    error.value = e instanceof ApiError ? e.message : loQuePasoConLaHuella(e)
   } finally {
     activando.value = false
   }
@@ -412,7 +408,7 @@ async function checar(): Promise<void> {
         paso.value = 'numero'
       }
     } else if (esFalloDeLlave(e)) {
-      error.value = loQuePasoConLaLlave(e)
+      error.value = loQuePasoConLaHuella(e)
     } else if (e instanceof TypeError) {
       /*
        * SIN RED: `fetch` falla con `TypeError` y sin respuesta. Es el ÚNICO

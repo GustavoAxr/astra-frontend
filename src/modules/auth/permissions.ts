@@ -106,6 +106,24 @@ export const ACTION_ROLES = {
    * y `SOPORTE` y esta línea lo sigue.
    */
   purgeEmployee: ['ADMIN_EMPRESA', 'SOPORTE'],
+  /*
+   * DAR ACCESO A CHECAR CON EL TELÉFONO EN LA PUERTA.
+   *
+   * `SOPORTE` queda fuera A PROPÓSITO, como en el acceso al asistente: la
+   * credencial con la que alguien ficha su jornada la reparte el cliente, no el
+   * proveedor. El backend declara los mismos dos en `POST
+   * /checkin-credentials/invite`, así que esta línea lo sigue y no lo inventa.
+   */
+  grantMobileCheckIn: ['RRHH', 'ADMIN_EMPRESA'],
+  /*
+   * VER si alguien puede checar con el teléfono es más ancho que repartirlo: un
+   * supervisor no da acceso, pero sí tiene que poder mirar por qué a uno de los
+   * suyos la puerta le pide huella. Son los mismos cuatro de `GET
+   * /checkin-credentials/status`, y estar aquí es lo que impide que el
+   * expediente pinte una tarjeta que responde 403 a `DIRECTOR_HOLDING` y a
+   * `OPERADOR`, que sí pueden abrirlo.
+   */
+  viewMobileCheckIn: ['RRHH', 'ADMIN_EMPRESA', 'SOPORTE', 'SUPERVISOR'],
   requestOvertime: ['GERENTE', 'SUPERVISOR', 'RRHH', 'ADMIN_EMPRESA', 'SOPORTE'],
   /*
    * QUIÉN FIRMA UNA SOLICITUD. Son dos firmas y dos papeles: RRHH firma como
