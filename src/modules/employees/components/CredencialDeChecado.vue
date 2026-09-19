@@ -33,7 +33,10 @@ import type { EmployeeDetail } from '../types'
  * ese día. Son dos accesos distintos y se revocan por separado: quitarle el
  * equipo de home office no le quita la credencial de la puerta.
  */
-const props = defineProps<{ persona: EmployeeDetail; puedeDarAcceso: boolean }>()
+const props = defineProps<{
+  persona: EmployeeDetail
+  puedeDarAcceso: boolean
+}>()
 const aviso = useAviso()
 
 const acceso = useAsync((signal) => credencialApi.estado(props.persona.id, signal))
@@ -110,94 +113,80 @@ const dia = (iso: string | null): string => (iso ? soloDia.format(new Date(iso))
 </script>
 
 <template>
-  <UCard>
-    <template #header>
-      <div class="flex flex-wrap items-center gap-2">
-        <h2 class="text-highlighted font-semibold">Checar con el teléfono en la puerta</h2>
-        <UBadge v-if="tieneAlgo" label="Registrada" color="success" size="sm" class="ml-auto" />
-        <UBadge
-          v-else-if="suyo?.invitacionViva"
-          label="Invitación enviada"
-          color="warning"
-          size="sm"
-          class="ml-auto"
-        />
-        <UBadge v-else label="Sin credencial" color="neutral" size="sm" class="ml-auto" />
-      </div>
-    </template>
+  <!--
+    UNA FILA, NO UNA TARJETA.
 
-    <div class="space-y-4">
+    Esto y el equipo de trabajo remoto son dos respuestas a la MISMA pregunta
+    —¿con qué registra su jornada?— y viven dentro de «Cómo checa», que pone el
+    marco. Aquí un borde y un título propios serían un marco dentro de otro, y
+    tres renglones de aire para decir dos cosas.
+  -->
+  <div class="flex items-start gap-3">
+    <UIcon name="i-lucide-scan-face" class="text-primary mt-0.5 size-4 shrink-0" />
+
+    <div class="min-w-0 flex-1 space-y-2">
+      <p class="text-highlighted text-sm">Teléfono en la puerta</p>
+
       <ApiErrorAlert :error="acceso.error.value" />
 
-      <!-- Lo que tiene, dicho por partes: se revocan por separado. -->
-      <div v-if="suyo" class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-        <span class="flex items-center gap-2">
-          <UIcon
-            name="i-lucide-scan-face"
-            :class="suyo.tienePasskey ? 'text-success size-4' : 'text-dimmed size-4'"
-          />
-          <span :class="suyo.tienePasskey ? 'text-default' : 'text-dimmed'">
-            {{ suyo.tienePasskey ? 'Cara o huella' : 'Sin cara ni huella' }}
-          </span>
+      <!-- Lo que tiene, en un renglón: se revocan por separado. -->
+      <p v-if="tieneAlgo" class="text-muted text-xs">
+        <span :class="suyo?.tienePasskey ? '' : 'text-dimmed'">
+          {{ suyo?.tienePasskey ? 'Cara o huella' : 'sin cara ni huella' }}
         </span>
-        <span class="flex items-center gap-2">
-          <UIcon
-            name="i-lucide-lock-keyhole"
-            :class="suyo.tienePin ? 'text-success size-4' : 'text-dimmed size-4'"
-          />
-          <span :class="suyo.tienePin ? 'text-default' : 'text-dimmed'">
-            {{ suyo.tienePin ? 'Código puesto' : 'Sin código' }}
-          </span>
+        ·
+        <span :class="suyo?.tienePin ? '' : 'text-dimmed'">
+          {{ suyo?.tienePin ? 'código' : 'sin código' }}
         </span>
-        <span v-if="tieneAlgo && suyo.venceEl" class="text-muted">
-          Vale hasta el {{ dia(suyo.venceEl) }}
-        </span>
-        <span v-else-if="tieneAlgo" class="text-muted">No vence</span>
-      </div>
+        <template v-if="suyo?.venceEl"> · vale hasta el {{ dia(suyo.venceEl) }}</template>
+        <template v-else> · no vence</template>
+      </p>
 
       <!--
         MIENTRAS NO TENGA NADA, NO PUEDE CHECAR CON EL TELÉFONO. Se dice con
-        todas las letras: es la razón de existir de este botón, y sin decirla la
-        tarjeta parece un ajuste opcional.
-
-        Este texto decía lo contrario —«basta con teclear su número de
-        empleado»— y era cierto hasta que el cartel dejó de aceptarlo. Ahora la
-        puerta solo acepta lo que solo esa persona tiene, así que quien no se
-        haya registrado depende del reloj o de que le pasen lista.
+        todas las letras: es la razón de existir de este botón, y sin decirla
+        parece un ajuste opcional.
       -->
-      <p v-if="!tieneAlgo" class="text-muted text-sm">
-        Mientras no registre su cara o su código, <strong>no puede checar con el teléfono</strong>
-        en la puerta: el cartel ya no acepta el número de empleado, que va escrito en el gafete.
-        Depende del reloj o de que un supervisor le pase lista.
+      <p v-else class="text-muted text-xs">
+        Sin credencial no puede checar con el teléfono: el cartel ya no acepta el número de
+        empleado, que va escrito en el gafete. Depende del reloj o de que le pasen lista.
       </p>
 
-      <div v-if="suyo?.invitacionViva" class="border-default bg-elevated/50 border p-4 text-sm">
-        <p class="text-default">
-          Invitación enviada a <strong>{{ suyo.invitacionEnviadaA }}</strong>
-        </p>
-        <p class="text-muted text-xs">
-          Caduca el {{ dia(suyo.invitacionVenceEl) }}. Volver a mandarla invalida esta.
-        </p>
-      </div>
+      <p v-if="suyo?.invitacionViva" class="text-dimmed text-xs">
+        Invitación enviada a <strong>{{ suyo.invitacionEnviadaA }}</strong> · caduca el
+        {{ dia(suyo.invitacionVenceEl) }}. Volver a mandarla invalida esta.
+      </p>
 
       <div class="flex flex-wrap items-center gap-2">
         <UButton
-          :label="suyo?.invitacionViva ? 'Volver a mandar la invitación' : 'Dar acceso'"
+          :label="suyo?.invitacionViva ? 'Reenviar invitación' : 'Dar acceso'"
           icon="i-lucide-mail"
+          size="xs"
           :disabled="!puedeDarAcceso"
           @click="invitando = true"
         />
         <UButton
           v-if="tieneAlgo"
-          label="Quitar su credencial"
+          label="Quitar"
           icon="i-lucide-shield-off"
           color="error"
+          size="xs"
           :disabled="!puedeDarAcceso"
           :loading="quitando"
           @click="quitar"
         />
       </div>
     </div>
+
+    <UBadge v-if="tieneAlgo" label="Registrada" color="success" size="sm" class="shrink-0" />
+    <UBadge
+      v-else-if="suyo?.invitacionViva"
+      label="Invitación enviada"
+      color="warning"
+      size="sm"
+      class="shrink-0"
+    />
+    <UBadge v-else label="Sin credencial" color="neutral" size="sm" class="shrink-0" />
 
     <!--
       QUÉ VA A LEER LA OTRA PERSONA, antes de mandarlo. Y el aviso de que el
@@ -245,5 +234,5 @@ const dia = (iso: string | null): string => (iso ? soloDia.format(new Date(iso))
         </div>
       </template>
     </UModal>
-  </UCard>
+  </div>
 </template>

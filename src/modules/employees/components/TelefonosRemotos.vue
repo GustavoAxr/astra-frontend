@@ -169,17 +169,18 @@ const soloDia = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
 </script>
 
 <template>
-  <UCard>
-    <template #header>
-      <div class="flex flex-wrap items-center gap-2">
-        <h2 class="text-highlighted font-semibold">Checar desde su equipo</h2>
-        <span class="text-muted ml-auto text-sm">
-          {{ vigentes.length }} {{ vigentes.length === 1 ? 'equipo' : 'equipos' }}
-        </span>
-      </div>
-    </template>
+  <!--
+    UNA FILA, NO UNA TARJETA.
 
-    <div class="space-y-4">
+    Esto y la credencial de la puerta son dos respuestas a la MISMA pregunta
+    —¿con qué registra su jornada?— y viven dentro de «Cómo checa», que pone el
+    marco. Un borde y un título propios aquí serían un marco dentro de otro.
+  -->
+  <div class="flex items-start gap-3">
+    <UIcon name="i-lucide-house" class="text-primary mt-0.5 size-4 shrink-0" />
+
+    <div class="min-w-0 flex-1 space-y-4">
+      <p class="text-highlighted text-sm">Desde su equipo, a distancia</p>
       <!--
         LAS DOS COSAS QUE LE FALTAN PARA PODER DARSE DE ALTA, en orden y con el
         estado a la vista. Si el WhatsApp no está confirmado, el código no sale
@@ -416,5 +417,16 @@ const soloDia = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
         </div>
       </template>
     </UModal>
-  </UCard>
+
+    <UBadge
+      :label="
+        vigentes.length === 0
+          ? 'Sin equipo'
+          : `${vigentes.length} ${vigentes.length === 1 ? 'equipo' : 'equipos'}`
+      "
+      :color="vigentes.length === 0 ? 'neutral' : 'success'"
+      size="sm"
+      class="shrink-0"
+    />
+  </div>
 </template>

@@ -20,11 +20,9 @@ import { orgApi } from '@/modules/org/api'
 import { attendanceApi } from '@/modules/attendance/api'
 import { padronApi } from '@/modules/padron/api'
 import { enPlano } from '@/shared/text'
-import { WHATSAPP_ACTIVO } from '@/shared/config/funciones'
 import EmployeeDayTimeline from '@/modules/attendance/components/EmployeeDayTimeline.vue'
 import CorregirDiaModal from '@/modules/attendance/components/CorregirDiaModal.vue'
-import TelefonosRemotos from '../components/TelefonosRemotos.vue'
-import CredencialDeChecado from '../components/CredencialDeChecado.vue'
+import ComoCheca from '../components/ComoCheca.vue'
 import type { TabsItem } from '@nuxt/ui'
 import type { DerivedDay } from '@/modules/attendance/types'
 import { attendanceStatusLook } from '@/modules/attendance/types'
@@ -847,6 +845,22 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
           <h1 class="text-highlighted text-xl font-semibold">{{ fullName || '…' }}</h1>
           <span class="text-dimmed font-mono text-sm">{{ person?.employeeCode }}</span>
           <UBadge v-if="person && !person.isActive" label="Dado de baja" color="neutral" />
+          <!--
+            CURP Y NACIMIENTO EN ESTE RENGLÓN, pegados al número de empleado.
+
+            Tenían una tarjeta propia con título y dos filas para dos datos que
+            nadie viene a consultar: se miran de reojo, para confirmar que es
+            esa persona y no su tocayo. Aquí, donde está el resto de «quién es»,
+            es donde se buscan — y la tarjeta que los guardaba desapareció.
+          -->
+          <template v-if="person?.curp || person?.birthDate">
+            <span class="bg-accented h-3.5 w-px" aria-hidden="true"></span>
+            <span v-if="person?.curp" class="text-dimmed font-mono text-xs">{{ person.curp }}</span>
+            <span v-if="person?.birthDate" class="text-dimmed text-xs">
+              <UIcon name="i-lucide-cake" class="size-3 align-[-2px]" />
+              {{ person.birthDate }}
+            </span>
+          </template>
         </div>
         <!--
           Puesto y departamento de HOY, junto al horario: son las tres cosas que
@@ -868,34 +882,6 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
         <!-- Sin turno el motor no puede calcular nada: se dice, no se calla. -->
         <p v-else-if="employee.loaded.value" class="text-warning mt-0.5 text-sm">
           Sin turno asignado: no se le puede calcular asistencia.
-        </p>
-        <!--
-          CURP Y NACIMIENTO AQUÍ, y no en una tarjeta propia.
-
-          Ocupaban media pantalla —una tarjeta con título y dos renglones— para
-          dos datos que nadie viene a consultar: se miran de reojo, para
-          confirmar que es esa persona y no su tocayo. Junto al número de
-          empleado es donde se buscan, porque es donde está el resto de «quién
-          es». La tarjeta que los guardaba desapareció.
-        -->
-        <p v-if="person" class="text-dimmed mt-1 flex flex-wrap items-center gap-x-3 text-xs">
-          <span v-if="person.curp" class="font-mono">{{ person.curp }}</span>
-          <span v-if="person.birthDate">
-            <UIcon name="i-lucide-cake" class="size-3 align-[-2px]" />
-            {{ person.birthDate }}
-          </span>
-          <!--
-            Los dos de WhatsApp aparecen solo si esa función está encendida: un
-            dato que hoy no se puede capturar en ninguna pantalla solo puede
-            decir «—», y un «—» permanente no informa, preocupa.
-          -->
-          <template v-if="WHATSAPP_ACTIVO">
-            <span v-if="person.whatsappNumber" class="font-mono">
-              <UIcon name="i-lucide-message-circle" class="size-3 align-[-2px]" />
-              {{ person.whatsappNumber }}
-              <template v-if="!person.whatsappOptIn">· sin consentir avisos</template>
-            </span>
-          </template>
         </p>
       </div>
 
@@ -1045,165 +1031,124 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
       cuándo— y es lo primero que se mira después de saber quién es. Va sola, con
       todo el ancho, y en orden.
     -->
-    <UCard v-if="person">
-      <template #header>
-        <div class="flex flex-wrap items-center gap-2">
-          <h2 class="font-medium">Adscripciones · {{ person.assignments.length }}</h2>
-          <!--
+    <div v-if="person" class="grid gap-6 lg:grid-cols-3">
+      <!--
+        LA HISTORIA A DOS TERCIOS Y «CÓMO CHECA» A UNO.
+
+        Las adscripciones necesitan el ancho —son renglones largos: base, puesto,
+        departamento y fechas— y lo de checar son tres renglones cortos con su
+        estado. Al revés, o a mitades, una se apretaba y la otra se quedaba con
+        media tarjeta vacía.
+      -->
+      <UCard class="lg:col-span-2">
+        <template #header>
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="font-medium">Adscripciones · {{ person.assignments.length }}</h2>
+            <!--
             DÓNDE TRABAJA, en una palabra y con la explicación escondida.
 
             El distintivo es un botón para que también se llegue con el teclado:
             un globo que solo abre al pasar el ratón no existe para quien no usa
             ratón.
           -->
-          <UTooltip :delay-duration="150">
-            <UBadge
-              as="button"
-              type="button"
-              :label="esRemota ? 'A distancia' : 'En sitio'"
-              :color="esRemota ? 'success' : 'neutral'"
-              size="sm"
-              class="cursor-help"
+            <UTooltip :delay-duration="150">
+              <UBadge
+                as="button"
+                type="button"
+                :label="esRemota ? 'A distancia' : 'En sitio'"
+                :color="esRemota ? 'success' : 'neutral'"
+                size="sm"
+                class="cursor-help"
+              />
+              <template #content>
+                <div class="max-w-xs space-y-1.5 text-xs">
+                  <p v-if="esRemota">
+                    Checa desde su teléfono, desde casa o donde esté. Abajo se dan de alta los
+                    aparatos con los que puede hacerlo.
+                  </p>
+                  <p v-else>
+                    Checa en el reloj de su instalación. Para que pueda hacerlo desde su teléfono
+                    —desde casa o donde esté— cámbiale la adscripción a «A distancia» con el botón
+                    <strong>Cambiar</strong>.
+                  </p>
+                  <p class="text-muted">
+                    Checar a distancia no usa geocerca: quien trabaja desde casa no está dentro de
+                    ninguna. Lo que respalda cada checada es el acuse que le llega a su correo.
+                  </p>
+                </div>
+              </template>
+            </UTooltip>
+            <UButton
+              v-if="canWrite"
+              icon="i-lucide-replace"
+              label="Cambiar"
+              size="xs"
+              class="ml-auto"
+              @click="assignOpen = true"
             />
-            <template #content>
-              <div class="max-w-xs space-y-1.5 text-xs">
-                <p v-if="esRemota">
-                  Checa desde su teléfono, desde casa o donde esté. Abajo se dan de alta los
-                  aparatos con los que puede hacerlo.
-                </p>
-                <p v-else>
-                  Checa en el reloj de su instalación. Para que pueda hacerlo desde su teléfono
-                  —desde casa o donde esté— cámbiale la adscripción a «A distancia» con el botón
-                  <strong>Cambiar</strong>.
-                </p>
-                <p class="text-muted">
-                  Checar a distancia no usa geocerca: quien trabaja desde casa no está dentro de
-                  ninguna. Lo que respalda cada checada es el acuse que le llega a su correo.
-                </p>
-              </div>
-            </template>
-          </UTooltip>
-          <UButton
-            v-if="canWrite"
-            icon="i-lucide-replace"
-            label="Cambiar"
-            size="xs"
-            class="ml-auto"
-            @click="assignOpen = true"
-          />
-        </div>
-      </template>
+          </div>
+        </template>
 
-      <p v-if="person.assignments.length === 0" class="text-dimmed text-sm">
-        Sin adscripciones. Hay que asignarle base y turno.
-      </p>
+        <p v-if="person.assignments.length === 0" class="text-dimmed text-sm">
+          Sin adscripciones. Hay que asignarle base y turno.
+        </p>
 
-      <!--
+        <!--
         `defaultValue` marca la vigente: lo anterior queda como recorrido y ella
         encendida. Es lo que hace que la línea se lea sin tener que comparar
         fechas.
       -->
-      <UTimeline
-        v-else
-        :items="lineaDeAdscripciones"
-        :default-value="adscripcionVigente"
-        size="sm"
-        color="primary"
-      >
-        <template #title="{ item }">
-          <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span class="font-medium">
-              {{ installationName(item.adscripcion.installationId) }}
-            </span>
-            <span class="text-muted text-sm">
-              {{ positionName(item.adscripcion.positionId) }}
-            </span>
-            <!--
+        <UTimeline
+          v-else
+          :items="lineaDeAdscripciones"
+          :default-value="adscripcionVigente"
+          size="sm"
+          color="primary"
+        >
+          <template #title="{ item }">
+            <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span class="font-medium">
+                {{ installationName(item.adscripcion.installationId) }}
+              </span>
+              <span class="text-muted text-sm">
+                {{ positionName(item.adscripcion.positionId) }}
+              </span>
+              <!--
               El departamento sale del servidor ya resuelto, no del catálogo
               cargado en pantalla: una adscripción vieja puede apuntar a uno que
               después se desactivó, y la historia tiene que seguir diciendo
               dónde estaba esa persona.
             -->
-            <span v-if="item.adscripcion.departmentName" class="text-muted text-sm">
-              · {{ item.adscripcion.departmentName }}
+              <span v-if="item.adscripcion.departmentName" class="text-muted text-sm">
+                · {{ item.adscripcion.departmentName }}
+              </span>
+              <UBadge v-if="item.vigente" label="Vigente" color="primary" size="sm" />
+            </div>
+          </template>
+          <template #description="{ item }">
+            <span class="text-dimmed text-xs">
+              {{
+                ASSIGNMENT_REASON_LABEL[item.adscripcion.reason as AssignmentReason] ??
+                item.adscripcion.reason
+              }}
+              ·
+              {{ item.adscripcion.validFrom }} →
+              {{ item.adscripcion.validTo ?? 'hoy' }}
             </span>
-            <UBadge v-if="item.vigente" label="Vigente" color="primary" size="sm" />
-          </div>
-        </template>
-        <template #description="{ item }">
-          <span class="text-dimmed text-xs">
-            {{
-              ASSIGNMENT_REASON_LABEL[item.adscripcion.reason as AssignmentReason] ??
-              item.adscripcion.reason
-            }}
-            ·
-            {{ item.adscripcion.validFrom }} →
-            {{ item.adscripcion.validTo ?? 'hoy' }}
-          </span>
-        </template>
-      </UTimeline>
-    </UCard>
-
-    <!--
-      CÓMO CHECA ESTA PERSONA, todo junto y en su propia fila.
-
-      Estaban repartidas entre las demás tarjetas, y son las tres caras de UNA
-      sola pregunta —¿con qué registra su jornada?—: el reloj de la nave, la
-      credencial de la puerta y, si trabaja a distancia, su equipo. Separadas,
-      había que recorrer el expediente entero para saber si alguien puede fichar.
-    -->
-    <div v-if="person" class="grid gap-6 lg:grid-cols-2">
-      <!--
-        Justo DEBAJO de las adscripciones, y no en otra pestaña: lo que habilita
-        checar desde el teléfono es la adscripción, así que el estado y su causa
-        se leen seguidos.
-
-        SOLO SI CHECA A DISTANCIA. Para quien checa en el reloj esta tarjeta no
-        tenía nada que ofrecer: era un párrafo explicando por qué está vacía. Eso
-        vive ahora en el globo del distintivo de arriba.
-      -->
-      <TelefonosRemotos v-if="esRemota" :persona="person" :puede-revocar="canWrite" />
-
-      <!--
-        LA CREDENCIAL DE LA PUERTA, para todo el mundo y no solo para quien
-        checa a distancia: quien trabaja en la nave es justamente quien pasa por
-        el cartel de la contingencia, que es lo que esta credencial protege.
-      -->
-      <CredencialDeChecado
-        v-if="puedeVerAcceso"
-        :persona="person"
-        :puede-dar-acceso="puedeDarAcceso"
-      />
-
-      <!--
-        SIN RELOJ. Solo cuando de verdad no tiene número en ninguno: quien ya
-        está enrolado tiene arriba su propio aviso, con la bitácora de órdenes.
-        A quien trabaja a distancia se le ofrece igual —puede pisar la nave
-        cualquier día, y entonces la puerta es la puerta—, pero sin urgencia.
-      -->
-      <UCard v-if="canPush && !enElReloj">
-        <template #header>
-          <div class="flex flex-wrap items-center gap-2">
-            <h2 class="font-medium">El reloj</h2>
-            <UBadge label="Sin número" color="warning" size="sm" />
-          </div>
-        </template>
-        <div class="space-y-3">
-          <p class="text-muted text-sm">
-            No está dado de alta en ningún reloj, así que hoy no puede pasar por la puerta ni checar
-            en la nave.
-            <template v-if="esRemota">
-              Trabaja a distancia, así que puede que no haga falta — pero el día que pise la nave,
-              sí.
-            </template>
-          </p>
-          <UButton
-            label="Darlo de alta en el reloj"
-            icon="i-lucide-id-card"
-            @click="enrolarOpen = true"
-          />
-        </div>
+          </template>
+        </UTimeline>
       </UCard>
+
+      <ComoCheca
+        :persona="person"
+        :es-remota="esRemota"
+        :en-el-reloj="enElReloj"
+        :puede-enrolar="canPush"
+        :puede-ver-credencial="puedeVerAcceso"
+        :puede-dar-acceso="puedeDarAcceso"
+        :puede-revocar-remoto="canWrite"
+        @enrolar="enrolarOpen = true"
+      />
     </div>
 
     <!--
