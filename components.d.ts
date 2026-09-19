@@ -35,6 +35,7 @@ declare module 'vue' {
     UTable: typeof import('./node_modules/@nuxt/ui/dist/runtime/components/Table.vue')['default']
     UTabs: typeof import('./node_modules/@nuxt/ui/dist/runtime/components/Tabs.vue')['default']
     UTextarea: typeof import('./node_modules/@nuxt/ui/dist/runtime/components/Textarea.vue')['default']
+    UTimeline: typeof import('./node_modules/@nuxt/ui/dist/runtime/components/Timeline.vue')['default']
     UTooltip: typeof import('./node_modules/@nuxt/ui/dist/runtime/components/Tooltip.vue')['default']
   }
 }
@@ -64,5 +65,6 @@ declare global {
   const UTable: typeof import('./node_modules/@nuxt/ui/dist/runtime/components/Table.vue')['default']
   const UTabs: typeof import('./node_modules/@nuxt/ui/dist/runtime/components/Tabs.vue')['default']
   const UTextarea: typeof import('./node_modules/@nuxt/ui/dist/runtime/components/Textarea.vue')['default']
+  const UTimeline: typeof import('./node_modules/@nuxt/ui/dist/runtime/components/Timeline.vue')['default']
   const UTooltip: typeof import('./node_modules/@nuxt/ui/dist/runtime/components/Tooltip.vue')['default']
 }

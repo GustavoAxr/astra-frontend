@@ -345,6 +345,54 @@ const fullName = computed(() =>
  */
 const esRemota = computed(() => person.value?.current?.workMode === 'REMOTE')
 
+/**
+ * UN ICONO POR MOTIVO, en la línea de tiempo de las adscripciones.
+ *
+ * No es adorno: en una lista de seis renglones casi iguales —misma base, mismo
+ * puesto, fechas distintas— el icono es lo único que deja ver de un vistazo qué
+ * fue cada cambio. Una promoción y una cobertura temporal se leen distinto.
+ */
+const ICONO_DEL_MOTIVO: Record<AssignmentReason, string> = {
+  HIRED: 'i-lucide-user-plus',
+  TRANSFERRED: 'i-lucide-arrow-right-left',
+  SHIFT_CHANGE: 'i-lucide-clock',
+  PROMOTED: 'i-lucide-trending-up',
+  TEMPORARY_COVER: 'i-lucide-umbrella',
+  SEASONAL: 'i-lucide-calendar-range',
+  REHIRED: 'i-lucide-rotate-ccw',
+  OTHER: 'i-lucide-circle',
+}
+
+/**
+ * LAS ADSCRIPCIONES COMO LÍNEA DE TIEMPO, de la más vieja a la de hoy.
+ *
+ * ══ POR QUÉ ASÍ Y NO UNA LISTA ══
+ *
+ * Una adscripción no es un dato suelto: es un tramo de la historia de esa
+ * persona en la empresa —dónde estuvo, con qué puesto y desde cuándo—, y lo que
+ * se pregunta al abrirla es «¿por dónde ha pasado?». Una lista de renglones
+ * obliga a leer las fechas de cada uno para reconstruir el orden; una línea lo
+ * enseña.
+ *
+ * DE LA MÁS VIEJA ABAJO NO: arriba. Se lee como se cuenta una carrera —entró
+ * aquí, luego pasó allá, hoy está en esto— y la vigente queda al final, que es
+ * donde el ojo se detiene.
+ */
+const lineaDeAdscripciones = computed(() =>
+  [...(person.value?.assignments ?? [])]
+    .sort((a, b) => a.validFrom.localeCompare(b.validFrom))
+    .map((a) => ({
+      value: a.id,
+      /* Los datos crudos viajan con el elemento: la plantilla los pinta a mano. */
+      adscripcion: a,
+      icon: ICONO_DEL_MOTIVO[a.reason as AssignmentReason] ?? 'i-lucide-circle',
+      vigente: a.validTo === null,
+    })),
+)
+
+/** La que sigue abierta: es la que la línea pinta encendida. */
+const adscripcionVigente = computed(() => lineaDeAdscripciones.value.find((p) => p.vigente)?.value)
+
 const currentShift = computed(() => {
   const policyId = person.value?.currentAssignment?.shiftPolicyId
   const policy = (shifts.data.value ?? []).find((s) => s.id === policyId)
@@ -821,6 +869,34 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
         <p v-else-if="employee.loaded.value" class="text-warning mt-0.5 text-sm">
           Sin turno asignado: no se le puede calcular asistencia.
         </p>
+        <!--
+          CURP Y NACIMIENTO AQUÍ, y no en una tarjeta propia.
+
+          Ocupaban media pantalla —una tarjeta con título y dos renglones— para
+          dos datos que nadie viene a consultar: se miran de reojo, para
+          confirmar que es esa persona y no su tocayo. Junto al número de
+          empleado es donde se buscan, porque es donde está el resto de «quién
+          es». La tarjeta que los guardaba desapareció.
+        -->
+        <p v-if="person" class="text-dimmed mt-1 flex flex-wrap items-center gap-x-3 text-xs">
+          <span v-if="person.curp" class="font-mono">{{ person.curp }}</span>
+          <span v-if="person.birthDate">
+            <UIcon name="i-lucide-cake" class="size-3 align-[-2px]" />
+            {{ person.birthDate }}
+          </span>
+          <!--
+            Los dos de WhatsApp aparecen solo si esa función está encendida: un
+            dato que hoy no se puede capturar en ninguna pantalla solo puede
+            decir «—», y un «—» permanente no informa, preocupa.
+          -->
+          <template v-if="WHATSAPP_ACTIVO">
+            <span v-if="person.whatsappNumber" class="font-mono">
+              <UIcon name="i-lucide-message-circle" class="size-3 align-[-2px]" />
+              {{ person.whatsappNumber }}
+              <template v-if="!person.whatsappOptIn">· sin consentir avisos</template>
+            </span>
+          </template>
+        </p>
       </div>
 
       <div v-if="canWrite && person" class="ml-auto flex gap-2">
@@ -961,108 +1037,122 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
       @deleted="router.push({ name: 'employees' })"
     />
 
-    <div v-if="person" class="grid gap-6 lg:grid-cols-2">
-      <!-- Datos personales -->
-      <UCard>
-        <template #header><h2 class="font-medium">Datos</h2></template>
-        <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-          <dt class="text-muted">CURP</dt>
-          <dd class="font-mono">{{ person.curp ?? '—' }}</dd>
-          <dt class="text-muted">Nacimiento</dt>
-          <dd>{{ person.birthDate ?? '—' }}</dd>
+    <!--
+      LAS ADSCRIPCIONES, A TODO LO ANCHO Y COMO LÍNEA DE TIEMPO.
+
+      Ocupaban media fila junto a una tarjeta de dos datos, y es al revés: esto
+      es la historia de esa persona en la empresa —por dónde ha pasado y desde
+      cuándo— y es lo primero que se mira después de saber quién es. Va sola, con
+      todo el ancho, y en orden.
+    -->
+    <UCard v-if="person">
+      <template #header>
+        <div class="flex flex-wrap items-center gap-2">
+          <h2 class="font-medium">Adscripciones · {{ person.assignments.length }}</h2>
           <!--
-            Los dos renglones de WhatsApp se esconden con el resto: un dato que
-            no se puede capturar en ninguna pantalla solo puede decir «—», y un
-            «—» permanente no informa, preocupa.
+            DÓNDE TRABAJA, en una palabra y con la explicación escondida.
+
+            El distintivo es un botón para que también se llegue con el teclado:
+            un globo que solo abre al pasar el ratón no existe para quien no usa
+            ratón.
           -->
-          <template v-if="WHATSAPP_ACTIVO">
-            <dt class="text-muted">WhatsApp</dt>
-            <dd class="font-mono">{{ person.whatsappNumber ?? '—' }}</dd>
-            <dt class="text-muted">Consintió avisos</dt>
-            <dd>{{ person.whatsappOptIn ? 'Sí' : 'No' }}</dd>
-          </template>
-        </dl>
-      </UCard>
-
-      <!-- Adscripciones -->
-      <UCard>
-        <template #header>
-          <div class="flex items-center gap-2">
-            <h2 class="font-medium">Adscripciones · {{ person.assignments.length }}</h2>
-            <!--
-              DÓNDE TRABAJA, en una palabra y con la explicación escondida.
-
-              El distintivo es un botón para que también se llegue con el
-              teclado: un globo que solo abre al pasar el ratón no existe para
-              quien no usa ratón.
-            -->
-            <UTooltip :delay-duration="150">
-              <UBadge
-                as="button"
-                type="button"
-                :label="esRemota ? 'A distancia' : 'En sitio'"
-                :color="esRemota ? 'success' : 'neutral'"
-                size="sm"
-                class="cursor-help"
-              />
-              <template #content>
-                <div class="max-w-xs space-y-1.5 text-xs">
-                  <p v-if="esRemota">
-                    Checa desde su teléfono, desde casa o donde esté. Abajo se dan de alta los
-                    aparatos con los que puede hacerlo.
-                  </p>
-                  <p v-else>
-                    Checa en el reloj de su instalación. Para que pueda hacerlo desde su teléfono
-                    —desde casa o donde esté— cámbiale la adscripción a «A distancia» con el botón
-                    <strong>Cambiar</strong>.
-                  </p>
-                  <p class="text-muted">
-                    Checar a distancia no usa geocerca: quien trabaja desde casa no está dentro de
-                    ninguna. Lo que respalda cada checada es el acuse que le llega a su correo.
-                  </p>
-                </div>
-              </template>
-            </UTooltip>
-            <UButton
-              v-if="canWrite"
-              icon="i-lucide-replace"
-              label="Cambiar"
-              size="xs"
-              class="ml-auto"
-              @click="assignOpen = true"
+          <UTooltip :delay-duration="150">
+            <UBadge
+              as="button"
+              type="button"
+              :label="esRemota ? 'A distancia' : 'En sitio'"
+              :color="esRemota ? 'success' : 'neutral'"
+              size="sm"
+              class="cursor-help"
             />
-          </div>
-        </template>
-        <p v-if="person.assignments.length === 0" class="text-dimmed text-sm">
-          Sin adscripciones. Hay que asignarle base y turno.
-        </p>
-        <ul v-else class="space-y-2 text-sm">
-          <li
-            v-for="a in person.assignments"
-            :key="a.id"
-            class="border-default flex flex-wrap items-baseline gap-2 border-b pb-2 last:border-0"
-          >
-            <span class="font-mono text-xs">{{ installationName(a.installationId) }}</span>
-            <span>{{ positionName(a.positionId) }}</span>
+            <template #content>
+              <div class="max-w-xs space-y-1.5 text-xs">
+                <p v-if="esRemota">
+                  Checa desde su teléfono, desde casa o donde esté. Abajo se dan de alta los
+                  aparatos con los que puede hacerlo.
+                </p>
+                <p v-else>
+                  Checa en el reloj de su instalación. Para que pueda hacerlo desde su teléfono
+                  —desde casa o donde esté— cámbiale la adscripción a «A distancia» con el botón
+                  <strong>Cambiar</strong>.
+                </p>
+                <p class="text-muted">
+                  Checar a distancia no usa geocerca: quien trabaja desde casa no está dentro de
+                  ninguna. Lo que respalda cada checada es el acuse que le llega a su correo.
+                </p>
+              </div>
+            </template>
+          </UTooltip>
+          <UButton
+            v-if="canWrite"
+            icon="i-lucide-replace"
+            label="Cambiar"
+            size="xs"
+            class="ml-auto"
+            @click="assignOpen = true"
+          />
+        </div>
+      </template>
+
+      <p v-if="person.assignments.length === 0" class="text-dimmed text-sm">
+        Sin adscripciones. Hay que asignarle base y turno.
+      </p>
+
+      <!--
+        `defaultValue` marca la vigente: lo anterior queda como recorrido y ella
+        encendida. Es lo que hace que la línea se lea sin tener que comparar
+        fechas.
+      -->
+      <UTimeline
+        v-else
+        :items="lineaDeAdscripciones"
+        :default-value="adscripcionVigente"
+        size="sm"
+        color="primary"
+      >
+        <template #title="{ item }">
+          <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span class="font-medium">
+              {{ installationName(item.adscripcion.installationId) }}
+            </span>
+            <span class="text-muted text-sm">
+              {{ positionName(item.adscripcion.positionId) }}
+            </span>
             <!--
               El departamento sale del servidor ya resuelto, no del catálogo
               cargado en pantalla: una adscripción vieja puede apuntar a uno que
               después se desactivó, y la historia tiene que seguir diciendo
               dónde estaba esa persona.
             -->
-            <span v-if="a.departmentName" class="text-muted text-sm">
-              · {{ a.departmentName }}
+            <span v-if="item.adscripcion.departmentName" class="text-muted text-sm">
+              · {{ item.adscripcion.departmentName }}
             </span>
-            <span class="text-muted text-xs">
-              {{ ASSIGNMENT_REASON_LABEL[a.reason as AssignmentReason] ?? a.reason }}
-            </span>
-            <span class="text-dimmed ml-auto text-xs">
-              {{ a.validFrom }} → {{ a.validTo ?? 'vigente' }}
-            </span>
-          </li>
-        </ul>
-      </UCard>
+            <UBadge v-if="item.vigente" label="Vigente" color="primary" size="sm" />
+          </div>
+        </template>
+        <template #description="{ item }">
+          <span class="text-dimmed text-xs">
+            {{
+              ASSIGNMENT_REASON_LABEL[item.adscripcion.reason as AssignmentReason] ??
+              item.adscripcion.reason
+            }}
+            ·
+            {{ item.adscripcion.validFrom }} →
+            {{ item.adscripcion.validTo ?? 'hoy' }}
+          </span>
+        </template>
+      </UTimeline>
+    </UCard>
 
+    <!--
+      CÓMO CHECA ESTA PERSONA, todo junto y en su propia fila.
+
+      Estaban repartidas entre las demás tarjetas, y son las tres caras de UNA
+      sola pregunta —¿con qué registra su jornada?—: el reloj de la nave, la
+      credencial de la puerta y, si trabaja a distancia, su equipo. Separadas,
+      había que recorrer el expediente entero para saber si alguien puede fichar.
+    -->
+    <div v-if="person" class="grid gap-6 lg:grid-cols-2">
       <!--
         Justo DEBAJO de las adscripciones, y no en otra pestaña: lo que habilita
         checar desde el teléfono es la adscripción, así que el estado y su causa
@@ -1114,7 +1204,14 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
           />
         </div>
       </UCard>
+    </div>
 
+    <!--
+      Y LO QUE ES SU EXPEDIENTE: lo que ha trabajado y lo que ha pedido. Dos
+      tarjetas que se leen juntas —una dice cuánto lleva y la otra cuánto se ha
+      ausentado— y por eso comparten fila.
+    -->
+    <div v-if="person" class="grid gap-6 lg:grid-cols-2">
       <!-- Vida laboral -->
       <UCard>
         <template #header>
