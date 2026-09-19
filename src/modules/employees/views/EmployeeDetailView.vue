@@ -83,6 +83,22 @@ const corrigiendo = ref<DerivedDay | null>(null)
 /** Escribir en un equipo es de RRHH y del administrador. Regla 6: oculta, no protege. */
 const canPush = computed(() => auth.can('assignEmployee'))
 
+/** Para decir una fecha de nacimiento sin que un huso horario la mueva un día. */
+const MESES_LARGOS = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+]
+
 const borrarOpen = ref(false)
 const estadoOpen = ref(false)
 /**
@@ -342,6 +358,23 @@ const fullName = computed(() =>
  * aparece al pasar el ratón, para quien la necesite.
  */
 const esRemota = computed(() => person.value?.current?.workMode === 'REMOTE')
+
+/**
+ * El nacimiento, dicho como lo diría una persona: «11 de enero de 2002».
+ *
+ * SE ARMA CON LAS PARTES DE LA CADENA, sin pasar por `new Date`. Un
+ * `YYYY-MM-DD` se interpreta como medianoche UTC, y al pintarlo en la zona de
+ * México saldría el día ANTERIOR. Es el mismo tropiezo que ya costó un día
+ * entero en los reportes; aquí sería el cumpleaños de alguien.
+ */
+const nacimiento = computed(() => {
+  const crudo = person.value?.birthDate
+  if (!crudo) return null
+  const [anio, mes, dia] = crudo.split('-')
+  const nombre = MESES_LARGOS[Number(mes) - 1]
+  if (anio === undefined || dia === undefined || nombre === undefined) return crudo
+  return `${Number(dia)} de ${nombre} de ${anio}`
+})
 
 /**
  * UN ICONO POR MOTIVO, en la línea de tiempo de las adscripciones.
@@ -843,8 +876,6 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-2">
           <h1 class="text-highlighted text-xl font-semibold">{{ fullName || '…' }}</h1>
-          <span class="text-dimmed font-mono text-sm">{{ person?.employeeCode }}</span>
-          <UBadge v-if="person && !person.isActive" label="Dado de baja" color="neutral" />
           <!--
             CURP Y NACIMIENTO EN ESTE RENGLÓN, pegados al número de empleado.
 
@@ -852,15 +883,25 @@ watch(id, () => void Promise.all([reload(), attendance.run()]), {
             nadie viene a consultar: se miran de reojo, para confirmar que es
             esa persona y no su tocayo. Aquí, donde está el resto de «quién es»,
             es donde se buscan — y la tarjeta que los guardaba desapareció.
+
+            LOS TRES DATOS SE ESCRIBEN IGUAL: mismo tamaño, mismo color y
+            separados por el mismo punto medio. Antes la clave iba en un tamaño,
+            la CURP en otro y la fecha con un icono de pastel que levantaba su
+            renglón un par de píxeles y desalineaba los tres. El icono no decía
+            nada que la fecha no dijera ya.
           -->
-          <template v-if="person?.curp || person?.birthDate">
-            <span class="bg-accented h-3.5 w-px" aria-hidden="true"></span>
-            <span v-if="person?.curp" class="text-dimmed font-mono text-xs">{{ person.curp }}</span>
-            <span v-if="person?.birthDate" class="text-dimmed text-xs">
-              <UIcon name="i-lucide-cake" class="size-3 align-[-2px]" />
-              {{ person.birthDate }}
-            </span>
-          </template>
+          <span class="text-dimmed flex flex-wrap items-center gap-x-2 text-xs leading-none">
+            <span class="font-mono">{{ person?.employeeCode }}</span>
+            <template v-if="person?.curp">
+              <span aria-hidden="true">·</span>
+              <span class="font-mono">{{ person.curp }}</span>
+            </template>
+            <template v-if="nacimiento">
+              <span aria-hidden="true">·</span>
+              <span>{{ nacimiento }}</span>
+            </template>
+          </span>
+          <UBadge v-if="person && !person.isActive" label="Dado de baja" color="neutral" />
         </div>
         <!--
           Puesto y departamento de HOY, junto al horario: son las tres cosas que
