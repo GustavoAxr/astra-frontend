@@ -206,8 +206,22 @@ let mapa: L.Map | null = null
 let fondo: L.TileLayer | null = null
 let etiquetas: L.TileLayer | null = null
 let area: L.Polygon | null = null
+let borde: L.Polygon | null = null
 let circulo: L.Circle | null = null
-const marcas: L.CircleMarker[] = []
+const marcas: L.Marker[] = []
+const intermedias: L.Marker[] = []
+
+/**
+ * MIENTRAS SE ARRASTRA, EL MODELO NO SE TOCA.
+ *
+ * Escribir en `vertices` en cada milímetro dispararía el `watch` que vuelve a
+ * pintarlo todo: el marcador que el dedo está sujetando se destruiría y se
+ * crearía otro, y el arrastre se cortaría en seco. Así que durante el gesto se
+ * mueve una copia de trabajo y solo se pinta la figura; al soltar se escribe
+ * una vez y el repintado normal se encarga del resto.
+ */
+const arrastrando = ref(false)
+let trabajo: GeoPoint[] = []
 
 const suficientes = computed(() => vertices.value.length >= 3)
 
@@ -241,7 +255,10 @@ function pintar(): void {
 
   area?.remove()
   area = null
+  borde?.remove()
+  borde = null
   for (const m of marcas.splice(0)) m.remove()
+  for (const m of intermedias.splice(0)) m.remove()
 
   // El círculo se sigue pintando de fondo mientras no haya área: es lo que
   // enseña POR QUÉ hace falta dibujar, sin tener que explicarlo con palabras.
@@ -264,7 +281,7 @@ function pintar(): void {
       // techo claro o en el agua. Va con un trazo blanco debajo, como los
       // mapas impresos, para que se lea sobre cualquier fondo.
       const contorno = vertices.value.map((p) => [p.lat, p.lng] as [number, number])
-      L.polygon(contorno, {
+      borde = L.polygon(contorno, {
         color: '#fff',
         weight: 5,
         opacity: 0.85,
@@ -278,28 +295,133 @@ function pintar(): void {
       }).addTo(mapa)
     }
 
+    /*
+     * LOS VÉRTICES SE ARRASTRAN, y por eso son `Marker` y no `CircleMarker`:
+     * el segundo no sabe arrastrarse, y era la causa de que la única forma de
+     * corregir una esquina fuera quitarla y volver a ponerla en el sitio justo.
+     *
+     * El icono es una caja transparente de 34 px con el punto dibujado dentro:
+     * el punto se ve del tamaño que conviene al dibujo y el dedo agarra una
+     * superficie que sí puede agarrar. Con un punto de 12 px, en un teléfono,
+     * el gesto falla una de cada tres veces y acaba moviendo el mapa.
+     */
     vertices.value.forEach((p, i) => {
-      const marca = L.circleMarker([p.lat, p.lng], {
-        radius: 6,
-        color: '#0EA5E9',
-        fillColor: '#fff',
-        fillOpacity: 1,
-        weight: 2,
+      const marca = L.marker([p.lat, p.lng], {
+        icon: L.divIcon({
+          className: 'clocc-tirador',
+          html: '<span class="clocc-vertice"></span>',
+          iconSize: [34, 34],
+          iconAnchor: [17, 17],
+        }),
+        draggable: !props.disabled,
+        autoPan: true,
+        keyboard: false,
+        zIndexOffset: 500,
       })
         .addTo(mapa!)
         .bindTooltip(`${i + 1}`, { permanent: false })
 
-      // Un clic en un vértice lo quita: es el gesto que espera cualquiera que
-      // se equivocó al poner el último punto.
       if (!props.disabled) {
-        marca.on('click', (e) => {
+        marca.on('dragstart', () => empezarArrastre())
+        marca.on('drag', (e) => moverDurante(i, (e.target as L.Marker).getLatLng()))
+        marca.on('dragend', terminarArrastre)
+
+        /*
+         * QUITAR PASA A SER DOBLE TOQUE. Con un solo clic no se puede: ese
+         * mismo gesto es el principio de un arrastre, y quien intentaba mover
+         * una esquina se la borraba. El doble toque no se dispara por accidente
+         * y se para aquí para que el mapa no se acerque de paso.
+         */
+        marca.on('dblclick', (e) => {
           L.DomEvent.stop(e)
           quitar(i)
         })
       }
       marcas.push(marca)
     })
+
+    /*
+     * Y ENTRE CADA DOS ESQUINAS, UN PUNTO HUECO PARA AÑADIR.
+     *
+     * Es la forma de meter un vértice nuevo ahora que tocar el mapa ya no los
+     * pone: se arrastra el hueco y nace una esquina donde se suelte. Tocarlo
+     * sin arrastrar también la crea, en su sitio, para quien prefiera colocarla
+     * y moverla después.
+     */
+    if (suficientes.value && !props.disabled) {
+      vertices.value.forEach((p, i) => {
+        const q = vertices.value[(i + 1) % vertices.value.length]!
+        const medio = L.marker([(p.lat + q.lat) / 2, (p.lng + q.lng) / 2], {
+          icon: L.divIcon({
+            className: 'clocc-tirador',
+            html: '<span class="clocc-medio"></span>',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
+          }),
+          draggable: true,
+          keyboard: false,
+          zIndexOffset: 400,
+        })
+          .addTo(mapa!)
+          .bindTooltip('Arrastra para añadir una esquina', { permanent: false })
+
+        medio.on('dragstart', () => {
+          empezarArrastre(medio)
+          trabajo.splice(i + 1, 0, { ...trabajo[i]! })
+        })
+        medio.on('drag', (e) => moverDurante(i + 1, (e.target as L.Marker).getLatLng()))
+        medio.on('dragend', terminarArrastre)
+        medio.on('click', (e) => {
+          L.DomEvent.stop(e)
+          const nuevo = medio.getLatLng()
+          vertices.value = [
+            ...vertices.value.slice(0, i + 1),
+            { lat: nuevo.lat, lng: nuevo.lng },
+            ...vertices.value.slice(i + 1),
+          ]
+        })
+        intermedias.push(medio)
+      })
+    }
   }
+}
+
+/**
+ * Copia de trabajo y fuera los puntos huecos: estorban mientras se arrastra.
+ *
+ * MENOS EL QUE SE ESTÁ ARRASTRANDO, claro. Quitarlos todos incluía al que el
+ * dedo sujeta y el gesto se cortaba en el primer milímetro. Ese se queda —en la
+ * lista también, para que el repintado del final se lo lleve— y los demás se
+ * van, que durante el arrastre solo confunden.
+ */
+function empezarArrastre(salvo?: L.Marker): void {
+  arrastrando.value = true
+  trabajo = vertices.value.map((p) => ({ ...p }))
+
+  for (let i = intermedias.length - 1; i >= 0; i -= 1) {
+    const m = intermedias[i]!
+    if (m === salvo) continue
+    m.remove()
+    intermedias.splice(i, 1)
+  }
+}
+
+/** Solo la figura se mueve; el modelo espera a que se suelte. */
+function moverDurante(indice: number, donde: L.LatLng): void {
+  const punto = trabajo[indice]
+  if (punto === undefined) return
+  punto.lat = donde.lat
+  punto.lng = donde.lng
+
+  const contorno = trabajo.map((p) => [p.lat, p.lng] as [number, number])
+  area?.setLatLngs(contorno)
+  borde?.setLatLngs(contorno)
+}
+
+/** Al soltar se escribe una vez, y el repintado normal rehace los tiradores. */
+function terminarArrastre(): void {
+  arrastrando.value = false
+  vertices.value = trabajo.map((p) => ({ ...p }))
 }
 
 function quitar(indice: number): void {
@@ -363,8 +485,17 @@ onMounted(() => {
   aplicarCapa()
   aplicarClaridad()
 
+  /*
+   * TOCAR EL MAPA SOLO PONE PUNTOS MIENTRAS SE ESTÁ DIBUJANDO.
+   *
+   * Antes ponía uno con cualquier toque, siempre. Con la figura ya cerrada eso
+   * es casi siempre un accidente —se quiso agarrar una esquina y se falló por
+   * dos píxeles— y el resultado es un pico que hay que buscar y deshacer. Una
+   * vez cerrada, las esquinas nuevas nacen de los puntos huecos del contorno,
+   * que es donde tiene sentido que aparezcan.
+   */
   mapa.on('click', (e: L.LeafletMouseEvent) => {
-    if (props.disabled) return
+    if (props.disabled || suficientes.value) return
     vertices.value = [...vertices.value, { lat: e.latlng.lat, lng: e.latlng.lng }]
   })
 
@@ -377,7 +508,15 @@ onMounted(() => {
   requestAnimationFrame(() => mapa?.invalidateSize())
 })
 
-watch(vertices, pintar, { deep: true })
+watch(
+  vertices,
+  () => {
+    // En mitad de un arrastre la figura ya se está moviendo sola: repintar aquí
+    // destruiría el marcador que el dedo sujeta.
+    if (!arrastrando.value) pintar()
+  },
+  { deep: true },
+)
 watch(capa, aplicarCapa)
 watch(claridad, aplicarClaridad)
 
@@ -433,11 +572,13 @@ onBeforeUnmount(() => {
           círculo actual: fíjate en cuánta calle abarca.
         </template>
         <template v-else-if="!suficientes">
-          {{ vertices.length }} de 3 puntos mínimos. Toca un punto para quitarlo.
+          {{ vertices.length }} de 3 puntos mínimos. Sigue tocando el mapa para marcar las demás
+          esquinas.
         </template>
         <template v-else>
-          {{ vertices.length }} esquinas · {{ superficie.toLocaleString('es-MX') }} m² · toca un
-          punto para quitarlo
+          {{ vertices.length }} esquinas · {{ superficie.toLocaleString('es-MX') }} m² · arrastra
+          una esquina para moverla, o un punto hueco del borde para añadir otra. Doble toque en una
+          esquina la quita.
         </template>
       </span>
     </div>
@@ -454,6 +595,51 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/*
+  LOS TIRADORES: UN PUNTO PEQUEÑO DENTRO DE UNA CAJA GRANDE.
+
+  Lo que se ve mide doce o catorce píxeles, que es lo que no estorba encima de
+  una foto aérea; lo que el dedo agarra es la caja transparente de treinta y
+  pico que lo rodea. Con un blanco del tamaño del dibujo, en un teléfono el
+  gesto falla y lo que se mueve es el mapa.
+*/
+:deep(.clocc-tirador) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  cursor: grab;
+  touch-action: none;
+}
+
+:deep(.clocc-tirador:active) {
+  cursor: grabbing;
+}
+
+:deep(.clocc-vertice) {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #fff;
+  border: 3px solid #0ea5e9;
+  /* Sobre un techo blanco el punto desaparecía: la sombra lo despega del fondo. */
+  box-shadow: 0 1px 4px rgb(0 0 0 / 45%);
+}
+
+/*
+  El de añadir se distingue del de mover SIN leer nada: hueco y a medio tono,
+  como el hueco que viene a llenar.
+*/
+:deep(.clocc-medio) {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 55%);
+  border: 2px solid #0ea5e9;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 35%);
+}
+
 /*
   Al pasar del nivel donde hay foto, el navegador ESTIRA el cuadro y lo suaviza
   con su interpolación: el filo de una barda se convierte en un degradado. Se le
