@@ -7,7 +7,11 @@ import { ApiError } from '@/shared/api/errors'
 import { loQuePasoConLaHuella, sePuedeUsarHuella } from '@/shared/huella'
 import AstraLogo from '@/shared/ui/AstraLogo.vue'
 import GuiaDeInstalacion from '@/modules/remoto/components/GuiaDeInstalacion.vue'
-import { checarSinReloj, type BaseVistaDesdeElTelefono } from '../checar-sin-reloj'
+import {
+  checarSinReloj,
+  type BaseVistaDesdeElTelefono,
+  type EstadoDeLaPuerta,
+} from '../checar-sin-reloj'
 import { recordarMiBase } from '../mi-base'
 
 /**
@@ -48,7 +52,30 @@ const errorAlAbrir = ref<string | null>(null)
 
 const enviando = ref(false)
 const error = ref<string | null>(null)
-const listo = ref<{ hora: string; nombre: string } | null>(null)
+const listo = ref<{ hora: string; nombre: string; puerta: EstadoDeLaPuerta } | null>(null)
+
+/**
+ * LO QUE SE DICE DE LA PUERTA, y solo cuando hay algo que decir.
+ *
+ * `NO_CONFIGURADA` es el caso normal —ese sitio no acciona ningún imán— y
+ * anunciarlo sería ruido en la pantalla de todos los días. `PEDIDA` tampoco se
+ * pinta: la puerta se abre sola delante de esa persona y no hace falta contarlo.
+ *
+ * Los otros tres sí, porque la persona está delante de algo que no se movió y
+ * cada uno manda a hacer una cosa distinta.
+ */
+const loDeLaPuerta = computed<string | null>(() => {
+  switch (listo.value?.puerta) {
+    case 'RELOJ_APAGADO':
+      return 'La puerta no se abrió: el reloj de esta entrada está apagado. Tu checada sí quedó registrada.'
+    case 'NO_SE_PUDO':
+      return 'La puerta no se abrió. Tu checada sí quedó registrada.'
+    case 'SIN_AREA':
+      return 'La puerta no se abre desde aquí hasta que se dibuje el área de esta base. Tu checada sí quedó registrada — avísale a sistemas.'
+    default:
+      return null
+  }
+})
 
 /** Si el aparato puede firmar. Sin esto no se ofrece: lleva a un diálogo vacío. */
 const puedeFirmar = ref(false)
@@ -141,7 +168,7 @@ function contarElFallo(e: unknown): void {
   }
 }
 
-function registrada(r: { cuando: string; nombreCorto: string }): void {
+function registrada(r: { cuando: string; nombreCorto: string; puerta: EstadoDeLaPuerta }): void {
   listo.value = {
     /* El nombre viene de la respuesta: es lo único que lo dice, y solo ahora. */
     nombre: r.nombreCorto,
@@ -149,6 +176,7 @@ function registrada(r: { cuando: string; nombreCorto: string }): void {
       hour: '2-digit',
       minute: '2-digit',
     }),
+    puerta: r.puerta,
   }
 }
 
@@ -257,6 +285,18 @@ function otraPersona(): void {
           <p class="text-highlighted text-lg font-semibold">Quedó registrada</p>
           <p class="text-default text-sm">{{ listo.nombre }} · {{ listo.hora }}</p>
         </div>
+
+        <!--
+          Se dice cuando la puerta NO se movió. Callarlo deja a alguien
+          empujando un imán cerrado y creyendo que el sistema falló entero,
+          cuando lo que falló es un extra y su jornada ya quedó registrada.
+        -->
+        <UAlert
+          v-if="loDeLaPuerta"
+          color="warning"
+          icon="i-lucide-door-closed"
+          :description="loDeLaPuerta"
+        />
         <UButton label="Listo" icon="i-lucide-check" size="xl" block @click="otraPersona" />
 
         <!--

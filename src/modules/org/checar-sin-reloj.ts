@@ -44,10 +44,22 @@ export interface PermisoParaChecar {
   tambienPin: boolean
 }
 
+/**
+ * QUÉ PASÓ CON LA PUERTA.
+ *
+ * `NO_CONFIGURADA` es el caso normal —ese sitio no tiene la apertura encendida y
+ * la puerta se abre como siempre— y por eso no se pinta. Los otros tres sí: la
+ * persona está delante de un imán que no se movió y necesita saber si empujar,
+ * esperar o buscar a alguien con llave.
+ */
+export type EstadoDeLaPuerta =
+  'NO_CONFIGURADA' | 'SIN_AREA' | 'PEDIDA' | 'RELOJ_APAGADO' | 'NO_SE_PUDO'
+
 export interface ChecadaDeLaPuerta {
   cuando: string
   /** Aparece aquí y en ningún otro sitio: es el acuse, no un directorio. */
   nombreCorto: string
+  puerta: EstadoDeLaPuerta
 }
 
 /** El reto para firmar sin decir quién eres. Lo resuelve la propia credencial. */
