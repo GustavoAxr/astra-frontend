@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 
 import ApiErrorAlert from '@/shared/ui/ApiErrorAlert.vue'
+import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
 import { useAsync } from '@/shared/composables/useAsync'
 import { useAviso } from '@/shared/ui/aviso'
 import { credencialApi } from '@/modules/credencial/api'
@@ -49,7 +50,8 @@ const tieneAlgo = computed(() => suyo.value?.tienePasskey === true || suyo.value
 
 const invitando = ref(false)
 const mandando = ref(false)
-const quitando = ref(false)
+/** El diálogo que pregunta antes de dejar a alguien sin credencial. */
+const quitandoAbierto = ref(false)
 
 /**
  * A dónde mandar la invitación, si no al correo del expediente.
@@ -92,20 +94,21 @@ async function mandarInvitacion(): Promise<void> {
   }
 }
 
+/**
+ * QUITARLA PREGUNTA ANTES, y no es una formalidad.
+ *
+ * Deja a esa persona sin poder fichar con el teléfono desde ese mismo segundo,
+ * y para volver a tenerla hay que mandarle otra invitación y que se registre de
+ * nuevo: no se deshace pulsando otra vez. Un botón así, a un clic y al lado de
+ * «Dar acceso», se pulsa por error.
+ */
 async function quitar(): Promise<void> {
-  quitando.value = true
-  try {
-    await credencialApi.revocar(props.persona.id, 'todo')
-    aviso.hecho(
-      'Credencial revocada',
-      'Hasta que registre otra no puede checar con el teléfono en la puerta.',
-    )
-    await acceso.run()
-  } catch (e) {
-    aviso.fallo(e, 'quitar la credencial')
-  } finally {
-    quitando.value = false
-  }
+  await credencialApi.revocar(props.persona.id, 'todo')
+  aviso.hecho(
+    'Credencial revocada',
+    'Hasta que registre otra no puede checar con el teléfono en la puerta.',
+  )
+  await acceso.run()
 }
 
 const soloDia = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
@@ -158,23 +161,34 @@ const dia = (iso: string | null): string => (iso ? soloDia.format(new Date(iso))
       </p>
 
       <div class="flex flex-wrap items-center gap-2">
+        <!--
+          CON CREDENCIAL YA PUESTA, DAR ACCESO NO HACE NADA ÚTIL: esa persona ya
+          se registró. Mandarle otra invitación no le cambia nada —lo que tiene
+          sigue valiendo— y confunde a quien la manda, que se queda esperando un
+          cambio que no llega. El camino para reemplazarla es quitársela y
+          volver a invitar, y se dice ahí mismo.
+        -->
         <UButton
+          v-if="!tieneAlgo"
           :label="suyo?.invitacionViva ? 'Reenviar invitación' : 'Dar acceso'"
           icon="i-lucide-mail"
           size="xs"
           :disabled="!puedeDarAcceso"
           @click="invitando = true"
         />
-        <UButton
-          v-if="tieneAlgo"
-          label="Quitar"
-          icon="i-lucide-shield-off"
-          color="error"
-          size="xs"
-          :disabled="!puedeDarAcceso"
-          :loading="quitando"
-          @click="quitar"
-        />
+        <template v-else>
+          <UButton
+            label="Quitar su credencial"
+            icon="i-lucide-shield-off"
+            color="error"
+            size="xs"
+            :disabled="!puedeDarAcceso"
+            @click="quitandoAbierto = true"
+          />
+          <span class="text-dimmed text-xs">
+            Para darle otra —perdió el teléfono, olvidó su código— quítasela primero.
+          </span>
+        </template>
       </div>
     </div>
 
@@ -187,6 +201,17 @@ const dia = (iso: string | null): string => (iso ? soloDia.format(new Date(iso))
       class="shrink-0"
     />
     <UBadge v-else label="Sin credencial" color="neutral" size="sm" class="shrink-0" />
+
+    <ConfirmDialog
+      v-model:open="quitandoAbierto"
+      title="Quitar su credencial"
+      :message="`${persona.firstName} dejará de poder checar con el teléfono en la puerta ahora mismo. Sus checadas anteriores no se tocan.`"
+      warning="Para volver a tenerla hay que mandarle otra invitación y que la registre de nuevo: esto no se deshace pulsando otra vez."
+      confirm-label="Quitar su credencial"
+      confirm-icon="i-lucide-shield-off"
+      confirm-color="error"
+      :action="quitar"
+    />
 
     <!--
       QUÉ VA A LEER LA OTRA PERSONA, antes de mandarlo. Y el aviso de que el
