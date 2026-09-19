@@ -12,17 +12,18 @@ import type { EmployeeDetail } from '../types'
  *
  * ══ QUÉ SE ESTÁ REPARTIENDO AQUÍ ══
  *
- * El cartel de la contingencia deja fichar con solo el número de empleado, y
- * ese número va escrito en el gafete. Esta credencial es la mitad que faltaba:
- * algo que solo esa persona puede presentar —la huella de su propio teléfono o
- * un PIN que inventa ella—. Mientras no la tenga, en la puerta sigue bastando
- * su número.
+ * El cartel de la puerta dejaba fichar con solo el número de empleado, y ese
+ * número va escrito en el gafete. Esta credencial es la mitad que faltaba: algo
+ * que solo esa persona puede presentar —la cara o la huella de su propio
+ * teléfono, o un código que inventa ella—. Desde que existe, el cartel YA NO
+ * acepta el número: quien no la tenga depende del reloj o de que le pasen
+ * lista.
  *
  * ══ QUIEN MANDA LA INVITACIÓN NO VE EL CÓDIGO ══
  *
- * Y es a propósito. Si RRHH viera el código podría registrarle el PIN a
- * cualquiera y fichar por esa persona el resto del año, que es exactamente lo
- * que esto viene a impedir. El código sale hacia su buzón; de este lado solo
+ * Y es a propósito. Si RRHH viera el código de la invitación podría registrarle
+ * la credencial a cualquiera y fichar por esa persona el resto del año, que es
+ * exactamente lo que esto viene a impedir. El código sale hacia su buzón; de este lado solo
  * queda a dónde salió, enmascarado.
  *
  * ══ ESTO NO ES EL TRABAJO REMOTO ══
@@ -30,7 +31,7 @@ import type { EmployeeDetail } from '../types'
  * La tarjeta de arriba habilita un EQUIPO para checar desde casa. Esta registra
  * a la PERSONA para checar EN SU CENTRO DE TRABAJO con el teléfono que traiga
  * ese día. Son dos accesos distintos y se revocan por separado: quitarle el
- * equipo de home office no le quita el PIN de la puerta.
+ * equipo de home office no le quita la credencial de la puerta.
  */
 const props = defineProps<{ persona: EmployeeDetail; puedeDarAcceso: boolean }>()
 const aviso = useAviso()
@@ -65,8 +66,8 @@ const correoAlterno = ref('')
  */
 const PASOS = [
   'Abre el enlace EN EL TELÉFONO que lleva al trabajo. Es con el que va a checar en la puerta.',
-  'Teclea el código de seis cifras del mismo correo. El enlace por sí solo no basta.',
-  'Elige con qué se identifica: la huella o la cara de su teléfono, o un PIN que invente. Si su teléfono tiene huella, esa.',
+  'Teclea las seis cifras del mismo correo. El enlace por sí solo no basta.',
+  'Registra las dos: un código de 4 a 6 números que invente él, y la cara o la huella de su teléfono. El código es la red de abajo para el día que el lector no lea.',
 ]
 
 async function mandarInvitacion(): Promise<void> {
@@ -94,7 +95,7 @@ async function quitar(): Promise<void> {
     await credencialApi.revocar(props.persona.id, 'todo')
     aviso.hecho(
       'Credencial revocada',
-      'En la puerta vuelve a bastar su número hasta que registre otra.',
+      'Hasta que registre otra no puede checar con el teléfono en la puerta.',
     )
     await acceso.run()
   } catch (e) {
@@ -132,11 +133,11 @@ const dia = (iso: string | null): string => (iso ? soloDia.format(new Date(iso))
       <div v-if="suyo" class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
         <span class="flex items-center gap-2">
           <UIcon
-            name="i-lucide-fingerprint"
+            name="i-lucide-scan-face"
             :class="suyo.tienePasskey ? 'text-success size-4' : 'text-dimmed size-4'"
           />
           <span :class="suyo.tienePasskey ? 'text-default' : 'text-dimmed'">
-            {{ suyo.tienePasskey ? 'Huella activada' : 'Sin huella' }}
+            {{ suyo.tienePasskey ? 'Cara o huella' : 'Sin cara ni huella' }}
           </span>
         </span>
         <span class="flex items-center gap-2">
@@ -145,7 +146,7 @@ const dia = (iso: string | null): string => (iso ? soloDia.format(new Date(iso))
             :class="suyo.tienePin ? 'text-success size-4' : 'text-dimmed size-4'"
           />
           <span :class="suyo.tienePin ? 'text-default' : 'text-dimmed'">
-            {{ suyo.tienePin ? 'PIN puesto' : 'Sin PIN' }}
+            {{ suyo.tienePin ? 'Código puesto' : 'Sin código' }}
           </span>
         </span>
         <span v-if="tieneAlgo && suyo.venceEl" class="text-muted">
@@ -155,13 +156,19 @@ const dia = (iso: string | null): string => (iso ? soloDia.format(new Date(iso))
       </div>
 
       <!--
-        MIENTRAS NO TENGA NADA, EN LA PUERTA BASTA SU NÚMERO. Se dice con todas
-        las letras: es la razón de existir de este botón, y sin decirla la
+        MIENTRAS NO TENGA NADA, NO PUEDE CHECAR CON EL TELÉFONO. Se dice con
+        todas las letras: es la razón de existir de este botón, y sin decirla la
         tarjeta parece un ajuste opcional.
+
+        Este texto decía lo contrario —«basta con teclear su número de
+        empleado»— y era cierto hasta que el cartel dejó de aceptarlo. Ahora la
+        puerta solo acepta lo que solo esa persona tiene, así que quien no se
+        haya registrado depende del reloj o de que le pasen lista.
       -->
       <p v-if="!tieneAlgo" class="text-muted text-sm">
-        Mientras no registre su huella o su PIN, en el cartel de la puerta basta con teclear su
-        número de empleado — y ese número lo lleva escrito en el gafete.
+        Mientras no registre su cara o su código, <strong>no puede checar con el teléfono</strong>
+        en la puerta: el cartel ya no acepta el número de empleado, que va escrito en el gafete.
+        Depende del reloj o de que un supervisor le pase lista.
       </p>
 
       <div v-if="suyo?.invitacionViva" class="border-default bg-elevated/50 border p-4 text-sm">
@@ -221,8 +228,8 @@ const dia = (iso: string | null): string => (iso ? soloDia.format(new Date(iso))
           </UFormField>
 
           <p class="text-dimmed text-xs">
-            El código no se ve desde aquí, a propósito: si lo viéramos, cualquiera de nosotros
-            podría registrarle el PIN y checar por esa persona.
+            El código de la invitación no se ve desde aquí, a propósito: si lo viéramos, cualquiera
+            de nosotros podría registrarle la credencial y checar por esa persona.
           </p>
         </div>
       </template>
